@@ -1,0 +1,65 @@
+# Bit by Bit Game Configuration - Compression Token Upgrades
+# TOON format configuration for compression era meta-upgrades
+
+compression_token_upgrades[6]:
+  - id: compression_ratio
+    name: Compression Ratio
+    icon: 📈
+    token_cost: 2
+    max_level: 10
+    effect: -5
+    description: Reduces overhead generation by 5% per level
+    type: overhead_reduction
+  - id: parallel_streams
+    name: Parallel Streams
+    icon: 🔄
+    token_cost: 3
+    max_level: 4
+    effect: 1
+    description: Unlock additional compression algorithm streams
+    type: stream_unlock
+    costs: [3, 4, 5, 6]
+  - id: adaptive_learning
+    name: Adaptive Learning
+    icon: 🎓
+    token_cost: 5
+    max_level: 1
+    effect: 1
+    description: Generators gain +1% production per minute owned (caps at +100%)
+    type: passive_bonus
+  - id: lossless_guarantee
+    name: Lossless Guarantee
+    icon: 🛡️
+    token_cost: 8
+    max_level: 1
+    requirement: 5
+    effect: 10
+    description: Unlocks ability to convert overhead to compressed bits (10:1 ratio)
+    type: conversion_unlock
+  - id: efficiency_expert
+    name: Efficiency Expert
+    icon: ⚙️
+    token_cost: 4
+    max_level: 5
+    effect: 2
+    description: +2% efficiency floor per level (prevents dropping below threshold)
+    type: efficiency_floor
+  - id: token_multiplier
+    name: Token Multiplier
+    icon: ⭐
+    token_cost: 15
+    max_level: 3
+    requirement: 50
+    effect: 20
+    description: All future rebirths give +20% more tokens
+    type: token_boost
+
+# Token upgrade balance
+token_balance:
+  early_focus: compression_ratio
+  mid_focus: parallel_streams
+  late_focus: token_multiplier
+  recommended_levels:
+    compression_ratio: 5
+    parallel_streams: 2
+    efficiency_expert: 3

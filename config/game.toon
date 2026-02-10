@@ -1,0 +1,53 @@
+# Bit by Bit Game Configuration - Main Settings
+# TOON format configuration for core game settings
+
+game:
+  title: Bit by Bit
+  subtitle: A Game About Information
+  version: 1.0.0
+  author: Bit by Bit Team
+  
+rebirth:
+  threshold_bits: 134217728
+  threshold_mb: 128
+  first_tokens: 7
+  token_formula: floor(log2(total_bits_lifetime) - 20)
+  
+display:
+  width: 1200
+  height: 800
+  fps: 60
+  auto_save_interval: 30000
+  
+progression:
+  first_generator: immediate
+  second_generator: 180000  # 3 minutes at 1 b/s
+  third_generator: 3600000   # 1 hour at 1 b/s  
+  first_upgrade: 600000    # 10 minutes at 1 b/s
+  first_rebirth: 2700000  # 45 minutes
+  
+colors:
+  deep_space_blue: "#0a0e27"
+  electric_cyan: "#00d9ff"
+  neon_purple: "#b44aff"
+  matrix_green: "#39ff14"
+  signal_orange: "#ff6b35"
+  dim_gray: "#2a2d3a"
+  soft_white: "#e8e8f0"
+  muted_blue: "#4a5568"
+  gold: "#ffd700"
+  red_error: "#ff4444"
+
+tutorials:
+  welcome:
+    title: Welcome to BIT BY BIT
+    content: You are about to discover the fundamental nature of information itself.
+  first_click:
+    title: Your First Bit
+    content: Click the accumulator to generate your first bits.
+  first_generator:
+    title: Automation Discovered
+    content: Your Random Number Generator produces 1 bit per second automatically.
+  second_generator:
+    title: New Generator Unlocked
+    content: Biased Coin unlocked! 8x stronger than your first generator.

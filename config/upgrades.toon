@@ -1,0 +1,33 @@
+# Bit by Bit Game Configuration - Upgrades
+# TOON format configuration for game upgrades
+
+upgrades[2]:
+  - id: entropy_amplification
+    name: Entropy Amplification
+    icon: ⚡
+    base_cost: 1000
+    cost_multiplier: 10
+    effect: 2
+    max_level: 10
+    description: Multiplies ALL production by 2×
+    type: multiplier
+    unlock_threshold: 1000
+  - id: click_power
+    name: Click Power
+    icon: 👆
+    base_cost: 500
+    cost_multiplier: 3
+    effect: 10
+    max_level: 15
+    description: Increases click value by +10 bits per level
+    type: additive
+    unlock_threshold: 1000
+
+# Upgrade balance parameters
+balance:
+  multiplier_growth_rate: 10
+  additive_growth_rate: 3
+  early_game_focus: true
+  recommended_levels:
+    entropy_amplification: 5
+    click_power: 3

@@ -1,0 +1,64 @@
+# Bit by Bit Game Configuration - Generators
+# TOON format configuration for game generators
+
+generators[6]:
+  - id: rng
+    name: Random Number Generator
+    base_cost: 10
+    base_production: 1
+    cost_multiplier: 1.15
+    icon: 🎲
+    flavor: Pure chaos. Maximum entropy. One coin flip at a time.
+    unlock_threshold: 0
+  - id: biased_coin
+    name: Biased Coin
+    base_cost: 100
+    base_production: 8
+    cost_multiplier: 1.15
+    icon: 🪙
+    flavor: Not all outcomes are equal. Less surprise, more data.
+    unlock_threshold: 100
+  - id: dice_roller
+    name: Dice Roller
+    base_cost: 1200
+    base_production: 100
+    cost_multiplier: 1.15
+    icon: 🎯
+    flavor: Six possible states. log₂(6) ≈ 2.58 bits per roll.
+    unlock_threshold: 1000
+  - id: deck_shuffler
+    name: Deck Shuffler
+    base_cost: 15000
+    base_production: 1500
+    cost_multiplier: 1.15
+    icon: 🃏
+    flavor: 52! permutations. Astronomical entropy.
+    unlock_threshold: 512000
+  - id: noise_generator
+    name: Noise Generator
+    base_cost: 200000
+    base_production: 25000
+    cost_multiplier: 1.15
+    icon: 📡
+    flavor: White noise. Every frequency, equal power.
+    unlock_threshold: 2097152
+  - id: thermal_sensor
+    name: Thermal Sensor
+    base_cost: 3000000
+    base_production: 400000
+    cost_multiplier: 1.15
+    icon: 🌡️
+    flavor: Brownian motion. The universe's random number generator.
+    unlock_threshold: 8388608
+
+# Generator balance parameters
+balance:
+  cost_growth_rate: 1.15
+  production_tier_multiplier: 10
+  max_recommended:
+    rng: 100
+    biased_coin: 80
+    dice_roller: 60
+    deck_shuffler: 50
+    noise_generator: 40
+    thermal_sensor: 30

@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "timestamp": 1350506,
+  "state": {
+    "bits": 44341640.33379593,
+    "total_bits_earned": 44550463.33380508,
+    "total_clicks": 81,
+    "start_time": 130,
+    "total_play_time": 0,
+    "generators": {
+      "rng": {
+        "count": 55,
+        "total_bought": 55
+      },
+      "biased_coin": {
+        "count": 31,
+        "total_bought": 31
+      },
+      "dice_roller": {
+        "count": 4,
+        "total_bought": 4
+      }
+    },
+    "unlocked_generators": [
+      "rng",
+      "biased_coin",
+      "dice_roller"
+    ],
+    "upgrades": {
+      "entropy_amplification": {
+        "level": 1
+      },
+      "click_power": {
+        "level": 3
+      }
+    },
+    "tutorial_step": 2,
+    "has_seen_tutorial": true,
+    "visual_settings": {
+      "crt_effects": false,
+      "binary_rain": true,
+      "particle_effects": true
+    }
+  }
+}

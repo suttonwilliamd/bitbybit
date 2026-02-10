@@ -1,0 +1,78 @@
+# Bit by Bit Game Configuration - Compression Generators
+# TOON format configuration for compression era generators
+
+compression_generators[6]:
+  - id: run_length_encoder
+    name: Run-Length Encoder
+    base_cost: 5
+    base_production: 2
+    cost_multiplier: 1.12
+    icon: 📝
+    flavor: AAAAAAA becomes 7A. Simple patterns, simple gains.
+    overhead_production: 0.5
+    efficiency_base: 80
+    unlock_threshold: 0
+  - id: huffman_tree
+    name: Huffman Tree
+    base_cost: 80
+    base_production: 20
+    cost_multiplier: 1.12
+    icon: 🌳
+    flavor: Common symbols = short codes. Optimal prefix-free encoding.
+    overhead_production: 2
+    efficiency_base: 90.9
+    unlock_threshold: 500
+  - id: lz77_dictionary
+    name: LZ77 Dictionary
+    base_cost: 1000
+    base_production: 300
+    cost_multiplier: 1.12
+    icon: 📚
+    flavor: Already seen this sequence. Backreference: (distance, length).
+    overhead_production: 15
+    efficiency_base: 95.2
+    unlock_threshold: 10000
+  - id: arithmetic_coder
+    name: Arithmetic Coder
+    base_cost: 15000
+    base_production: 5000
+    cost_multiplier: 1.12
+    icon: 🧮
+    flavor: Encode entire message as a single number in [0,1).
+    overhead_production: 200
+    efficiency_base: 96.2
+    unlock_threshold: 250000
+  - id: context_mixer
+    name: Context Mixer
+    base_cost: 250000
+    base_production: 80000
+    cost_multiplier: 1.12
+    icon: 🎛️
+    flavor: Predict next bit from weighted context history.
+    overhead_production: 4000
+    efficiency_base: 95.2
+    unlock_threshold: 5000000
+  - id: neural_compressor
+    name: Neural Compressor
+    base_cost: 4000000
+    base_production: 1500000
+    cost_multiplier: 1.12
+    icon: 🧠
+    flavor: Learn the data manifold. Reality has structure.
+    overhead_production: 80000
+    efficiency_base: 94.9
+    unlock_threshold: 100000000
+
+# Compression balance parameters
+compression_balance:
+  cost_growth_rate: 1.12
+  efficiency_penalty_thresholds:
+    excellent: 95
+    good: 85
+    moderate: 70
+    poor: 50
+  penalty_rates:
+    excellent: 0
+    good: 0.10
+    moderate: 0.25
+    poor: 0.50
