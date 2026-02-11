@@ -1,16 +1,78 @@
-# Bit by Bit - Pygame Implementation
+# Bit by Bit - A Game About Information
 
 A desktop game about information theory where players generate bits, unlock compression algorithms, and discover the fundamental nature of information.
 
-## How to Play
+## 🎮 How to Run
 
-1. **Install requirements**: `pip install pygame` (or run requirements.txt)
-2. **Start the game**: Run `python bitbybit_game.py` or use the launcher scripts
-3. **Generate bits**: Click the accumulator to generate your first bits
-4. **Buy generators**: Purchase automated generators to produce bits passively
-5. **Get upgrades**: Buy permanent upgrades to boost production
-6. **Progress**: Unlock new generators and features as you generate more information
-7. **Reach milestones**: Work toward 128 MB to unlock compression (available in full version)
+### Option 1: Using the Launcher (Recommended)
+```bash
+start_game.bat
+```
+
+### Option 2: Direct Python
+```bash
+python main.py
+```
+
+## 📁 Project Structure
+
+The project has been refactored into modular files for better maintainability:
+
+- **`main.py`** - Entry point and game initialization
+- **`gui.py`** - Main GUI class and rendering logic  
+- **`game_state.py`** - Game mechanics, state management
+- **`constants.py`** - Configuration, colors, game constants
+- **`visual_effects.py`** - Particles, animations, visual effects
+- **`ui_components.py`** - UI building blocks (buttons, text)
+- **`bit_grid.py`** - Motherboard visualization system
+- **`toon_parser.py`** - Custom configuration file parser
+- **`bitbybit_game_original.py`** - Backup of original monolithic version
+
+## 🎯 Features
+
+- **Information Theory Gameplay**: Generate bits through clicking and automated generators
+- **Hardware Progression**: Advance through computing eras (Mainframe → AI)
+- **Compression System**: Rebirth mechanic with dual currency (bits/compression tokens)
+- **Rich Visual Effects**: Binary rain, particle systems, animated motherboard
+- **Upgrade System**: Multiple upgrade paths and generators
+- **Save System**: Auto-save and manual save functionality
+
+## 🎮 Controls
+
+- **Left Click**: Generate bits / Purchase items
+- **ESC**: Close modals (settings, rebirth confirmation)
+- **Window Resize**: Responsive UI layout
+
+## 🔧 Configuration
+
+Game configuration can be modified via TOON files in the `config/` directory:
+- `game.toon` - Display and basic settings
+- `generators.toon` - Generator definitions
+- `upgrades.toon` - Upgrade definitions
+
+## 💾 Save Files
+
+- Save location: `bitbybit_save.json`
+- Auto-save interval: 30 seconds
+- Offline progress: Calculated when loading (max 24 hours)
+
+## 🐛 Troubleshooting
+
+1. Ensure Python 3.7+ is installed
+2. Install Pygame: `pip install pygame`
+3. Run as administrator if file access issues occur
+4. Check for missing config files in `config/` directory
+
+## 🎮 How to Play
+
+1. **Generate bits**: Click accumulator to generate your first bits
+2. **Buy generators**: Purchase automated generators to produce bits passively
+3. **Get upgrades**: Buy permanent upgrades to boost production
+4. **Progress**: Unlock new generators and features as you generate more information
+5. **Reach milestones**: Work toward 128 MB to unlock compression
+6. **Hardware eras**: Progress through computing history from mainframes to AI
+
+Enjoy exploring the fundamental nature of information! 🌟
 
 ## Quick Start
 

@@ -1,37 +1,36 @@
 {
   "version": "1.0.0",
-  "timestamp": 1350506,
+  "timestamp": 43416,
   "state": {
-    "bits": 44341640.33379593,
-    "total_bits_earned": 44550463.33380508,
-    "total_clicks": 81,
+    "bits": 124,
+    "total_bits_earned": 808,
+    "total_clicks": 1919,
     "start_time": 130,
     "total_play_time": 0,
     "generators": {
       "rng": {
-        "count": 55,
-        "total_bought": 55
+        "count": 15,
+        "total_bought": 15
       },
       "biased_coin": {
-        "count": 31,
-        "total_bought": 31
+        "count": 2,
+        "total_bought": 2
       },
       "dice_roller": {
-        "count": 4,
-        "total_bought": 4
+        "count": 0,
+        "total_bought": 0
       }
     },
     "unlocked_generators": [
       "rng",
-      "biased_coin",
-      "dice_roller"
+      "biased_coin"
     ],
     "upgrades": {
       "entropy_amplification": {
-        "level": 1
+        "level": 0
       },
       "click_power": {
-        "level": 3
+        "level": 0
       }
     },
     "tutorial_step": 2,
@@ -40,6 +39,207 @@
       "crt_effects": false,
       "binary_rain": true,
       "particle_effects": true
+    }
+  },
+  "HARDWARE_GENERATORS": {
+    "cpu_core": {
+      "id": "cpu_core",
+      "name": "CPU Core",
+      "category": "cpu",
+      "base_cost": 50,
+      "base_production": 5,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83e\udde0",
+      "flavor": "The heart of computation."
+    },
+    "cpu_cache": {
+      "id": "cpu_cache",
+      "name": "CPU Cache",
+      "category": "cpu",
+      "base_cost": 500,
+      "base_production": 50,
+      "cost_multiplier": 1.15,
+      "icon": "\u26a1",
+      "flavor": "Lightning-fast memory access."
+    },
+    "memory_stick": {
+      "id": "memory_stick",
+      "name": "Memory Stick",
+      "category": "ram",
+      "base_cost": 200,
+      "base_production": 20,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83d\udce6",
+      "flavor": "Volatile but speedy storage."
+    },
+    "memory_bank": {
+      "id": "memory_bank",
+      "name": "Memory Bank",
+      "category": "ram",
+      "base_cost": 2000,
+      "base_production": 200,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83c\udfe6",
+      "flavor": "Organized memory architecture."
+    },
+    "hard_drive": {
+      "id": "hard_drive",
+      "name": "Hard Drive",
+      "category": "storage",
+      "base_cost": 1000,
+      "base_production": 100,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83d\udcbe",
+      "flavor": "Spinning platters of data."
+    },
+    "solid_state": {
+      "id": "solid_state",
+      "name": "SSD",
+      "category": "storage",
+      "base_cost": 10000,
+      "base_production": 1000,
+      "cost_multiplier": 1.15,
+      "icon": "\u26a1",
+      "flavor": "Flash-based storage revolution."
+    },
+    "graphics_card": {
+      "id": "graphics_card",
+      "name": "Graphics Card",
+      "category": "gpu",
+      "base_cost": 5000,
+      "base_production": 500,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83c\udfae",
+      "flavor": "Parallel processing powerhouse."
+    },
+    "tensor_core": {
+      "id": "tensor_core",
+      "name": "Tensor Core",
+      "category": "gpu",
+      "base_cost": 50000,
+      "base_production": 5000,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83e\udd16",
+      "flavor": "AI acceleration unit."
+    },
+    "ethernet_card": {
+      "id": "ethernet_card",
+      "name": "Ethernet Card",
+      "category": "network",
+      "base_cost": 3000,
+      "base_production": 300,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83c\udf10",
+      "flavor": "Connect to world."
+    },
+    "fiber_optic": {
+      "id": "fiber_optic",
+      "name": "Fiber Optic",
+      "category": "network",
+      "base_cost": 30000,
+      "base_production": 3000,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83d\udcab",
+      "flavor": "Light-speed data transfer."
+    },
+    "mobile_chip": {
+      "id": "mobile_chip",
+      "name": "Mobile Chip",
+      "category": "mobile",
+      "base_cost": 15000,
+      "base_production": 1500,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83d\udcf1",
+      "flavor": "Computing in your pocket."
+    },
+    "ai_accelerator": {
+      "id": "ai_accelerator",
+      "name": "AI Accelerator",
+      "category": "ai",
+      "base_cost": 100000,
+      "base_production": 10000,
+      "cost_multiplier": 1.15,
+      "icon": "\ud83e\uddec",
+      "flavor": "Neural network processor."
+    }
+  },
+  "HARDWARE_UPGRADES": {
+    "overclock": {
+      "id": "overclock",
+      "category": "cpu",
+      "name": "CPU Overclock",
+      "icon": "\ud83d\ude80",
+      "base_cost": 5000,
+      "cost_multiplier": 5,
+      "effect": 2,
+      "max_level": 5,
+      "description": "Double all CPU production"
+    },
+    "memory_optimization": {
+      "id": "memory_optimization",
+      "category": "ram",
+      "name": "Memory Optimization",
+      "icon": "\ud83d\udd27",
+      "base_cost": 8000,
+      "cost_multiplier": 5,
+      "effect": 2,
+      "max_level": 5,
+      "description": "Double all RAM production"
+    },
+    "data_compression": {
+      "id": "data_compression",
+      "category": "storage",
+      "name": "Data Compression",
+      "icon": "\ud83d\udce6",
+      "base_cost": 12000,
+      "cost_multiplier": 5,
+      "effect": 2,
+      "max_level": 5,
+      "description": "Double all Storage production"
+    },
+    "ray_tracing": {
+      "id": "ray_tracing",
+      "category": "gpu",
+      "name": "Ray Tracing",
+      "icon": "\u2728",
+      "base_cost": 20000,
+      "cost_multiplier": 5,
+      "effect": 2,
+      "max_level": 5,
+      "description": "Double all GPU production"
+    },
+    "bandwidth_boost": {
+      "id": "bandwidth_boost",
+      "category": "network",
+      "name": "Bandwidth Boost",
+      "icon": "\ud83d\udce1",
+      "base_cost": 25000,
+      "cost_multiplier": 5,
+      "effect": 2,
+      "max_level": 5,
+      "description": "Double all Network production"
+    },
+    "battery_efficiency": {
+      "id": "battery_efficiency",
+      "category": "mobile",
+      "name": "Battery Efficiency",
+      "icon": "\ud83d\udd0b",
+      "base_cost": 30000,
+      "cost_multiplier": 5,
+      "effect": 2,
+      "max_level": 5,
+      "description": "Double all Mobile production"
+    },
+    "neural_network": {
+      "id": "neural_network",
+      "category": "ai",
+      "name": "Neural Network",
+      "icon": "\ud83e\udde0",
+      "base_cost": 50000,
+      "cost_multiplier": 5,
+      "effect": 2,
+      "max_level": 5,
+      "description": "Double all AI production"
     }
   }
 }
