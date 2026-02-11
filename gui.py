@@ -684,12 +684,21 @@ class BitByBitGame:
         # Update game state
         production_rate = self.state.get_production_rate()
         production = production_rate * dt
-        production_int = int(production)
 
-        # Only add production if there's space in unlocked components
-        if not self.bit_grid._are_all_unlocked_components_full():
+        # Use floating-point accumulator for production
+        if not hasattr(self, "production_accumulator"):
+            self.production_accumulator = 0.0
+
+        self.production_accumulator += production
+        production_int = int(self.production_accumulator)
+
+        # Only add the integer part and keep the fractional remainder
+        if production_int > 0:
             self.state.bits += production_int
             self.state.total_bits_earned += production_int
+            self.production_accumulator -= (
+                production_int  # Remove the integer part we just added
+            )
 
         # Check for unlocks
         for gen_id, generator in CONFIG["GENERATORS"].items():

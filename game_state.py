@@ -108,7 +108,8 @@ class GameState:
             for gen_id, gen_data in self.generators.items():
                 if gen_data["count"] > 0 and gen_id in CONFIG["GENERATORS"]:
                     generator = CONFIG["GENERATORS"][gen_id]
-                    base_production += gen_data["count"] * generator["base_production"]
+                    gen_production = gen_data["count"] * generator["base_production"]
+                    base_production += gen_production
 
             # Calculate from hardware-specific generators
             if "HARDWARE_GENERATORS" in CONFIG:
