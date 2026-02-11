@@ -168,6 +168,7 @@ class Button:
     def is_clicked(self, event):
         return (
             event.type == pygame.MOUSEBUTTONDOWN
+            and event.button == 1  # Only left mouse button (1), not scroll wheel (4,5)
             and self.rect.collidepoint(event.pos)
             and self.is_enabled
         )

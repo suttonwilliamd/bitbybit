@@ -299,7 +299,12 @@ class BitByBitGame:
         y_start = 200
         card_height = 120
 
-        for i, (upgrade_id, upgrade) in enumerate(CONFIG["UPGRADES"].items()):
+        # Get upgrade from both basic and hardware upgrades
+        basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
+        hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
+        all_upgrades = {**basic_upgrades, **hardware_upgrades}
+
+        for i, (upgrade_id, upgrade) in enumerate(all_upgrades.items()):
             y = y_start + i * (card_height + 10)
 
             buy_button = Button(x_start + 250, y + 70, 80, 30, "BUY")
@@ -406,12 +411,20 @@ class BitByBitGame:
             if self.click_button.is_clicked(event):
                 self.handle_click()
 
-            # Handle generator purchases (only when panel is open)
-            if self.generators_panel_open and event.type == pygame.MOUSEBUTTONDOWN:
+            # Handle generator purchases (only when panel is open and left mouse button)
+            if (
+                self.generators_panel_open
+                and event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+            ):
                 self.handle_generator_card_clicks(mouse_pos)
 
-            # Handle upgrade purchases (only when panel is open)
-            if self.upgrades_panel_open and event.type == pygame.MOUSEBUTTONDOWN:
+            # Handle upgrade purchases (only when panel is open and left mouse button)
+            if (
+                self.upgrades_panel_open
+                and event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+            ):
                 self.handle_upgrade_card_clicks(mouse_pos)
 
             # Handle component upgrade purchases (always active)
@@ -512,7 +525,12 @@ class BitByBitGame:
         if not self.state.is_upgrade_unlocked(upgrade_id):
             return
 
-        upgrade = CONFIG["UPGRADES"][upgrade_id]
+        # Get upgrade from both basic and hardware upgrades
+        basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
+        hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
+        all_upgrades = {**basic_upgrades, **hardware_upgrades}
+
+        upgrade = all_upgrades[upgrade_id]
         cost = self.state.get_upgrade_cost(upgrade_id)
 
         if (
@@ -633,10 +651,10 @@ class BitByBitGame:
                 y_offset += card_height + 12
                 continue
 
-            # BUY button (bottom right)
-            button_x = card_x + card_width - 90
-            button_y = card_y + card_height // 2 - 14
-            btn_rect = pygame.Rect(button_x, button_y, 80, 28)
+            # BUY button (bottom right) - match drawing position
+            button_x = card_x + card_width - 100
+            button_y = card_y + card_height - 30
+            btn_rect = pygame.Rect(button_x, button_y, 80, 24)
 
             if btn_rect.collidepoint(mouse_pos) and can_afford:
                 self.buy_upgrade(upgrade_id)
@@ -1055,8 +1073,11 @@ Total Clicks: {self.state.total_clicks}
             )
             self.particles.append(Particle(center_x, center_y, color, "burst"))
 
-        # Create floating text for tokens earned
-        if hasattr(self.state, "compression_tokens"):
+        # Create floating text for tokens earned (only if user actually has tokens)
+        if (
+            hasattr(self.state, "compression_tokens")
+            and self.state.compression_tokens > 0
+        ):
             current_tokens = self.state.compression_tokens
             self.floating_texts.append(
                 FloatingText(
@@ -1075,8 +1096,11 @@ Total Clicks: {self.state.total_clicks}
                     Particle(center_x, center_y, particle_color, "burst")
                 )
 
-        # Create floating text for tokens earned
-        if hasattr(self.state, "compression_tokens"):
+        # Create floating text for tokens earned (only if user actually has tokens)
+        if (
+            hasattr(self.state, "compression_tokens")
+            and self.state.compression_tokens > 0
+        ):
             current_tokens = self.state.compression_tokens
             self.floating_texts.append(
                 FloatingText(
@@ -1131,9 +1155,14 @@ Total Clicks: {self.state.total_clicks}
 
         step = self.state.tutorial_step
 
-        if step == 0 and self.state.total_bits_earned >= 5:
-            self.showing_tutorial = True
-            self.tutorial_text = "Great! You've generated your first bits.\nBut clicking gets tedious quickly.\nTry buying your first generator!"
+        if step == 0 and self.state.total_bits_earned >= 10:
+            # Check if user already has any generators
+            has_generators = any(
+                gen["count"] > 0 for gen in self.state.generators.values()
+            )
+            if not has_generators:
+                self.showing_tutorial = True
+                self.tutorial_text = "Great! You've generated your first bits.\nBut clicking gets tedious quickly.\nTry buying your first generator!"
         elif step == 1 and self.state.generators["rng"]["count"] >= 1:
             self.showing_tutorial = True
             self.tutorial_text = "Excellent! Your Random Number Generator\nnow produces 1 bit per second automatically.\nKeep generating to unlock new content!"
@@ -1144,11 +1173,11 @@ Total Clicks: {self.state.total_clicks}
             color = COLORS["matrix_green"]
             self.particles.append(Particle(center_x, center_y, color, "burst"))
 
-        # Create floating text for tokens earned
-        tokens = self.state.total_compression_tokens - getattr(
-            self.state, "total_compression_tokens", 0
-        )
-        if hasattr(self.state, "compression_tokens"):
+        # Create floating text for tokens earned (only if user actually has tokens)
+        if (
+            hasattr(self.state, "compression_tokens")
+            and self.state.compression_tokens > 0
+        ):
             current_tokens = self.state.compression_tokens
             center_x = WINDOW_WIDTH // 2
             center_y = 250

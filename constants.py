@@ -94,14 +94,6 @@ if "generators" in GENERATORS_CONFIG and GENERATORS_CONFIG["generators"]:
 else:
     print("No generators found in config, will use hardcoded later")
 
-UPGRADES = {}
-if "upgrades" in UPGRADES_CONFIG and UPGRADES_CONFIG["upgrades"]:
-    for upgrade in UPGRADES_CONFIG["upgrades"]:
-        UPGRADES[upgrade["id"]] = upgrade
-        print(f"Loaded upgrade: {upgrade['id']}")
-else:
-    print("No upgrades found in config, will use hardcoded later")
-
 # Game Configuration
 CONFIG = {
     "SAVE_FILE": "bitbybit_save.json",
@@ -282,6 +274,15 @@ HARDWARE_CATEGORIES = {
         "color": (255, 165, 0),  # Orange
     },
 }
+
+# Initialize UPGRADES from CONFIG since TOON parsing has issues
+UPGRADES = {}
+if "UPGRADES" in CONFIG:
+    for upgrade_id, upgrade in CONFIG["UPGRADES"].items():
+        UPGRADES[upgrade_id] = upgrade
+        print(f"Loaded upgrade: {upgrade_id}")
+else:
+    print("No upgrades found in config, will use hardcoded later")
 
 
 # Ensure we have generators and upgrades from CONFIG if TOON loading failed
