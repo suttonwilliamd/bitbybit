@@ -91,7 +91,6 @@ class MotherboardBitGrid:
             # Initialize bit arrays for each component
             total_bits = comp["bits"]
             comp["bit_states"] = [0] * total_bits
-            comp["bit_animations"] = {}
 
         self.total_bits_earned = 0
         self.last_bits_count = 0
@@ -127,12 +126,6 @@ class MotherboardBitGrid:
         self._update_component_unlocks()
 
         self._update_bits_to_progress()
-
-        production_rate = max(0, bits - self.last_bits_count)
-        if production_rate > 0:
-            self._animate_production(production_rate)
-
-        self._update_animations()
 
         self.last_bits_count = bits
 
@@ -241,70 +234,17 @@ class MotherboardBitGrid:
 
             if best_comp:
                 comp_name, comp = best_comp
-                # Find first 0 bit and set to 1
+                # Find first 0 bit and set to 1 instantly (binary on/off)
+                found_zero = False
                 for i, bit_value in enumerate(comp["bit_states"]):
                     if bit_value == 0:
                         comp["bit_states"][i] = 1
-                        # Start animation for this bit
-                        anim_key = (comp["name"], i)
-                        comp["bit_animations"][anim_key] = {
-                            "from_value": 0,
-                            "to_value": 1,
-                            "progress": 0,
-                            "duration": 0.5,
-                        }
                         bits_added += 1
+                        found_zero = True
                         break
-
-    def _animate_production(self, production_rate):
-        """Animate bit changes based on production rate"""
-        if production_rate <= 0:
-            return
-
-        # Animate multiple bits changing from 0 to 1 to show production
-        unlocked_components = [
-            comp for comp in self.components.values() if comp["unlocked"]
-        ]
-
-        if not unlocked_components:
-            return
-
-        bits_to_animate = min(production_rate, 3)  # Animate up to 3 bits per frame
-
-        for _ in range(bits_to_animate):
-            # Find a component with available 0 bits
-            for comp in unlocked_components:
-                for i, bit_value in enumerate(comp["bit_states"]):
-                    if bit_value == 0:
-                        # Start animation
-                        anim_key = (comp["name"], i)
-                        if anim_key not in comp["bit_animations"]:
-                            comp["bit_animations"][anim_key] = {
-                                "from_value": 0,
-                                "to_value": 1,
-                                "progress": 0,
-                                "duration": 1.0,  # 1 second animation
-                            }
-                        return  # Animate one bit at a time
-
-    def _update_animations(self):
-        """Update all ongoing bit animations"""
-        dt = getattr(self, "dt", 1/60)
-        for comp_name, comp in self.components.items():
-            if not comp["unlocked"]:
-                continue
-
-            completed_animations = []
-            for anim_key, anim in comp["bit_animations"].items():
-                anim["progress"] += dt
-
-                if anim["progress"] >= anim["duration"]:
-                    comp_name, bit_idx = anim_key
-                    comp["bit_states"][bit_idx] = anim["to_value"]
-                    completed_animations.append(anim_key)
-
-            for anim_key in completed_animations:
-                del comp["bit_animations"][anim_key]
+                # If no zero bit found in this component, skip to avoid infinite loop
+                if not found_zero:
+                    break
 
     def draw(self, screen):
         """Draw the motherboard with all components and connections"""
@@ -376,23 +316,23 @@ class MotherboardBitGrid:
 
         if comp["unlocked"]:
             # Draw component label
-            font = pygame.font.Font(None, 16)
+            font = pygame.font.Font(None, 22)
             label = font.render(
                 f"{comp['name']} Lvl.{comp['level']}", True, (255, 255, 255)
             )
             screen.blit(label, (comp["x"] + 5, comp["y"] + 5))
 
             # Draw description below name
-            desc_font = pygame.font.Font(None, 12)
+            desc_font = pygame.font.Font(None, 18)
             desc_label = desc_font.render(comp["description"], True, (200, 200, 200))
-            screen.blit(desc_label, (comp["x"] + 5, comp["y"] + 20))
+            screen.blit(desc_label, (comp["x"] + 5, comp["y"] + 24))
 
             # Draw bits in a grid layout
             if comp["width"] > 30 and comp["height"] > 50:  # Ensure minimum size
                 self._draw_component_bits(screen, comp)
         else:
             # Draw locked indicator
-            font = pygame.font.Font(None, 20)
+            font = pygame.font.Font(None, 28)
             label = font.render("LOCKED", True, (100, 100, 100))
             text_rect = label.get_rect(
                 center=(comp["x"] + comp["width"] // 2, comp["y"] + comp["height"] // 2)
@@ -415,13 +355,12 @@ class MotherboardBitGrid:
         min_bit_size = 3
         max_bit_size = 12
 
-        # Use actual filled bits count for sizing, not theoretical capacity
-        filled_bits = sum(comp["bit_states"])
-        if filled_bits == 0:
-            filled_bits = 1  # Avoid division by zero
+        # Use total capacity for grid sizing (all bit slots visible)
+        if total_bits == 0:
+            total_bits = 1
         ideal_bit_size = min(
             max_bit_size,
-            int(math.sqrt((available_width * available_height) / filled_bits))
+            int(math.sqrt((available_width * available_height) / total_bits))
         )
         bit_size = max(min_bit_size, ideal_bit_size)
 
@@ -429,8 +368,7 @@ class MotherboardBitGrid:
         total_bit_cell = bit_size + gap
 
         grid_cols = max(1, available_width // total_bit_cell)
-        # Calculate rows based on actual filled bits, not theoretical capacity
-        grid_rows = max(1, (filled_bits + grid_cols - 1) // grid_cols)
+        grid_rows = max(1, (total_bits + grid_cols - 1) // grid_cols)
 
         if grid_rows * total_bit_cell > available_height:
             bit_size = max(min_bit_size, (available_height // grid_rows) - gap)
@@ -442,9 +380,8 @@ class MotherboardBitGrid:
         start_x = comp["x"] + border_thickness + padding
         start_y = comp["y"] + border_thickness + padding
 
-        # Use actual bit states count for grid calculation, not theoretical capacity
-        actual_bits = len(comp["bit_states"])
-        total_bits_to_draw = min(actual_bits, grid_cols * grid_rows)
+        # Use full capacity for grid - draw all bit slots
+        total_bits_to_draw = min(total_bits, grid_cols * grid_rows)
 
         for bit_idx in range(total_bits_to_draw):
             row = bit_idx // grid_cols
@@ -458,26 +395,13 @@ class MotherboardBitGrid:
             if bit_y + bit_size > max_y:
                 continue  # Skip this bit as it would overflow vertically
             
-            anim_key = (comp["name"], bit_idx)
-            # Safety check - don't access bit_states beyond array bounds
+            # Binary on/off - no fade animation
             if bit_idx < len(comp["bit_states"]):
                 bit_value = comp["bit_states"][bit_idx]
             else:
                 bit_value = 0
 
-            if anim_key in comp["bit_animations"]:
-                anim = comp["bit_animations"][anim_key]
-                progress = anim["progress"] / anim["duration"]
-
-                from_color = self.colors[anim["from_value"]]
-                to_color = self.colors[anim["to_value"]]
-
-                color = tuple(
-                    int(from_color[i] + (to_color[i] - from_color[i]) * progress)
-                    for i in range(3)
-                )
-            else:
-                color = self.colors[bit_value]
+            color = self.colors[bit_value]
 
             tinted_color = tuple(
                 min(255, int(color[i] * 0.7 + comp["color"][i] * 0.3)) for i in range(3)
@@ -497,7 +421,6 @@ class MotherboardBitGrid:
         """Reset all bits to 0 when rebirth occurs"""
         for comp_name, comp in self.components.items():
             comp["bit_states"] = [0] * comp["bits"]
-            comp["bit_animations"] = {}
             # Reset unlocked state to initial
             if comp_name not in ["CPU", "BUS"]:  # Keep these always unlocked
                 comp["unlocked"] = False

@@ -20,6 +20,7 @@ from game_state import GameState
 from visual_effects import Particle, BinaryRain, BitVisualization, SmartBitVisualization
 from ui_components import Button, FloatingText
 from bit_grid import MotherboardBitGrid
+from compression_ui import CompressionPanel, CompressionMeter, TokenDisplay, CompressionProgressBar
 
 
 class ScrollablePanel:
@@ -46,6 +47,24 @@ class ScrollablePanel:
                 ),
             )
 
+    def scroll_by(self, amount):
+        """Scroll by a relative amount"""
+        self.scroll_offset = max(
+            0,
+            min(
+                self.scroll_offset + amount,
+                max(0, self.content_height - self.rect.height + 60),
+            ),
+        )
+
+    def scroll_to(self, position):
+        """Scroll to an absolute position"""
+        self.scroll_offset = max(0, min(position, max(0, self.content_height - self.rect.height + 60)))
+
+    def scroll_to_bottom(self):
+        """Scroll to the bottom of the content"""
+        self.scroll_offset = max(0, self.content_height - self.rect.height + 60)
+
     def get_scroll_offset(self):
         """Get current scroll position"""
         return self.scroll_offset
@@ -70,16 +89,23 @@ class BitByBitGame:
         self.current_width = WINDOW_WIDTH
         self.current_height = WINDOW_HEIGHT
 
-        # Fonts
-        self.title_font = pygame.font.Font(None, 48)
-        self.large_font = pygame.font.Font(None, 36)
-        self.medium_font = pygame.font.Font(None, 28)
-        self.small_font = pygame.font.Font(None, 20)
-        self.tiny_font = pygame.font.Font(None, 16)
+        # Fonts - consistent monospace for tech theme
         try:
-            self.monospace_font = pygame.font.SysFont("Courier New", 24)
+            self.title_font = pygame.font.SysFont("Consolas", 24, bold=True)
+            self.large_font = pygame.font.SysFont("Consolas", 18, bold=True)
+            self.medium_font = pygame.font.SysFont("Consolas", 16)
+            self.small_font = pygame.font.SysFont("Consolas", 13)
+            self.tiny_font = pygame.font.SysFont("Consolas", 11)
+            self.monospace_font = pygame.font.SysFont("Consolas", 16)
+            self.bit_counter_font = pygame.font.SysFont("Consolas", 28, bold=True)
         except (pygame.error, OSError):
-            self.monospace_font = pygame.font.Font(None, 24)
+            self.title_font = pygame.font.Font(None, 24)
+            self.large_font = pygame.font.Font(None, 18)
+            self.medium_font = pygame.font.Font(None, 16)
+            self.small_font = pygame.font.Font(None, 13)
+            self.tiny_font = pygame.font.Font(None, 11)
+            self.monospace_font = pygame.font.Font(None, 16)
+            self.bit_counter_font = pygame.font.Font(None, 28)
 
         # Game state
         self.state = GameState()
@@ -103,6 +129,20 @@ class BitByBitGame:
 
         self.click_button = Button(
             WINDOW_WIDTH // 2 - 100, 500, 200, 50, "+1 bit", (60, 60, 80)
+        )
+
+        # Initialize compression UI components
+        self.compression_panel = CompressionPanel(
+            WINDOW_WIDTH // 2 - 300, 50, 600, 120
+        )
+        self.compression_meter = CompressionMeter(
+            WINDOW_WIDTH // 2 - 150, 190, 300, 25
+        )
+        self.token_display = TokenDisplay(
+            WINDOW_WIDTH // 2 - 50, 230
+        )
+        self.compression_progress = CompressionProgressBar(
+            WINDOW_WIDTH // 2 - 200, 270, 400, 30
         )
 
         self._gradient_surface = None
@@ -135,66 +175,66 @@ class BitByBitGame:
         # Rebirth state
         self.showing_rebirth_confirmation = False
 
-        # Panel states - start with panels collapsed
-        self.generators_panel_open = False
+        # Panel states - hardware panel starts expanded, upgrades collapsed for cleaner look
+        self.hardware_panel_open = True
         self.upgrades_panel_open = False
 
-        # Calculate responsive panel dimensions
-        panel_margin = 50
-        panel_spacing = 30
-        toggle_button_height = 40
-        accumulator_height = 400  # Leave space for accumulator area
+        # New layout structure: Left sidebar (hardware), Right sidebar (upgrades), Center (click area)
+        # Top bar takes 60px, side panels take 22% width each
         
-        # Calculate complete space needed for click button including visual elements
-        button_height = 50
-        button_spacing = 15
-        button_border_and_glow = 4  # 2px border + 2px potential glow
-        aesthetic_spacing = 40  # Better visual breathing room
-        total_button_space = button_height + button_spacing + button_border_and_glow + aesthetic_spacing
+        # Calculate responsive layout zones
+        top_bar_height = 70
+        side_panel_width = int(WINDOW_WIDTH * 0.22)
+        center_area_width = WINDOW_WIDTH - (side_panel_width * 2)
+        
+        # Panel vertical positioning - below top bar
+        panel_y_start = top_bar_height + 20
+        panel_height = WINDOW_HEIGHT - panel_y_start - 100
+        toggle_button_height = 40
+        
+        # Left panel (Hardware/Information Sources)
+        left_panel_x = 15
+        
+        # Right panel (Upgrades)
+        right_panel_x = WINDOW_WIDTH - side_panel_width - 15
+        
+        # Center area for click button and accumulator
+        self.center_area_x = side_panel_width + 20
+        self.center_area_width = center_area_width - 40
 
-        # Panel positions - ensure complete visual clearance for click button
-        panel_y_start = accumulator_height + total_button_space
-        available_height = WINDOW_HEIGHT - panel_y_start - 50  # Leave margin at bottom
-        panel_height = max(250, min(available_height, 350))  # Between 250-350px
-
-        # Panel widths - ensure both fit side by side with margins
-        total_panel_width = WINDOW_WIDTH - (panel_margin * 2) - panel_spacing
-        generators_width = int(total_panel_width * 0.55)  # 55% for generators
-        upgrades_width = int(total_panel_width * 0.45)  # 45% for upgrades
-
-        # Scrollable panels with responsive sizing
-        self.generators_scroll_panel = ScrollablePanel(
-            panel_margin,
+        # Scrollable panels with new layout - Hardware on left, Upgrades on right
+        self.hardware_scroll_panel = ScrollablePanel(
+            left_panel_x,
             panel_y_start + toggle_button_height,
-            generators_width,
+            side_panel_width,
             panel_height,
-            "INFORMATION SOURCES",
+            "HARDWARE",
         )
         self.upgrades_scroll_panel = ScrollablePanel(
-            panel_margin + generators_width + panel_spacing,
+            right_panel_x,
             panel_y_start + toggle_button_height,
-            upgrades_width,
+            side_panel_width,
             panel_height,
             "UPGRADES",
         )
 
-        # Panel toggle buttons with responsive sizing
-        self.generators_toggle = Button(
-            panel_margin,
+        # Panel toggle buttons - always visible on each side
+        self.hardware_toggle = Button(
+            left_panel_x,
             panel_y_start,
-            generators_width,
+            side_panel_width,
             toggle_button_height,
-            "▶ INFORMATION SOURCES",
-            (35, 40, 55),
+            "▸ HARDWARE",
+            (25, 30, 45),
             high_contrast=self.high_contrast_mode,
         )
         self.upgrades_toggle = Button(
-            panel_margin + generators_width + panel_spacing,
+            right_panel_x,
             panel_y_start,
-            upgrades_width,
+            side_panel_width,
             toggle_button_height,
-            "▶ UPGRADES",
-            (35, 40, 55),
+            "▸ UPGRADES",
+            (25, 30, 45),
             high_contrast=self.high_contrast_mode,
         )
 
@@ -229,7 +269,7 @@ class BitByBitGame:
         self.load_game()
 
     def handle_window_resize(self, new_width, new_height):
-        """Handle window resizing and update UI element positions"""
+        """Handle window resizing and update UI element positions for new layout"""
         self.current_width = new_width
         self.current_height = new_height
 
@@ -237,73 +277,77 @@ class BitByBitGame:
         scale_x = new_width / self.base_width
         scale_y = new_height / self.base_height
 
-        # Update accumulator and bit grid - enhanced responsive layout
-        self.bit_grid.x = int(new_width // 2 - 300 * scale_x)
-        self.bit_grid.width = int(600 * scale_x)
-        self.bit_grid.height = int(300 * scale_y)
-
-        # Update click button
-        self.click_button.rect.x = int(new_width // 2 - 150 * scale_x)
-        self.click_button.rect.y = int(420 * scale_y)
-        self.click_button.rect.width = int(300 * scale_x)
-        self.click_button.rect.height = int(60 * scale_y)
-
-        # Update header buttons
-        self.settings_button.rect.x = int(new_width - 150 * scale_x)
-        self.stats_button.rect.x = int(new_width - 280 * scale_x)
-
-        # Update panel positions with responsive sizing
-        panel_margin = int(50 * scale_x)
-        panel_spacing = int(30 * scale_x)
-        toggle_button_height = int(40 * scale_y)
-        accumulator_height = int(400 * scale_y)
+        # New layout: side panels fixed at 22% width, center area between them
+        side_panel_width = int(new_width * 0.22)
+        center_x = side_panel_width + 20
+        center_width = new_width - (side_panel_width * 2) - 40
         
-        # Calculate complete space needed for click button including visual elements
-        button_height = int(50 * scale_y)
-        button_spacing = int(15 * scale_y)
-        button_border_and_glow = int(4 * scale_y)  # 2px border + 2px potential glow
-        aesthetic_spacing = int(40 * scale_y)  # Better visual breathing room
-        total_button_space = button_height + button_spacing + button_border_and_glow + aesthetic_spacing
+        # Top bar height
+        top_bar_height = int(70 * scale_y)
+        
+        # Update accumulator and bit grid - center area
+        self.bit_grid.x = int(center_x + 25 * scale_x)
+        self.bit_grid.width = int(center_width - 50 * scale_x)
+        self.bit_grid.height = int(200 * scale_y)
 
-        # Panel positions - ensure complete visual clearance for click button
-        panel_y_start = accumulator_height + total_button_space
-        available_height = new_height - panel_y_start - int(80 * scale_y)
-        panel_height = max(
-            int(250 * scale_y), min(available_height, int(350 * scale_y))
-        )
+        # Update click button - center area
+        click_button_width = int(min(280, center_width * 0.7))
+        self.click_button.rect.x = int(center_x + (center_width - click_button_width) // 2)
+        self.click_button.rect.y = int(top_bar_height + 280 * scale_y)
+        self.click_button.rect.width = click_button_width
+        self.click_button.rect.height = int(60 * scale_y)
+        
+        # Update compression UI components - center area
+        self.compression_panel.rect.x = int(center_x + (center_width - int(600 * scale_x)) // 2)
+        self.compression_panel.rect.y = int(top_bar_height + 30 * scale_y)
+        self.compression_panel.rect.width = int(min(600 * scale_x, center_width - 40))
+        self.compression_panel.rect.height = int(120 * scale_y)
+        
+        self.compression_meter.rect.x = int(center_x + (center_width - int(300 * scale_x)) // 2)
+        self.compression_meter.rect.y = int(top_bar_height + 160 * scale_y)
+        self.compression_meter.rect.width = int(300 * scale_x)
+        self.compression_meter.rect.height = int(25 * scale_y)
+        
+        self.token_display.x = int(center_x + center_width // 2 - 50)
+        self.token_display.y = int(top_bar_height + 200 * scale_y)
+        
+        self.compression_progress.rect.x = int(center_x + (center_width - int(400 * scale_x)) // 2)
+        self.compression_progress.rect.y = int(top_bar_height + 240 * scale_y)
+        self.compression_progress.rect.width = int(400 * scale_x)
+        self.compression_progress.rect.height = int(30 * scale_y)
 
-        # Panel widths - ensure both fit side by side
-        total_panel_width = new_width - (panel_margin * 2) - panel_spacing
-        generators_width = int(total_panel_width * 0.55)
-        upgrades_width = int(total_panel_width * 0.45)
+        # Update header buttons - top right
+        self.settings_button.rect.x = int(new_width - 150 * scale_x)
+        self.settings_button.rect.y = int(15 * scale_y)
+        self.stats_button.rect.x = int(new_width - 280 * scale_x)
+        self.stats_button.rect.y = int(15 * scale_y)
 
-        # Generators panel
-        generators_x = panel_margin
-        generators_y = panel_y_start + toggle_button_height
+        # Side panel dimensions
+        toggle_button_height = int(40 * scale_y)
+        panel_y_start = top_bar_height + int(20 * scale_y)
+        panel_height = new_height - panel_y_start - int(80 * scale_y)
+        
+        # Hardware panel (left side)
+        self.hardware_scroll_panel.rect.x = int(15 * scale_x)
+        self.hardware_scroll_panel.rect.y = panel_y_start + toggle_button_height
+        self.hardware_scroll_panel.rect.width = side_panel_width
+        self.hardware_scroll_panel.rect.height = panel_height
 
-        self.generators_scroll_panel.rect.x = generators_x
-        self.generators_scroll_panel.rect.y = generators_y
-        self.generators_scroll_panel.rect.width = generators_width
-        self.generators_scroll_panel.rect.height = panel_height
-
-        # Upgrades panel
-        upgrades_x = panel_margin + generators_width + panel_spacing
-        upgrades_y = panel_y_start + toggle_button_height
-
-        self.upgrades_scroll_panel.rect.x = upgrades_x
-        self.upgrades_scroll_panel.rect.y = upgrades_y
-        self.upgrades_scroll_panel.rect.width = upgrades_width
+        # Upgrades panel (right side)
+        self.upgrades_scroll_panel.rect.x = new_width - side_panel_width - int(15 * scale_x)
+        self.upgrades_scroll_panel.rect.y = panel_y_start + toggle_button_height
+        self.upgrades_scroll_panel.rect.width = side_panel_width
         self.upgrades_scroll_panel.rect.height = panel_height
 
-        # Update panel toggle buttons
-        self.generators_toggle.rect.x = generators_x
-        self.generators_toggle.rect.y = panel_y_start
-        self.generators_toggle.rect.width = generators_width
-        self.generators_toggle.rect.height = toggle_button_height
+        # Panel toggle buttons
+        self.hardware_toggle.rect.x = int(15 * scale_x)
+        self.hardware_toggle.rect.y = panel_y_start
+        self.hardware_toggle.rect.width = side_panel_width
+        self.hardware_toggle.rect.height = toggle_button_height
 
-        self.upgrades_toggle.rect.x = upgrades_x
+        self.upgrades_toggle.rect.x = new_width - side_panel_width - int(15 * scale_x)
         self.upgrades_toggle.rect.y = panel_y_start
-        self.upgrades_toggle.rect.width = upgrades_width
+        self.upgrades_toggle.rect.width = side_panel_width
         self.upgrades_toggle.rect.height = toggle_button_height
 
         # Update rebirth button
@@ -416,8 +460,30 @@ class BitByBitGame:
 
             # Handle scroll events
             if event.type == pygame.MOUSEWHEEL:
-                self.generators_scroll_panel.handle_scroll(event)
+                self.hardware_scroll_panel.handle_scroll(event)
                 self.upgrades_scroll_panel.handle_scroll(event)
+
+            # Handle keyboard scroll (arrow keys)
+            if event.type == pygame.KEYDOWN:
+                scroll_amount = 50
+                if event.key == pygame.K_UP:
+                    self.hardware_scroll_panel.scroll_by(-scroll_amount)
+                    self.upgrades_scroll_panel.scroll_by(-scroll_amount)
+                elif event.key == pygame.K_DOWN:
+                    self.hardware_scroll_panel.scroll_by(scroll_amount)
+                    self.upgrades_scroll_panel.scroll_by(scroll_amount)
+                elif event.key == pygame.K_PAGEUP:
+                    self.hardware_scroll_panel.scroll_by(-scroll_amount * 5)
+                    self.upgrades_scroll_panel.scroll_by(-scroll_amount * 5)
+                elif event.key == pygame.K_PAGEDOWN:
+                    self.hardware_scroll_panel.scroll_by(scroll_amount * 5)
+                    self.upgrades_scroll_panel.scroll_by(scroll_amount * 5)
+                elif event.key == pygame.K_HOME:
+                    self.hardware_scroll_panel.scroll_to(0)
+                    self.upgrades_scroll_panel.scroll_to(0)
+                elif event.key == pygame.K_END:
+                    self.hardware_scroll_panel.scroll_to_bottom()
+                    self.upgrades_scroll_panel.scroll_to_bottom()
 
             # Handle rebirth confirmation modal - this blocks all other interactions
             if self.showing_rebirth_confirmation:
@@ -480,7 +546,7 @@ class BitByBitGame:
 
             # Handle generator purchases (only when panel is open and left mouse button)
             if (
-                self.generators_panel_open
+                self.hardware_panel_open
                 and event.type == pygame.MOUSEBUTTONDOWN
                 and event.button == 1
             ):
@@ -506,8 +572,8 @@ class BitByBitGame:
                 self.show_statistics()
 
             # Handle panel toggle buttons
-            if self.generators_toggle.is_clicked(event):
-                self.generators_panel_open = not self.generators_panel_open
+            if self.hardware_toggle.is_clicked(event):
+                self.hardware_panel_open = not self.hardware_panel_open
 
             if self.upgrades_toggle.is_clicked(event):
                 self.upgrades_panel_open = not self.upgrades_panel_open
@@ -525,7 +591,7 @@ class BitByBitGame:
             self.stats_button.update(mouse_pos)
 
             # Only update toggle buttons when modals are closed
-            self.generators_toggle.update(mouse_pos)
+            self.hardware_toggle.update(mouse_pos)
             self.upgrades_toggle.update(mouse_pos)
 
             # Panel buttons are now integrated into cards, no separate updates needed
@@ -628,112 +694,107 @@ class BitByBitGame:
 
     def handle_generator_card_clicks(self, mouse_pos):
         """Handle clicks on generator card buttons"""
-        panel = self.generators_scroll_panel
+        panel = self.hardware_scroll_panel
 
         all_generators = get_all_generators()
+        basic_generators = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
+        hardware_generators = CONFIG.get("HARDWARE_GENERATORS", {})
 
         y_offset = -panel.get_scroll_offset()
 
         for gen_id, generator in all_generators.items():
-            basic_generators = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
-            hardware_generators = CONFIG.get("HARDWARE_GENERATORS", {})
-            # Check if unlocked
+            # Check if unlocked - but always advance y_offset to match drawing
+            is_locked = False
             if gen_id in basic_generators:
                 if not self.state.is_generator_unlocked(gen_id):
-                    continue
+                    is_locked = True
             elif gen_id in hardware_generators:
-                if not self.state.is_hardware_category_unlocked(generator["category"]):
-                    continue
+                if not self.state.is_hardware_category_unlocked(generator.get("category", "")):
+                    is_locked = True
 
             count = self.state.generators[gen_id]["count"]
             cost = self.state.get_generator_cost(gen_id)
             can_afford = self.state.can_afford(cost)
 
-            # Card position (optimized dimensions)
-            card_x = panel.rect.x + 10
-            card_y = panel.rect.y + 50 + y_offset + 8  # Reduced from 10
+            # Card position (must match drawing code)
+            card_x = panel.rect.x + 20
+            card_y = panel.rect.y + 50 + y_offset + 8
             card_width = panel.rect.width - 40
-            card_height = 70  # Reduced from 90
+            card_height = 90
 
             # Check if click is within this card
             card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
-            if not card_rect.collidepoint(mouse_pos):
-                y_offset += card_height + 8  # Reduced spacing
-                continue
+            if card_rect.collidepoint(mouse_pos):
+                # Check button positions (bottom right of card) - updated for compact layout
+                button_y = card_y + card_height - 25
+                btn_width = 60
+                btn_height = 22
 
-            # Check button positions (bottom right of card) - updated for compact layout
-            button_y = card_y + card_height - 25  # Reduced from 32
-            btn_width = 60  # Updated to match card drawing
-            btn_height = 22  # Updated to match card drawing
+                # BUY x10 button (left)
+                btn1_rect = pygame.Rect(
+                    card_x + card_width - btn_width * 2 - 8, button_y, btn_width, btn_height
+                )
+                if btn1_rect.collidepoint(mouse_pos) and can_afford:
+                    self.buy_generator(gen_id, 10)
+                    return
 
-            # BUY x10 button (left)
-            btn1_rect = pygame.Rect(
-                card_x + card_width - btn_width * 2 - 8, button_y, btn_width, btn_height
-            )
-            if btn1_rect.collidepoint(mouse_pos) and can_afford:
-                self.buy_generator(gen_id, 10)
-                return
+                # BUY x1 button (right)
+                btn2_rect = pygame.Rect(
+                    card_x + card_width - btn_width - 4, button_y, btn_width, btn_height
+                )
+                if btn2_rect.collidepoint(mouse_pos) and can_afford:
+                    self.buy_generator(gen_id, 1)
+                    return
 
-            # BUY x1 button (right)
-            btn2_rect = pygame.Rect(
-                card_x + card_width - btn_width - 4, button_y, btn_width, btn_height
-            )
-            if btn2_rect.collidepoint(mouse_pos) and can_afford:
-                self.buy_generator(gen_id, 1)
-                return
-
-            y_offset += card_height + 8  # Reduced spacing
+            # Always advance y_offset to match drawing loop
+            y_offset += card_height + 14
 
     def handle_upgrade_card_clicks(self, mouse_pos):
         """Handle clicks on upgrade card buttons"""
         panel = self.upgrades_scroll_panel
 
         all_upgrades = get_all_upgrades()
+        basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
+        hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
 
         y_offset = -panel.get_scroll_offset()
 
         for upgrade_id, upgrade in all_upgrades.items():
-            basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
-            hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
-            # Check if unlocked
+            # Check if unlocked - but always advance y_offset to match drawing
+            is_locked = False
             if upgrade_id in basic_upgrades:
                 if not self.state.is_upgrade_unlocked(upgrade_id):
-                    continue
+                    is_locked = True
             elif upgrade_id in hardware_upgrades:
-                if not self.state.is_hardware_category_unlocked(upgrade["category"]):
-                    continue
+                if not self.state.is_hardware_category_unlocked(upgrade.get("category", "")):
+                    is_locked = True
 
             level = self.state.upgrades[upgrade_id]["level"]
             cost = self.state.get_upgrade_cost(upgrade_id)
             can_afford = self.state.can_afford(cost) and level < upgrade["max_level"]
 
-            # Card position (optimized dimensions)
-            card_x = panel.rect.x + 10
-            card_y = panel.rect.y + 50 + y_offset + 8  # Reduced from 10
+            # Card position (must match drawing code)
+            card_x = panel.rect.x + 20
+            card_y = panel.rect.y + 50 + y_offset + 8
             card_width = panel.rect.width - 40
-            card_height = 65  # Reduced from 85
+            card_height = 85
 
             # Check if click is within this card
             card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
-            if not card_rect.collidepoint(mouse_pos):
-                y_offset += card_height + 8  # Reduced spacing
-                continue
+            if card_rect.collidepoint(mouse_pos):
+                # Check if maxed
+                if level < upgrade["max_level"]:
+                    # BUY button (bottom right) - updated for compact layout
+                    button_x = card_x + card_width - 80
+                    button_y = card_y + card_height - 25
+                    btn_rect = pygame.Rect(button_x, button_y, 70, 20)
 
-            # Check if maxed
-            if level >= upgrade["max_level"]:
-                y_offset += card_height + 8  # Reduced spacing
-                continue
+                    if btn_rect.collidepoint(mouse_pos) and can_afford:
+                        self.buy_upgrade(upgrade_id)
+                        return
 
-            # BUY button (bottom right) - updated for compact layout
-            button_x = card_x + card_width - 80  # Adjusted for compact layout
-            button_y = card_y + card_height - 25  # Reduced from 30
-            btn_rect = pygame.Rect(button_x, button_y, 70, 20)  # Smaller button
-
-            if btn_rect.collidepoint(mouse_pos) and can_afford:
-                self.buy_upgrade(upgrade_id)
-                return
-
-            y_offset += card_height + 8  # Reduced spacing
+            # Always advance y_offset to match drawing loop
+            y_offset += card_height + 14
 
     def upgrade_component(self, comp_name):
         """Upgrade a motherboard component"""
@@ -769,6 +830,13 @@ class BitByBitGame:
         # Update binary rain (if enabled)
         if self.state.visual_settings["binary_rain"]:
             self.binary_rain.update(dt)
+        
+        # Update compression UI components
+        if self.state.era == "compression":
+            self.compression_panel.update(dt)
+            self.compression_meter.update(dt)
+            self.token_display.update(dt)
+            self.compression_progress.update(dt)
 
         # Update game state
         production_rate = self.state.get_production_rate()
@@ -821,16 +889,103 @@ class BitByBitGame:
             self.last_auto_save = current_time
 
     def draw_accumulator(self):
+        # Draw compression UI if in compression era
+        if self.state.era == "compression":
+            self.draw_compression_accumulator()
+        else:
+            self.draw_standard_accumulator()
+    
+    def draw_compression_accumulator(self):
+        """Draw enhanced accumulator for compression era"""
+        production_rate = self.state.get_production_rate()
+        dt = 1 / FPS
+        
+        # Draw compression panel
+        self.compression_panel.draw(
+            self.screen,
+            getattr(self.state, 'compressed_bits', 0),
+            getattr(self.state, 'compression_tokens', 0),
+            getattr(self.state, 'efficiency', 1.0) * 100,
+            production_rate
+        )
+        
+        # Draw compression meter
+        self.compression_meter.draw(self.screen, getattr(self.state, 'efficiency', 1.0) * 100)
+        
+        # Draw token display
+        self.token_display.draw(self.screen, getattr(self.state, 'compression_tokens', 0), self.medium_font)
+        
+        # Draw compression progress bar
+        compression_ratio = getattr(self.state, 'efficiency', 1.0)
+        self.compression_progress.set_progress(min(compression_ratio / 10, 1.0))  # Normalize to 0-1
+        self.compression_progress.draw(self.screen)
+        
+        # Draw compressed bits with enhanced display
+        if not hasattr(self, "display_compressed_bits"):
+            self.display_compressed_bits = getattr(self.state, "compressed_bits", 0)
+        if not hasattr(self, "display_rate"):
+            self.display_rate = self.state.get_production_rate()
+
+        smoothing_factor = 0.1
+        self.display_compressed_bits += (
+            getattr(self.state, 'compressed_bits', 0) - self.display_compressed_bits
+        ) * smoothing_factor
+        self.display_rate += (
+            self.state.get_production_rate() - self.display_rate
+        ) * smoothing_factor
+
+        scale_x = self.current_width / self.base_width
+        scale_y = self.current_height / self.base_height
+        center_x = self.current_width // 2
+        
+        # Enhanced compressed bits display
+        bits_y = int(320 * scale_y)
+        bits_str = f"{self.format_number(int(self.display_compressed_bits))} COMPRESSED BITS"
+        bits_text = self.monospace_font.render(bits_str, True, COLORS["neon_purple"])
+        bits_rect = bits_text.get_rect(center=(center_x, bits_y))
+
+        # Enhanced glow effect for compression
+        for offset, alpha in [((3, 3), 20), ((2, 2), 40), ((1, 1), 60), ((-1, -1), 50), ((-2, -2), 30)]:
+            glow_pos = (bits_rect.x + offset[0], bits_rect.y + offset[1])
+            glow_surface = bits_text.copy()
+            glow_surface.set_alpha(alpha)
+            self.screen.blit(glow_surface, glow_pos)
+
+        self.screen.blit(bits_text, bits_rect)
+
+        # Enhanced rate display with compression efficiency
+        rate_y = int(350 * scale_y)
+        efficiency = getattr(self.state, 'efficiency', 1.0) * 100
+        rate_str = f"+{self.format_number(int(self.display_rate))} cb/s @ {efficiency:.1f}% efficiency"
+        rate_text = self.medium_font.render(rate_str, True, COLORS["electric_cyan"])
+        rate_rect = rate_text.get_rect(center=(center_x, rate_y))
+
+        for offset, alpha in [((2, 2), 30), ((-1, -1), 60)]:
+            glow_pos = (rate_rect.x + offset[0], rate_rect.y + offset[1])
+            glow_surface = rate_text.copy()
+            glow_surface.set_alpha(alpha)
+            self.screen.blit(glow_surface, glow_pos)
+
+        self.screen.blit(rate_text, rate_rect)
+    
+    def draw_standard_accumulator(self):
+        """Draw standard accumulator for non-compression eras"""
         production_rate = self.state.get_production_rate()
         dt = 1 / FPS
 
         scale_x = self.current_width / self.base_width
         scale_y = self.current_height / self.base_height
-
-        acc_width = int(650 * scale_x)
-        acc_height = int(340 * scale_y)
-        acc_x = self.current_width // 2 - acc_width // 2
-        acc_y = int(85 * scale_y)
+        
+        # New layout: center in the middle area between side panels
+        side_panel_width = int(self.current_width * 0.22)
+        center_x = side_panel_width + 20
+        center_width = self.current_width - (side_panel_width * 2) - 40
+        
+        # Calculate accumulator dimensions to fit in center area
+        acc_width = int(min(600 * scale_x, center_width - 40))
+        acc_height = int(300 * scale_y)
+        acc_x = center_x + (center_width - acc_width) // 2
+        acc_y = int(90 * scale_y)
 
         self.bit_grid.x = acc_x + int(25 * scale_x)
         self.bit_grid.y = acc_y + int(50 * scale_y)
@@ -850,14 +1005,27 @@ class BitByBitGame:
         )
 
         acc_rect = pygame.Rect(acc_x, acc_y, acc_width, acc_height)
-        center_x = self.current_width // 2
+        center_x = center_x + center_width // 2  # Center of the center area
 
+        # Background with subtle grid pattern
         pygame.draw.rect(self.screen, (10, 10, 20), acc_rect, border_radius=12)
+        
+        # Draw subtle grid lines for tech feel
+        grid_color = (20, 25, 40)
+        grid_spacing = int(20 * scale_x)
+        for gx in range(acc_x + grid_spacing, acc_x + acc_width - 10, grid_spacing):
+            pygame.draw.line(self.screen, grid_color, (gx, acc_y + 10), (gx, acc_y + acc_height - 10), 1)
+        for gy in range(acc_y + grid_spacing, acc_y + acc_height - 10, grid_spacing):
+            pygame.draw.line(self.screen, grid_color, (acc_x + 10, gy), (acc_x + acc_width - 10, gy), 1)
 
+        # Animated border glow
         time_ms = pygame.time.get_ticks()
         border_glow = abs(math.sin(time_ms * 0.002)) * 0.2 + 0.8
         border_color = tuple(int(c * border_glow) for c in COLORS["electric_cyan"])
         pygame.draw.rect(self.screen, border_color, acc_rect, 2, border_radius=12)
+
+        # Decorative binary stream on left side
+        self._draw_binary_stream(acc_x - int(30 * scale_x), acc_y + int(50 * scale_y), int(25 * scale_y))
 
         title_text = self.small_font.render(
             "DATA ACCUMULATOR", True, COLORS["muted_blue"]
@@ -876,27 +1044,17 @@ class BitByBitGame:
 
         if not hasattr(self, "display_bits"):
             self.display_bits = self.state.bits
-        if not hasattr(self, "display_compressed_bits"):
-            self.display_compressed_bits = getattr(self.state, "compressed_bits", 0)
         if not hasattr(self, "display_rate"):
             self.display_rate = self.state.get_production_rate()
 
         smoothing_factor = 0.1
         self.display_bits += (self.state.bits - self.display_bits) * smoothing_factor
-        if hasattr(self.state, "compressed_bits"):
-            self.display_compressed_bits += (
-                self.state.compressed_bits - self.display_compressed_bits
-            ) * smoothing_factor
         self.display_rate += (
             self.state.get_production_rate() - self.display_rate
         ) * smoothing_factor
 
-        if self.state.era == "compression":
-            bits_str = f"{self.format_number(int(self.display_compressed_bits))} cb"
-            bits_color = COLORS["neon_purple"]
-        else:
-            bits_str = f"{self.format_number(int(self.display_bits))} bits"
-            bits_color = COLORS["electric_cyan"]
+        bits_str = f"{self.format_number(int(self.display_bits))} bits"
+        bits_color = COLORS["electric_cyan"]
 
         bits_text = self.monospace_font.render(bits_str, True, bits_color)
         bits_y = acc_y + int(255 * scale_y)
@@ -914,14 +1072,8 @@ class BitByBitGame:
         self.last_display_rate = current_rate
 
         rate_y = acc_y + int(285 * scale_y)
-
-        if self.state.era == "compression":
-            efficiency = self.state.efficiency * 100
-            rate_str = f"+{self.format_number(int(self.display_rate))} cb/s"
-            rate_color = COLORS["neon_purple"]
-        else:
-            rate_str = f"+{self.format_number(int(self.display_rate))} b/s"
-            rate_color = COLORS["matrix_green"]
+        rate_str = f"+{self.format_number(int(self.display_rate))} b/s"
+        rate_color = COLORS["matrix_green"]
 
         rate_text = self.monospace_font.render(rate_str, True, rate_color)
         rate_rect = rate_text.get_rect(center=(center_x, rate_y))
@@ -944,17 +1096,11 @@ class BitByBitGame:
             self.click_button.rect = pygame.Rect(button_x, button_y, button_width, button_height)
             self.click_button.text = f"+{self.format_number(click_power)} bit{'s' if click_power != 1 else ''}"
             self.click_button.draw(self.screen)
-        else:
-            click_text = self.medium_font.render(
-                f"Tokens: {self.state.compression_tokens} ⭐", True, COLORS["gold"]
-            )
-            click_rect = click_text.get_rect(center=(center_x, button_y + button_height // 2))
-            self.screen.blit(click_text, click_rect)
 
     def _update_button_accessibility(self):
         """Update all buttons to match accessibility settings"""
         # Update panel toggle buttons
-        self.generators_toggle.high_contrast = self.high_contrast_mode
+        self.hardware_toggle.high_contrast = self.high_contrast_mode
         self.upgrades_toggle.high_contrast = self.high_contrast_mode
         self.click_button.high_contrast = self.high_contrast_mode
         self.settings_button.high_contrast = self.high_contrast_mode
@@ -1285,82 +1431,155 @@ Total Clicks: {self.state.total_clicks}
             print(f"Failed to load game: {e}")
 
     def draw_panel_toggle(self, button, is_open):
-        """Draw panel toggle button with better affordances"""
-        # Better visual state for toggle
+        """Draw panel toggle button with clear visual affordances"""
+        # Much more prominent visual states
         if is_open:
-            bg_color = (45, 50, 65)
+            bg_color = (60, 70, 95)
             border_color = COLORS["electric_cyan"]
-            text_color = COLORS["electric_cyan"]
+            text_color = COLORS["soft_white"]
+            glow_intensity = 60
         else:
-            bg_color = (32, 36, 48)
-            border_color = COLORS["muted_blue"]
-            text_color = COLORS["muted_blue"]
+            bg_color = (35, 40, 55)
+            border_color = (80, 90, 120)
+            text_color = (160, 170, 200)
 
-        # Background
-        pygame.draw.rect(self.screen, bg_color, button.rect, border_radius=6)
+        # Background with subtle gradient effect via layered rects
+        pygame.draw.rect(self.screen, bg_color, button.rect, border_radius=8)
+        
+        # Inner highlight for depth
+        highlight_rect = button.rect.inflate(-4, -4)
+        pygame.draw.rect(self.screen, (*bg_color, 30), highlight_rect, 1, border_radius=6)
 
-        # Border with glow effect if open
+        # Strong glow effect for open state, subtle for closed
+        glow_intensity = 60 if is_open else 20
         if is_open:
-            # Glow
-            glow_rect = button.rect.inflate(4, 4)
-            glow_surf = pygame.Surface(
-                (glow_rect.width, glow_rect.height), pygame.SRCALPHA
-            )
-            pygame.draw.rect(
-                glow_surf,
-                (*COLORS["electric_cyan"], 40),
-                (0, 0, glow_rect.width, glow_rect.height),
-                border_radius=8,
-            )
-            self.screen.blit(glow_surf, glow_rect)
+            for i in range(3):
+                glow_rect = button.rect.inflate(6 + i * 3, 6 + i * 3)
+                glow_alpha = glow_intensity - i * 15
+                glow_surf = pygame.Surface(
+                    (glow_rect.width, glow_rect.height), pygame.SRCALPHA
+                )
+                pygame.draw.rect(
+                    glow_surf,
+                    (*border_color, glow_alpha),
+                    (0, 0, glow_rect.width, glow_rect.height),
+                    border_radius=10 + i * 2,
+                )
+                self.screen.blit(glow_surf, glow_rect.topleft)
 
-        pygame.draw.rect(self.screen, border_color, button.rect, 2, border_radius=6)
+        # Main border - thicker for better visibility
+        pygame.draw.rect(self.screen, border_color, button.rect, 3, border_radius=8)
 
-        # Text
+        # Add chevron/arrow indicator
+        arrow_x = button.rect.x + 15
+        arrow_y = button.rect.centery
+        arrow_color = text_color
+        arrow_size = 6
+        
+        if is_open:
+            # Down arrow (▼)
+            pygame.draw.polygon(
+                self.screen, arrow_color,
+                [(arrow_x, arrow_y - arrow_size),
+                 (arrow_x + arrow_size * 1.5, arrow_y + arrow_size),
+                 (arrow_x - arrow_size * 1.5, arrow_y + arrow_size)]
+            )
+        else:
+            # Right arrow (▶)
+            pygame.draw.polygon(
+                self.screen, arrow_color,
+                [(arrow_x - arrow_size, arrow_y - arrow_size * 1.5),
+                 (arrow_x + arrow_size, arrow_y),
+                 (arrow_x - arrow_size, arrow_y + arrow_size * 1.5)]
+            )
+
+        # Text - offset to account for arrow
         text_surface = self.small_font.render(button.text, True, text_color)
-        text_rect = text_surface.get_rect(center=button.rect.center)
+        text_rect = text_surface.get_rect(
+            center=(button.rect.centerx + 10, button.rect.centery)
+        )
         self.screen.blit(text_surface, text_rect)
 
     def draw_panel_with_integrated_title(self, panel, title_color=None):
-        """Draw a panel with integrated title bar (the correct design)"""
+        """Draw a panel with integrated title bar - enhanced visibility"""
         if title_color is None:
             title_color = COLORS["electric_cyan"]
 
-        # Main panel background
-        pygame.draw.rect(self.screen, (22, 25, 35), panel.rect, border_radius=10)
+        # Main panel background - darker for better contrast with content
+        pygame.draw.rect(self.screen, (18, 22, 32), panel.rect, border_radius=12)
 
-        # Outer border
+        # Outer border - more visible
         pygame.draw.rect(
-            self.screen, COLORS["muted_blue"], panel.rect, 2, border_radius=10
+            self.screen, (*title_color, 80), panel.rect, 2, border_radius=12
         )
 
-        # Title bar (integrated at top)
-        title_bar_height = 45
+        # Inner subtle border for depth
+        inner_rect = panel.rect.inflate(-3, -3)
+        pygame.draw.rect(
+            self.screen, (40, 45, 60), inner_rect, 1, border_radius=10
+        )
+
+        # Title bar with gradient-like effect (layered rects)
+        title_bar_height = 48
         title_rect = pygame.Rect(
             panel.rect.x, panel.rect.y, panel.rect.width, title_bar_height
         )
+        
+        # Title bar background
         pygame.draw.rect(
             self.screen,
-            (28, 32, 45),
+            (30, 35, 50),
             title_rect,
-            border_top_left_radius=10,
-            border_top_right_radius=10,
+            border_top_left_radius=12,
+            border_top_right_radius=12,
+        )
+        
+        # Title bar highlight line
+        pygame.draw.line(
+            self.screen,
+            (*title_color, 40),
+            (panel.rect.x + 1, panel.rect.y + title_bar_height - 1),
+            (panel.rect.x + panel.rect.width - 1, panel.rect.y + title_bar_height - 1),
+            1,
         )
 
-        # Title text
+        # Title text - larger and more prominent
         title_surface = self.medium_font.render(panel.title, True, title_color)
         title_text_rect = title_surface.get_rect(
             center=(panel.rect.centerx, panel.rect.y + title_bar_height // 2)
         )
+        
+        # Subtle text shadow for better readability
+        shadow_surface = self.medium_font.render(panel.title, True, (0, 0, 0))
+        shadow_rect = title_text_rect.copy()
+        shadow_rect.x += 1
+        shadow_rect.y += 1
+        self.screen.blit(shadow_surface, shadow_rect)
+        
         self.screen.blit(title_surface, title_text_rect)
 
-        # Separator line under title
+        # Icon count indicator in title bar
+        content_height = panel.content_height if hasattr(panel, 'content_height') else 0
+        view_height = panel.rect.height - title_bar_height
+        if content_height > view_height:
+            scroll_pct = view_height / content_height
+            scroll_text = f"{int(scroll_pct * 100)}% visible"
+        else:
+            scroll_text = "All visible"
+        
+        scroll_surface = self.tiny_font.render(scroll_text, True, (*title_color, 120))
+        scroll_rect = scroll_surface.get_rect(
+            right=panel.rect.right - 15, centery=panel.rect.y + title_bar_height // 2
+        )
+        self.screen.blit(scroll_surface, scroll_rect)
+
+        # Separator line under title - more prominent
         pygame.draw.line(
             self.screen,
             title_color,
-            (panel.rect.x + 10, panel.rect.y + title_bar_height),
-            (panel.rect.x + panel.rect.width - 10, panel.rect.y + title_bar_height),
-            2,
+            (panel.rect.x + 15, panel.rect.y + title_bar_height),
+            (panel.rect.x + panel.rect.width - 15, panel.rect.y + title_bar_height),
+            3,
         )
 
     def draw_panel_background(self, panel):
@@ -1368,30 +1587,54 @@ Total Clicks: {self.state.total_clicks}
         self.draw_panel_with_integrated_title(panel)
 
     def draw_scrollbar(self, panel):
-        """Draw scrollbar for panel"""
+        """Draw scrollbar for panel - enhanced visibility"""
         if panel.content_height <= panel.rect.height - 60:
             return
 
-        scrollbar_x = panel.rect.right - 12
+        scrollbar_x = panel.rect.right - 14
         scrollbar_y = panel.rect.y + 50
         scrollbar_height = panel.rect.height - 60
+        scrollbar_width = 10
 
-        # Track
-        track_rect = pygame.Rect(scrollbar_x, scrollbar_y, 8, scrollbar_height)
-        pygame.draw.rect(self.screen, (40, 45, 55), track_rect, border_radius=4)
+        # Track with gradient effect
+        track_rect = pygame.Rect(scrollbar_x, scrollbar_y, scrollbar_width, scrollbar_height)
+        pygame.draw.rect(self.screen, (30, 35, 48), track_rect, border_radius=5)
+        
+        # Track inner border
+        pygame.draw.rect(self.screen, (50, 55, 70), track_rect, 1, border_radius=5)
 
         # Thumb
         thumb_height = max(
-            30, (scrollbar_height * scrollbar_height) // panel.content_height
+            40, int((scrollbar_height * scrollbar_height) / panel.content_height)
         )
         scroll_range = max(1, panel.content_height - scrollbar_height)
         thumb_y = (
             scrollbar_y
-            + (panel.scroll_offset * (scrollbar_height - thumb_height)) // scroll_range
+            + int((panel.scroll_offset * (scrollbar_height - thumb_height)) / scroll_range)
         )
-        thumb_rect = pygame.Rect(scrollbar_x, thumb_y, 8, thumb_height)
-        pygame.draw.rect(
-            self.screen, COLORS["electric_cyan"], thumb_rect, border_radius=4
+        thumb_rect = pygame.Rect(scrollbar_x, thumb_y, scrollbar_width, thumb_height)
+        
+        # Thumb with glow effect
+        pygame.draw.rect(self.screen, (45, 50, 65), thumb_rect.inflate(4, 4), border_radius=6)
+        pygame.draw.rect(self.screen, COLORS["electric_cyan"], thumb_rect, border_radius=5)
+
+        # Navigation arrows
+        arrow_color = (80, 90, 110)
+        
+        # Up arrow
+        pygame.draw.polygon(
+            self.screen, arrow_color,
+            [(scrollbar_x + scrollbar_width // 2, scrollbar_y - 5),
+             (scrollbar_x + 3, scrollbar_y + 8),
+             (scrollbar_x + scrollbar_width - 3, scrollbar_y + 8)]
+        )
+        
+        # Down arrow
+        pygame.draw.polygon(
+            self.screen, arrow_color,
+            [(scrollbar_x + scrollbar_width // 2, scrollbar_y + scrollbar_height + 5),
+             (scrollbar_x + 3, scrollbar_y + scrollbar_height - 8),
+             (scrollbar_x + scrollbar_width - 3, scrollbar_y + scrollbar_height - 8)]
         )
 
     def draw_generator_card(
@@ -1408,310 +1651,373 @@ Total Clicks: {self.state.total_clicks}
         production,
         can_afford,
     ):
-        """Draw individual generator card with proper layout and spacing"""
+        """Draw individual generator card with enhanced visibility and clarity"""
         card_rect = pygame.Rect(x, y, width, height)
 
-        # Enhanced color scheme with better contrast
-        if can_afford:
-            bg_color = (28, 32, 42)
+        # Check if this is a locked generator (not unlocked yet)
+        is_locked = False
+        if gen_id in CONFIG["GENERATORS"]:
+            if not self.state.is_generator_unlocked(gen_id):
+                is_locked = True
+        elif gen_id in CONFIG.get("HARDWARE_GENERATORS", {}):
+            generator_cfg = CONFIG["HARDWARE_GENERATORS"][gen_id]
+            if not self.state.is_hardware_category_unlocked(generator_cfg.get("category", "")):
+                is_locked = True
+
+        # Much clearer visual states - gray out locked items
+        if is_locked:
+            bg_color = (20, 22, 28)
+            border_color = (45, 50, 65)
+            border_width = 1
+            cost_color = (60, 65, 80)
+            name_color = (80, 85, 100)
+            info_color = (55, 60, 75)
+            is_gray = True
+        elif can_afford:
+            bg_color = (35, 42, 58)
             border_color = COLORS["electric_cyan"]
-            border_alpha = 200
+            border_width = 3
             cost_color = COLORS["matrix_green"]
+            name_color = COLORS["soft_white"]
+            info_color = (180, 190, 220)
+            is_gray = False
         else:
-            bg_color = (25, 25, 30)
-            border_color = COLORS["muted_blue"]
-            border_alpha = 120
-            cost_color = COLORS["muted_blue"]
+            bg_color = (25, 27, 35)
+            border_color = (60, 70, 90)
+            border_width = 1
+            cost_color = (90, 100, 120)
+            name_color = (140, 150, 170)
+            info_color = (80, 90, 110)
+            is_gray = False
 
-        # Draw card background with rounded corners
-        pygame.draw.rect(surface, bg_color, card_rect, border_radius=8)
+        # Draw card background
+        pygame.draw.rect(surface, bg_color, card_rect, border_radius=10)
 
-        # Draw enhanced border with glow effect if affordable
+        # Strong glow for affordable cards
         if can_afford:
-            # Glow effect for affordable cards
-            glow_surf = pygame.Surface((width + 4, height + 4), pygame.SRCALPHA)
-            pygame.draw.rect(
-                glow_surf,
-                (*border_color, 30),
-                (0, 0, width + 4, height + 4),
-                border_radius=10,
-            )
-            surface.blit(glow_surf, (x - 2, y - 2))
+            for i in range(3):
+                glow_rect = card_rect.inflate(i * 4, i * 4)
+                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(
+                    glow_surf,
+                    (*border_color, 25 - i * 5),
+                    (0, 0, glow_rect.width, glow_rect.height),
+                    border_radius=12 + i * 2,
+                )
+                surface.blit(glow_surf, glow_rect.topleft)
 
-        # Main border
-        border_surf = pygame.Surface((width, height), pygame.SRCALPHA)
-        pygame.draw.rect(
-            border_surf,
-            (*border_color, border_alpha),
-            (0, 0, width, height),
-            2,
-            border_radius=8,
-        )
-        surface.blit(border_surf, (x, y))
+        # Main border - thicker for affordables
+        pygame.draw.rect(surface, border_color, card_rect, border_width, border_radius=10)
 
-        # Icon (optimized for smaller cards)
-        icon_size = 36  # Reduced from 48
-        icon_x = x + 12
+        # Left accent bar - more prominent
+        accent_rect = pygame.Rect(x, y, 5, height)
+        pygame.draw.rect(surface, border_color, accent_rect)
+
+        # Icon with circle background
+        icon_size = 42
+        icon_x = x + 20
         icon_y = y + height // 2 - icon_size // 2
-
-        # Try to render emoji icon with fallback
+        
+        # Icon background circle - grayed out for locked
+        if is_locked:
+            icon_bg_color = (35, 38, 48)
+            icon_fg_color = (70, 75, 90)
+        elif can_afford:
+            icon_bg_color = (*border_color, 40)
+            icon_fg_color = border_color
+        else:
+            icon_bg_color = (40, 45, 55)
+            icon_fg_color = (90, 100, 120)
+        pygame.draw.circle(surface, icon_bg_color, (icon_x + icon_size // 2, icon_y + icon_size // 2), icon_size // 2 + 2)
+        
         icon_text = generator.get("icon", "🎲")
         try:
-            icon_font = pygame.font.Font(
-                None,
-                36,  # Smaller font for compact cards
-            )
-            icon_surface = icon_font.render(
-                icon_text, True, border_color if can_afford else COLORS["muted_blue"]
-            )
-            surface.blit(icon_surface, (icon_x, icon_y))
+            icon_font = pygame.font.Font(None, 52)
+            icon_surface = icon_font.render(icon_text, True, icon_fg_color)
+            surface.blit(icon_surface, (icon_x + 2, icon_y))
         except (pygame.error, UnicodeEncodeError):
             pygame.draw.circle(
                 surface,
-                border_color if can_afford else COLORS["muted_blue"],
+                icon_fg_color,
                 (icon_x + icon_size // 2, icon_y + icon_size // 2),
-                15,
+                18,
             )
 
-        # Text area with optimized spacing
-        text_x = x + 55  # Moved left due to smaller icon
-        line_height = 18  # Reduced from 22
+        # Text area - clearer layout
+        text_x = x + 75
+        
+        # Name - larger, clearer font
+        name_text = self.medium_font.render(generator["name"], True, name_color)
+        surface.blit(name_text, (text_x, y + 8))
 
-        # Name (top line, compact)
-        name_text = self.small_font.render(  # Use smaller font
-            generator["name"], True, COLORS["soft_white"]
-        )
-        surface.blit(name_text, (text_x, y + 10))
-
-        # Quantity and production on same line to save space
+        # Quantity and production - larger text
         if production > 0:
-            qty_prod_text = self.tiny_font.render(
-                f"Qty: {count} | Rate: +{self.format_number(production)} b/s",
-                True,
-                COLORS["muted_blue"],
+            qty_prod_text = self.small_font.render(
+                f"Owned: {count}  •  Production: {self.format_number(production)} b/s",
+                True, info_color
             )
-            surface.blit(qty_prod_text, (text_x, y + 28))
         else:
-            qty_text = self.tiny_font.render(
-                f"Qty: {count}", True, COLORS["muted_blue"]
+            qty_prod_text = self.small_font.render(
+                f"Owned: {count}", True, info_color
             )
-            surface.blit(qty_text, (text_x, y + 28))
+        surface.blit(qty_prod_text, (text_x, y + 32))
 
-        # Cost and buttons area (bottom right)
-        bottom_y = y + height - 25  # Reduced from 35
+        # Cost - right side, very prominent
+        cost_label = self.tiny_font.render("COST:", True, cost_color)
+        surface.blit(cost_label, (x + width - 155, y + 12))
+        
+        cost_value = self.small_font.render(self.format_number(cost), True, cost_color)
+        surface.blit(cost_value, (x + width - 155, y + 26))
 
-        # Cost text (left of buttons)
-        cost_text = self.tiny_font.render(
-            f"{self.format_number(cost)}",
-            True,
-            cost_color,
-        )
-        surface.blit(cost_text, (x + width - 150, bottom_y + 6))
+        # Buy indicator - subtle for locked, prominent for affordable
+        if is_locked:
+            # Show unlock requirement instead of LOCKED
+            unlock_threshold = generator.get("unlock_threshold", 0)
+            if unlock_threshold > 0:
+                req_text = f"Unlock: {self.format_number(unlock_threshold)} bits"
+                buy_text = self.small_font.render(req_text, True, (60, 65, 80))
+                surface.blit(buy_text, (x + width - 130, y + height // 2 - 10))
+            else:
+                # For hardware generators, show category requirement
+                category = generator.get("category", "")
+                if category:
+                    buy_text = self.small_font.render(f"Requires: {category.upper()}", True, (60, 65, 80))
+                    surface.blit(buy_text, (x + width - 130, y + height // 2 - 10))
+        elif can_afford:
+            buy_text = self.small_font.render("[BUY]", True, COLORS["matrix_green"])
+            surface.blit(buy_text, (x + width - 75, y + height // 2 - 10))
+        else:
+            buy_text = self.small_font.render("[LOCKED]", True, (80, 85, 95))
+            surface.blit(buy_text, (x + width - 85, y + height // 2 - 10))
 
-        # Buy buttons (optimized for compact layout)
+        # Bottom Y for button alignment
+        bottom_y = y + height - 25
+
+        # Buy buttons (optimized for compact layout) - hide for locked generators
         btn_width = 60  # Reduced from 70
         btn_height = 22  # Reduced from 28
         btn_spacing = 4
-        btn_color = (45, 55, 70) if can_afford else (30, 33, 40)
+        if is_locked:
+            btn_color = (25, 28, 35)
+            btn_border = (45, 50, 60)
+            btn_text_color = (60, 65, 80)
+        elif can_afford:
+            btn_color = (45, 55, 70)
+            btn_border = COLORS["electric_cyan"]
+            btn_text_color = COLORS["soft_white"]
+        else:
+            btn_color = (30, 33, 40)
+            btn_border = COLORS["muted_blue"]
+            btn_text_color = COLORS["muted_blue"]
 
-        # BUY x10 button (left)
-        btn1_rect = pygame.Rect(
-            x + width - btn_width * 2 - btn_spacing * 2, bottom_y, btn_width, btn_height
-        )
-        pygame.draw.rect(
-            surface,
-            btn_color,
-            btn1_rect,
-            border_radius=3,
-        )
-        pygame.draw.rect(
-            surface,
-            COLORS["electric_cyan"] if can_afford else COLORS["muted_blue"],
-            btn1_rect,
-            1,
-            border_radius=3,
-        )
-        btn1_text = self.tiny_font.render(
-            "BUY x10",
-            True,
-            COLORS["soft_white"] if can_afford else COLORS["muted_blue"],
-        )
-        btn1_text_rect = btn1_text.get_rect(center=btn1_rect.center)
-        surface.blit(btn1_text, btn1_text_rect)
+        # BUY x10 button (left) - hide buttons for locked generators
+        if not is_locked:
+            btn1_rect = pygame.Rect(
+                x + width - btn_width * 2 - btn_spacing * 2, bottom_y, btn_width, btn_height
+            )
+            pygame.draw.rect(
+                surface,
+                btn_color,
+                btn1_rect,
+                border_radius=3,
+            )
+            pygame.draw.rect(
+                surface,
+                btn_border,
+                btn1_rect,
+                1,
+                border_radius=3,
+            )
+            btn1_text = self.tiny_font.render(
+                "BUY x10",
+                True,
+                btn_text_color,
+            )
+            btn1_text_rect = btn1_text.get_rect(center=btn1_rect.center)
+            surface.blit(btn1_text, btn1_text_rect)
 
-        # BUY x1 button (right)
-        btn2_rect = pygame.Rect(
-            x + width - btn_width - btn_spacing, bottom_y, btn_width, btn_height
-        )
-        pygame.draw.rect(
-            surface,
-            btn_color,
-            btn2_rect,
-            border_radius=3,
-        )
-        pygame.draw.rect(
-            surface,
-            COLORS["electric_cyan"] if can_afford else COLORS["muted_blue"],
-            btn2_rect,
-            1,
-            border_radius=3,
-        )
-        btn2_text = self.tiny_font.render(
-            "BUY x1",
-            True,
-            COLORS["soft_white"] if can_afford else COLORS["muted_blue"],
-        )
-        btn2_text_rect = btn2_text.get_rect(center=btn2_rect.center)
-        surface.blit(btn2_text, btn2_text_rect)
+            # BUY x1 button (right)
+            btn2_rect = pygame.Rect(
+                x + width - btn_width - btn_spacing, bottom_y, btn_width, btn_height
+            )
+            pygame.draw.rect(
+                surface,
+                btn_color,
+                btn2_rect,
+                border_radius=3,
+            )
+            pygame.draw.rect(
+                surface,
+                btn_border,
+                btn2_rect,
+                1,
+                border_radius=3,
+            )
+            btn2_text = self.tiny_font.render(
+                "BUY x1",
+                True,
+                btn_text_color,
+            )
+            btn2_text_rect = btn2_text.get_rect(center=btn2_rect.center)
+            surface.blit(btn2_text, btn2_text_rect)
 
     def draw_upgrade_card(
         self, surface, x, y, width, height, upgrade, upgrade_id, level, cost, can_afford
     ):
-        """Draw individual upgrade card with proper layout and spacing"""
+        """Draw individual upgrade card with enhanced visibility"""
         card_rect = pygame.Rect(x, y, width, height)
 
-        # Enhanced purple theme for upgrades
+        # Enhanced purple theme for upgrades - clearer states
         max_level = upgrade["max_level"]
         is_maxed = level >= max_level
 
         if is_maxed:
-            bg_color = (35, 30, 45)
+            bg_color = (40, 35, 55)
             border_color = COLORS["gold"]
-            border_alpha = 220
-            text_color = COLORS["gold"]
+            border_width = 3
+            name_color = COLORS["gold"]
+            info_color = (255, 215, 100)
+            cost_color = COLORS["gold"]
         elif can_afford:
-            bg_color = (30, 28, 40)
+            bg_color = (38, 35, 55)
             border_color = COLORS["neon_purple"]
-            border_alpha = 200
-            text_color = COLORS["soft_white"]
+            border_width = 3
+            name_color = COLORS["soft_white"]
+            info_color = (180, 160, 220)
+            cost_color = COLORS["matrix_green"]
         else:
-            bg_color = (25, 25, 30)
-            border_color = COLORS["muted_blue"]
-            border_alpha = 120
-            text_color = COLORS["muted_blue"]
+            bg_color = (25, 27, 38)
+            border_color = (70, 60, 100)
+            border_width = 1
+            name_color = (130, 120, 160)
+            info_color = (80, 70, 100)
+            cost_color = (90, 80, 110)
 
         # Background
-        pygame.draw.rect(surface, bg_color, card_rect, border_radius=8)
+        pygame.draw.rect(surface, bg_color, card_rect, border_radius=10)
 
-        # Enhanced border with glow for affordable upgrades
-        if can_afford and not is_maxed:
-            # Subtle glow effect
-            glow_surf = pygame.Surface((width + 4, height + 4), pygame.SRCALPHA)
-            pygame.draw.rect(
-                glow_surf,
-                (*border_color, 40),
-                (0, 0, width + 4, height + 4),
-                border_radius=10,
-            )
-            surface.blit(glow_surf, (x - 2, y - 2))
+        # Strong glow for affordable or maxed cards
+        if can_afford or is_maxed:
+            for i in range(3):
+                glow_rect = card_rect.inflate(i * 4, i * 4)
+                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(
+                    glow_surf,
+                    (*border_color, 25 - i * 5),
+                    (0, 0, glow_rect.width, glow_rect.height),
+                    border_radius=12 + i * 2,
+                )
+                surface.blit(glow_surf, glow_rect.topleft)
 
         # Main border
-        border_surf = pygame.Surface((width, height), pygame.SRCALPHA)
-        pygame.draw.rect(
-            border_surf,
-            (*border_color, border_alpha),
-            (0, 0, width, height),
-            2,
-            border_radius=8,
-        )
-        surface.blit(border_surf, (x, y))
+        pygame.draw.rect(surface, border_color, card_rect, border_width, border_radius=10)
 
-        # Icon (optimized for compact cards)
-        icon_x = x + 12
-        icon_y = y + height // 2 - 18
+        # Left accent bar
+        pygame.draw.rect(surface, border_color, (x, y, 5, height))
+
+        # Icon with background
+        icon_size = 42
+        icon_x = x + 20
+        icon_y = y + height // 2 - icon_size // 2
+        
+        icon_bg = (*border_color, 40) if (can_afford or is_maxed) else (40, 45, 60)
+        pygame.draw.circle(surface, icon_bg, (icon_x + icon_size // 2, icon_y + icon_size // 2), icon_size // 2 + 2)
+        
         icon_text = upgrade.get("icon", "⚡")
-
         try:
-            icon_font = pygame.font.Font(None, 36)  # Smaller for compact cards
-            icon_surface = icon_font.render(
-                icon_text, True, border_color if can_afford else COLORS["muted_blue"]
-            )
-            surface.blit(icon_surface, (icon_x, icon_y))
+            icon_font = pygame.font.Font(None, 52)
+            icon_surface = icon_font.render(icon_text, True, border_color if (can_afford or is_maxed) else (90, 80, 110))
+            surface.blit(icon_surface, (icon_x + 2, icon_y))
         except (pygame.error, UnicodeEncodeError):
-            pygame.draw.circle(
-                surface,
-                border_color if can_afford else COLORS["muted_blue"],
-                (icon_x + 18, icon_y + 18),
-                15,
-            )
+            pygame.draw.circle(surface, border_color, (icon_x + icon_size // 2, icon_y + icon_size // 2), 18)
 
-        # Text area with optimized spacing
-        text_x = x + 50  # Moved left due to smaller icon
-        line_height = 18  # Reduced from 22
-
-        # Name (top line, compact)
-        name_text = self.small_font.render(
-            upgrade["name"], True, COLORS["soft_white"]
-        )  # Smaller font
+        # Text area
+        text_x = x + 75
+        
+        # Name - clearer
+        name_text = self.medium_font.render(upgrade["name"], True, name_color)
         surface.blit(name_text, (text_x, y + 8))
 
-        # Level and info on same line to save space
+        # Level indicator - more prominent
         level_color = COLORS["gold"] if is_maxed else COLORS["neon_purple"]
         level_text = self.small_font.render(
-            f"Level {level}/{max_level}",
-            True,
-            level_color,
+            f"Level {level} / {max_level}", True, level_color
         )
-        surface.blit(level_text, (text_x, y + 12 + line_height))
+        surface.blit(level_text, (text_x, y + 32))
 
-        # Effect description (third line)
+        # Effect description
         effect_text = upgrade.get("description", "Increases production")
-        desc_text = self.tiny_font.render(effect_text, True, COLORS["muted_blue"])
-        surface.blit(desc_text, (text_x, y + 12 + line_height * 2))
+        desc_text = self.small_font.render(effect_text, True, info_color)
+        surface.blit(desc_text, (text_x, y + 50))
 
-        # Cost and button area (bottom right)
+        # Right side - level progress bar
+        bar_x = x + width - 130
+        bar_y = y + 15
+        bar_w = 110
+        bar_h = 8
+        
+        # Progress bar background
+        pygame.draw.rect(surface, (30, 25, 45), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+        # Progress fill
+        progress = level / max_level if max_level > 0 else 0
+        pygame.draw.rect(surface, border_color, (bar_x, bar_y, bar_w * progress, bar_h), border_radius=4)
+        # Border
+        pygame.draw.rect(surface, (*border_color, 80), (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
+
+        # Cost or MAXED indicator
         if is_maxed:
-            # Centered MAXED indicator
-            maxed_text = self.medium_font.render("MAXED", True, COLORS["gold"])
-            maxed_rect = maxed_text.get_rect(center=(x + width - 60, y + height // 2))
-            surface.blit(maxed_text, maxed_rect)
+            maxed_text = self.medium_font.render("★ MAXED", True, COLORS["gold"])
+            surface.blit(maxed_text, (x + width - 120, y + height // 2 - 10))
         else:
-            # Cost (above button)
-            cost_y = y + height - 40
-            cost_text = self.small_font.render(
-                f"{self.format_number(cost)}",
-                True,
-                text_color,
-            )
-            cost_rect = cost_text.get_rect(center=(x + width - 60, cost_y))
-            surface.blit(cost_text, cost_rect)
+            # Cost
+            cost_label = self.tiny_font.render("COST:", True, cost_color)
+            surface.blit(cost_label, (x + width - 125, y + 35))
+            
+            cost_value = self.small_font.render(self.format_number(cost), True, cost_color)
+            surface.blit(cost_value, (x + width - 125, y + 48))
 
-            # BUY button
-            btn_y = y + height - 30
-            btn_rect = pygame.Rect(x + width - 100, btn_y, 80, 24)
-
+            # UPGRADE button - draw as actual button
+            btn_x = x + width - 80
+            btn_y = y + height - 25
+            btn_w = 70
+            btn_h = 20
+            
             if can_afford:
-                btn_color = (55, 45, 75)
-                btn_border = COLORS["neon_purple"]
-                btn_text_color = COLORS["soft_white"]
+                btn_color = (45, 55, 70)
+                btn_border = COLORS["matrix_green"]
+                btn_text_col = COLORS["matrix_green"]
             else:
                 btn_color = (30, 33, 40)
-                btn_border = COLORS["muted_blue"]
-                btn_text_color = COLORS["muted_blue"]
-
-            pygame.draw.rect(surface, btn_color, btn_rect, border_radius=4)
-            pygame.draw.rect(surface, btn_border, btn_rect, 1, border_radius=4)
-
-            btn_text = self.small_font.render("BUY", True, btn_text_color)
-            btn_text_rect = btn_text.get_rect(center=btn_rect.center)
+                btn_border = (60, 65, 80)
+                btn_text_col = (60, 65, 80)
+            
+            pygame.draw.rect(surface, btn_color, (btn_x, btn_y, btn_w, btn_h), border_radius=3)
+            pygame.draw.rect(surface, btn_border, (btn_x, btn_y, btn_w, btn_h), 1, border_radius=3)
+            
+            btn_text = self.small_font.render("UPGRADE", True, btn_text_col)
+            btn_text_rect = btn_text.get_rect(center=(btn_x + btn_w // 2, btn_y + btn_h // 2))
             surface.blit(btn_text, btn_text_rect)
 
+    def draw_hardware_panel(self):
+        """Draw hardware/information sources panel - alias for draw_generators_panel"""
+        self.draw_generators_panel()
+        
     def draw_generators_panel(self):
         """Draw generators panel with better design and scrolling"""
         # Update toggle button text based on state
-        if self.generators_panel_open:
-            self.generators_toggle.text = "▼ INFORMATION SOURCES"
+        if self.hardware_panel_open:
+            self.hardware_toggle.text = "▼ HARDWARE"
         else:
-            self.generators_toggle.text = "▶ INFORMATION SOURCES"
+            self.hardware_toggle.text = "▸ HARDWARE"
 
         # Draw toggle button with better styling
-        self.draw_panel_toggle(self.generators_toggle, self.generators_panel_open)
+        self.draw_panel_toggle(self.hardware_toggle, self.hardware_panel_open)
 
-        if not self.generators_panel_open:
+        if not self.hardware_panel_open:
             return
 
         # Draw scrollable panel background with integrated title
-        panel = self.generators_scroll_panel
+        panel = self.hardware_scroll_panel
         self.draw_panel_with_integrated_title(panel, COLORS["electric_cyan"])
 
         # Create a subsurface for scrollable content
@@ -1754,8 +2060,8 @@ Total Clicks: {self.state.total_clicks}
                 production = 0
             can_afford = self.state.can_afford(cost)
 
-            # Card dimensions - optimized for better space utilization
-            card_height = 70  # Reduced from 90
+            # Card dimensions - larger for enhanced design
+            card_height = 90  # Increased for better visibility
             card_y = y_offset + 8  # Reduced from 10
 
             # Only draw if visible (optimization)
@@ -1774,7 +2080,7 @@ Total Clicks: {self.state.total_clicks}
                     can_afford,
                 )
 
-            y_offset += card_height + 8  # Reduced spacing from 12
+            y_offset += card_height + 14  # Generous spacing from 12
 
         # Update content height for scrolling
         panel.set_content_height(y_offset + panel.get_scroll_offset() + 20)
@@ -1827,8 +2133,8 @@ Total Clicks: {self.state.total_clicks}
             cost = self.state.get_upgrade_cost(upgrade_id)
             can_afford = self.state.can_afford(cost) and level < upgrade["max_level"]
 
-            # Card - optimized for better space utilization
-            card_height = 65  # Reduced from 85
+            # Card - larger for enhanced design
+            card_height = 85  # Increased for better visibility
             card_y = y_offset + 8  # Reduced from 10
 
             if card_y + card_height > -20 and card_y < scroll_surface.get_height():
@@ -1845,7 +2151,7 @@ Total Clicks: {self.state.total_clicks}
                     can_afford,
                 )
 
-            y_offset += card_height + 8  # Reduced spacing from 12
+            y_offset += card_height + 14  # Generous spacing from 12
 
         panel.set_content_height(y_offset + panel.get_scroll_offset() + 20)
 
@@ -2041,39 +2347,15 @@ Total Clicks: {self.state.total_clicks}
                 self.rebirth_button.text = f"🌀 COMPRESS FOR {tokens} ⭐"
             self.rebirth_button.draw(self.screen)
         else:
-            # Show current generation and progress
-            gen_text = f"{current_gen['icon'] if 'icon' in current_gen else '💻'} {current_gen['name']}"
-            text_color = COLORS["neon_purple"]
-            text_surface = self.medium_font.render(gen_text, True, text_color)
-            text_rect = text_surface.get_rect(
-                center=(
-                    self.current_width // 2,
-                    self.current_height - int(60 * scale_y),
-                )
-            )
-            self.screen.blit(text_surface, text_rect)
+            pass  # Generation info shown in progress text below
 
-            # Show next generation info if available
-            if next_gen:
-                next_text = f"Next: {next_gen['name'].split()[0]} at {target_mb} MB"
-                next_color = COLORS["muted_blue"]
-                next_surface = self.small_font.render(next_text, True, next_color)
-                next_rect = next_surface.get_rect(
-                    center=(
-                        self.current_width // 2,
-                        self.current_height - int(40 * scale_y),
-                    )
-                )
-                self.screen.blit(next_surface, next_rect)
-
-        # Progress text with era completion
         progress_text = self.monospace_font.render(
             f"{era_completion_text} | ({current_mb} MB / {target_mb} MB)",
             True,
             COLORS["soft_white"],
         )
         progress_rect = progress_text.get_rect(
-            center=(self.current_width // 2, self.current_height - int(25 * scale_y))
+            center=(self.current_width // 2, self.current_height - int(38 * scale_y))
         )
         self.screen.blit(progress_text, progress_rect)
 
@@ -2518,8 +2800,127 @@ Total Clicks: {self.state.total_clicks}
             self._last_gradient_size = (self.current_width, self.current_height)
         return self._gradient_surface
 
+    def draw_tooltips(self):
+        """Draw tooltips for hovered elements"""
+        mouse_pos = pygame.mouse.get_pos()
+        
+        # Check if hovering over generators in the hardware panel
+        if self.hardware_panel_open:
+            panel = self.hardware_scroll_panel
+            all_generators = get_all_generators()
+            y_offset = -panel.get_scroll_offset()
+
+            for gen_id, generator in all_generators.items():
+                basic_generators = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
+                hardware_generators = CONFIG.get("HARDWARE_GENERATORS", {})
+                
+                # Check if unlocked
+                if gen_id in basic_generators:
+                    if not self.state.is_generator_unlocked(gen_id):
+                        continue
+                elif gen_id in hardware_generators:
+                    if not self.state.is_hardware_category_unlocked(generator.get("category", "")):
+                        continue
+
+                card_x = panel.rect.x + 10
+                card_y = panel.rect.y + 50 + y_offset + 8
+                card_width = panel.rect.width - 40
+                card_height = 70
+
+                card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+                
+                if card_rect.collidepoint(mouse_pos):
+                    # Show tooltip with flavor text
+                    flavor = generator.get("flavor", "")
+                    if flavor:
+                        self._draw_tooltip_box(mouse_pos, flavor)
+                    return
+                
+                y_offset += card_height + 14
+
+        # Check if hovering over upgrades in the upgrades panel
+        if self.upgrades_panel_open:
+            panel = self.upgrades_scroll_panel
+            all_upgrades = get_all_upgrades()
+            y_offset = -panel.get_scroll_offset()
+
+            for upgrade_id, upgrade in all_upgrades.items():
+                basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
+                hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
+                
+                if upgrade_id in basic_upgrades:
+                    if not self.state.is_upgrade_unlocked(upgrade_id):
+                        continue
+                elif upgrade_id in hardware_upgrades:
+                    if not self.state.is_hardware_category_unlocked(upgrade.get("category", "")):
+                        continue
+
+                card_x = panel.rect.x + 10
+                card_y = panel.rect.y + 50 + y_offset + 8
+                card_width = panel.rect.width - 40
+                card_height = 65
+
+                card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+                
+                if card_rect.collidepoint(mouse_pos):
+                    # Show tooltip with description
+                    desc = upgrade.get("description", "")
+                    effect = upgrade.get("effect", 0)
+                    max_level = upgrade.get("max_level", 0)
+                    if desc:
+                        tooltip_text = desc
+                        if effect and max_level:
+                            tooltip_text += f"\nEffect: {effect}x per level"
+                        self._draw_tooltip_box(mouse_pos, tooltip_text)
+                    return
+                
+                y_offset += card_height + 14
+
+    def _draw_tooltip_box(self, mouse_pos, text):
+        """Draw a tooltip box at the mouse position"""
+        # Create tooltip surface
+        tooltip_font = pygame.font.Font(None, 22)
+        lines = text.split("\n")
+        
+        max_width = 0
+        for line in lines:
+            width = tooltip_font.size(line)[0]
+            max_width = max(max_width, width)
+        
+        padding = 15
+        tooltip_width = max_width + padding * 2
+        tooltip_height = len(lines) * 22 + padding * 2
+        
+        # Position tooltip to not go off screen
+        tooltip_x = mouse_pos[0] + 15
+        tooltip_y = mouse_pos[1] + 15
+        
+        if tooltip_x + tooltip_width > self.current_width - 10:
+            tooltip_x = mouse_pos[0] - tooltip_width - 10
+        if tooltip_y + tooltip_height > self.current_height - 10:
+            tooltip_y = mouse_pos[1] - tooltip_height - 10
+        
+        # Draw tooltip background
+        tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
+        
+        # Semi-transparent dark background
+        tooltip_bg = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+        tooltip_bg.fill((15, 18, 28, 230))
+        self.screen.blit(tooltip_bg, (tooltip_x, tooltip_y))
+        
+        # Border
+        pygame.draw.rect(self.screen, COLORS["electric_cyan"], tooltip_rect, 1, border_radius=4)
+        
+        # Draw text
+        for i, line in enumerate(lines):
+            text_surface = tooltip_font.render(line, True, COLORS["soft_white"])
+            self.screen.blit(text_surface, (tooltip_x + padding, tooltip_y + padding + i * 22))
+
     def draw(self):
         self.screen.blit(self._get_gradient_surface(), (0, 0))
+
+        # Draw circuit board background effect
+        self.draw_circuit_background()
 
         # Draw binary rain (if enabled)
         if self.state.visual_settings["binary_rain"]:
@@ -2533,46 +2934,29 @@ Total Clicks: {self.state.total_clicks}
                 # Draw only background particles, not interactive elements
                 self.bit_visualization.draw(self.screen, self.state.bits)
 
-            # 2. Main accumulator (central element)
+            # 2. Draw top bar with title and bit counter
+            self.draw_top_bar()
+
+            # 3. Main accumulator and click area (central element)
             self.draw_accumulator()
 
-            # 3. Side panels (drawn after accumulator so they appear in front)
-            self.draw_generators_panel()
+            # 4. Side panels (drawn after accumulator so they appear in front)
+            self.draw_hardware_panel()
             self.draw_upgrades_panel()
 
-            # 4. Bottom rebirth bar
+            # 5. Bottom rebirth bar
             self.draw_rebirth_bar()
 
-            # 5. Interactive effects and UI elements
+            # 6. Interactive effects and UI elements
             self.draw_effects()
             self.draw_tutorial()
-
-            # 6. Header UI (top layer)
-            title_text = self.large_font.render(
-                "BIT BY BIT", True, COLORS["electric_cyan"]
-            )
-            title_rect = title_text.get_rect(
-                center=(
-                    self.current_width // 2,
-                    int(40 * (self.current_height / self.base_height)),
-                )
-            )
-            self.screen.blit(title_text, title_rect)
-
-            subtitle_text = self.small_font.render(
-                "A Game About Information", True, COLORS["muted_blue"]
-            )
-            subtitle_rect = subtitle_text.get_rect(
-                center=(
-                    self.current_width // 2,
-                    int(70 * (self.current_height / self.base_height)),
-                )
-            )
-            self.screen.blit(subtitle_text, subtitle_rect)
 
             # Header buttons (always on top)
             self.settings_button.draw(self.screen)
             self.stats_button.draw(self.screen)
+
+            # Draw tooltips (after everything else)
+            self.draw_tooltips()
 
             # CRT scanline overlay (final layer)
             if self.state.visual_settings["crt_effects"]:
@@ -2583,6 +2967,145 @@ Total Clicks: {self.state.total_clicks}
         else:
             # Draw settings page
             self.draw_settings_page()
+
+    def draw_circuit_background(self):
+        """Draw subtle circuit board pattern in background"""
+        # Draw faint circuit traces
+        circuit_color = (30, 40, 60)
+        trace_width = 2
+        
+        # Vertical traces on left and right thirds
+        for x in [int(self.current_width * 0.15), int(self.current_width * 0.85)]:
+            pygame.draw.line(self.screen, circuit_color, (x, 0), (x, self.current_height), trace_width)
+        
+        # Horizontal traces
+        for y in [int(self.current_height * 0.3), int(self.current_height * 0.6)]:
+            pygame.draw.line(self.screen, circuit_color, (0, y), (self.current_width, trace_width))
+        
+        # Draw circuit nodes (small circles at intersections)
+        node_color = (40, 55, 80)
+        node_radius = 4
+        for x in [int(self.current_width * 0.15), int(self.current_width * 0.85)]:
+            for y in [int(self.current_height * 0.3), int(self.current_height * 0.6)]:
+                pygame.draw.circle(self.screen, node_color, (x, y), node_radius)
+
+    def _draw_binary_stream(self, x, y_start, char_height):
+        """Draw animated binary digits streaming down the side of accumulator"""
+        import random
+        time_ms = pygame.time.get_ticks()
+        
+        # Create binary stream effect
+        num_digits = 8
+        binary_font = pygame.font.Font(None, 18)
+        
+        for i in range(num_digits):
+            # Stagger the animation
+            offset = (time_ms // 300 + i * 50) % 300
+            y_pos = y_start + i * char_height - (offset / 10)
+            
+            # Random binary digit that changes slowly
+            seed = (time_ms // 1000 + i) % 2
+            digit = "1" if seed else "0"
+            
+            # Color based on digit - 1s are brighter
+            color = COLORS["matrix_green"] if digit == "1" else (30, 80, 30)
+            alpha = 180 if digit == "1" else 80
+            
+            # Create surface for alpha blending
+            text_surface = binary_font.render(digit, True, color)
+            text_surface.set_alpha(alpha)
+            self.screen.blit(text_surface, (x, y_pos))
+
+    def draw_top_bar(self):
+        """Draw the top bar with title and bit counter - improved hierarchy"""
+        scale_x = self.current_width / self.base_width
+        scale_y = self.current_height / self.base_height
+        
+        # Top bar background with gradient effect
+        top_bar_rect = pygame.Rect(0, 0, self.current_width, int(80 * scale_y))
+        
+        # Subtle gradient background
+        for i in range(int(80 * scale_y)):
+            color_ratio = i / (80 * scale_y)
+            color = (
+                int(15 + color_ratio * 10),
+                int(20 + color_ratio * 12),
+                int(35 + color_ratio * 20)
+            )
+            pygame.draw.line(self.screen, color, (0, i), (self.current_width, i))
+        
+        # Bottom border glow - more prominent
+        border_color = COLORS["electric_cyan"]
+        pygame.draw.line(self.screen, border_color, 
+                        (0, int(80 * scale_y)), 
+                        (self.current_width, int(80 * scale_y)), 2)
+        # Add glow
+        for i in range(1, 4):
+            alpha = 40 - i * 10
+            glow_color = (*border_color[:3], alpha) if len(border_color) > 3 else border_color
+            pygame.draw.line(self.screen, border_color, 
+                            (0, int(80 * scale_y) + i), 
+                            (self.current_width, int(80 * scale_y) + i), 1)
+        
+        # Title on left side - more prominent
+        title_text = self.large_font.render(
+            "BIT BY BIT", True, COLORS["electric_cyan"]
+        )
+        # Title glow
+        for offset, alpha in [((2, 2), 30), ((1, 1), 50)]:
+            glow_surface = title_text.copy()
+            glow_surface.set_alpha(alpha)
+            self.screen.blit(glow_surface, (int(20 * scale_x) + offset[0], int(12 * scale_y) + offset[1]))
+        self.screen.blit(title_text, (int(20 * scale_x), int(12 * scale_y)))
+        
+        subtitle_text = self.small_font.render(
+            "Information Accumulator", True, COLORS["muted_blue"]
+        )
+        self.screen.blit(subtitle_text, (int(20 * scale_x), int(50 * scale_y)))
+        
+        # Bit counter - HUGE and prominent in center-top (main focal point)
+        if not hasattr(self, "display_bits"):
+            self.display_bits = self.state.bits
+        
+        smoothing_factor = 0.15
+        self.display_bits += (self.state.bits - self.display_bits) * smoothing_factor
+        
+        # Main bit counter - massive and glowing
+        bits_str = f"{self.format_number(int(self.display_bits))}"
+        bits_text = self.bit_counter_font.render(bits_str, True, COLORS["matrix_green"])
+        
+        # Multi-layer glow effect for bit counter
+        for offset, alpha in [((4, 4), 15), ((3, 3), 25), ((2, 2), 40), ((1, 1), 60)]:
+            glow_surface = bits_text.copy()
+            glow_surface.set_alpha(alpha)
+            glow_pos = (self.current_width // 2 - bits_text.get_width() // 2 + offset[0],
+                       int(25 * scale_y) + offset[1])
+            self.screen.blit(glow_surface, glow_pos)
+        
+        bits_rect = bits_text.get_rect(center=(self.current_width // 2, int(40 * scale_y)))
+        self.screen.blit(bits_text, bits_rect)
+        
+        # Production rate display - directly below bit counter, clear hierarchy
+        rate = self.state.get_production_rate()
+        rate_str = f"+{self.format_number(int(rate))} bits/sec"
+        rate_text = self.medium_font.render(rate_str, True, COLORS["electric_cyan"])
+        rate_rect = rate_text.get_rect(center=(self.current_width // 2, int(68 * scale_y)))
+        
+        # Rate glow
+        for offset, alpha in [((1, 1), 30), ((-1, -1), 50)]:
+            glow_surface = rate_text.copy()
+            glow_surface.set_alpha(alpha)
+            self.screen.blit(glow_surface, (rate_rect.x + offset[0], rate_rect.y + offset[1]))
+        
+        self.screen.blit(rate_text, rate_rect)
+        
+        # Click power display (if different from base)
+        click_power = self.state.get_click_power()
+        if click_power > 1:
+            click_str = f"Click: +{self.format_number(click_power)}"
+            click_text = self.small_font.render(click_str, True, COLORS["signal_orange"])
+            click_rect = click_text.get_rect(center=(self.current_width // 2, int(88 * scale_y)))
+            self.screen.blit(click_text, click_rect)
 
     def run(self):
         while self.running:
