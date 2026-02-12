@@ -5,7 +5,7 @@ Game state management for Bit by Bit Game
 import pygame
 import math
 import json
-from constants import *
+from constants import CONFIG, GENERATORS, UPGRADES, HARDWARE_GENERATIONS
 
 
 class GameState:
@@ -76,7 +76,6 @@ class GameState:
             for upgrade_id in CONFIG["HARDWARE_UPGRADES"]:
                 self.upgrades[upgrade_id] = {"level": 0}
 
-        # Load compression configs if available
         try:
             from toon_parser import load_toon_file
 
@@ -89,8 +88,7 @@ class GameState:
             if "compression_token_upgrades" in compression_ups:
                 for upgrade in compression_ups["compression_token_upgrades"]:
                     self.compression_upgrades[upgrade["id"]] = upgrade
-        except:
-            # Config files not found, use empty
+        except (FileNotFoundError, KeyError, ImportError):
             pass
 
         # Initialize compression structures
@@ -195,7 +193,14 @@ class GameState:
         return base_click + click_upgrade_bonus
 
     def get_generator_cost(self, generator_id, quantity=1):
-        generator = CONFIG["GENERATORS"][generator_id]
+        # Check both basic and hardware generators
+        if generator_id in CONFIG["GENERATORS"]:
+            generator = CONFIG["GENERATORS"][generator_id]
+        elif generator_id in CONFIG.get("HARDWARE_GENERATORS", {}):
+            generator = CONFIG["HARDWARE_GENERATORS"][generator_id]
+        else:
+            return float('inf')  # Unknown generator
+        
         current_count = self.generators[generator_id]["count"]
 
         if quantity == 1:
@@ -233,13 +238,22 @@ class GameState:
         return self.bits >= cost
 
     def is_generator_unlocked(self, generator_id):
-        generator = CONFIG["GENERATORS"][generator_id]
-        if "unlock_threshold" not in generator:
-            return True
-        return (
-            generator_id in self.unlocked_generators
-            or self.total_bits_earned >= generator["unlock_threshold"]
-        )
+        # Check both basic and hardware generators
+        if generator_id in CONFIG["GENERATORS"]:
+            generator = CONFIG["GENERATORS"][generator_id]
+            if "unlock_threshold" not in generator:
+                return True
+            return (
+                generator_id in self.unlocked_generators
+                or self.total_bits_earned >= generator["unlock_threshold"]
+            )
+        elif generator_id in CONFIG.get("HARDWARE_GENERATORS", {}):
+            generator = CONFIG["HARDWARE_GENERATORS"][generator_id]
+            # Hardware generators are unlocked by category
+            return self.is_hardware_category_unlocked(generator["category"])
+        else:
+            # Unknown generator
+            return False
 
     def is_upgrade_unlocked(self, upgrade_id):
         """Check if upgrade is unlocked based on hardware category and bits earned"""
@@ -247,6 +261,13 @@ class GameState:
             # Basic upgrades available from start
             if self.total_bits_earned >= 1000:
                 return True
+        elif upgrade_id in CONFIG.get("HARDWARE_UPGRADES", {}):
+            upgrade = CONFIG["HARDWARE_UPGRADES"][upgrade_id]
+            # Hardware upgrades are unlocked by category
+            return self.is_hardware_category_unlocked(upgrade["category"])
+        else:
+            # Unknown upgrade
+            return False
         return False
 
     def is_hardware_category_unlocked(self, category):

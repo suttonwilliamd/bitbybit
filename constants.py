@@ -11,15 +11,11 @@ from toon_parser import load_toon_file
 # Initialize Pygame
 pygame.init()
 
-# Load game configuration from TOON files
 try:
     GAME_CONFIG = load_toon_file("config/game.toon")
     GENERATORS_CONFIG = load_toon_file("config/generators.toon")
     UPGRADES_CONFIG = load_toon_file("config/upgrades.toon")
-    print("Successfully loaded TOON configs")
-except Exception as e:
-    print(f"Error loading TOON config: {e}")
-    # Fallback to hardcoded config
+except Exception:
     GAME_CONFIG = {
         "display": {
             "width": 1200,
@@ -85,14 +81,10 @@ REBIRTH_THRESHOLD = GAME_CONFIG.get("rebirth", {}).get(
     "threshold_bits", 128 * 1024 * 1024
 )
 
-# Convert config arrays to dictionaries for easier access
 GENERATORS = {}
 if "generators" in GENERATORS_CONFIG and GENERATORS_CONFIG["generators"]:
     for gen in GENERATORS_CONFIG["generators"]:
         GENERATORS[gen["id"]] = gen
-        print(f"Loaded generator: {gen['id']}")
-else:
-    print("No generators found in config, will use hardcoded later")
 
 # Game Configuration
 CONFIG = {
@@ -150,6 +142,207 @@ CONFIG = {
             "effect": 1,  # +1 bit per click
             "max_level": 15,
             "description": "Increases click value by +1 bit",
+        },
+    },
+    "HARDWARE_GENERATORS": {
+        "cpu_core": {
+            "id": "cpu_core",
+            "name": "CPU Core",
+            "category": "cpu",
+            "base_cost": 50,
+            "base_production": 5,
+            "cost_multiplier": 1.15,
+            "icon": "🧠",
+            "flavor": "The heart of computation.",
+        },
+        "cpu_cache": {
+            "id": "cpu_cache",
+            "name": "CPU Cache",
+            "category": "cpu",
+            "base_cost": 500,
+            "base_production": 50,
+            "cost_multiplier": 1.15,
+            "icon": "⚡",
+            "flavor": "Lightning-fast memory access.",
+        },
+        "memory_stick": {
+            "id": "memory_stick",
+            "name": "Memory Stick",
+            "category": "ram",
+            "base_cost": 200,
+            "base_production": 20,
+            "cost_multiplier": 1.15,
+            "icon": "📦",
+            "flavor": "Volatile but speedy storage.",
+        },
+        "memory_bank": {
+            "id": "memory_bank",
+            "name": "Memory Bank",
+            "category": "ram",
+            "base_cost": 2000,
+            "base_production": 200,
+            "cost_multiplier": 1.15,
+            "icon": "🏦",
+            "flavor": "Organized memory architecture.",
+        },
+        "hard_drive": {
+            "id": "hard_drive",
+            "name": "Hard Drive",
+            "category": "storage",
+            "base_cost": 1000,
+            "base_production": 100,
+            "cost_multiplier": 1.15,
+            "icon": "💾",
+            "flavor": "Spinning platters of data.",
+        },
+        "solid_state": {
+            "id": "solid_state",
+            "name": "SSD",
+            "category": "storage",
+            "base_cost": 10000,
+            "base_production": 1000,
+            "cost_multiplier": 1.15,
+            "icon": "⚡",
+            "flavor": "Flash-based storage revolution.",
+        },
+        "graphics_card": {
+            "id": "graphics_card",
+            "name": "Graphics Card",
+            "category": "gpu",
+            "base_cost": 5000,
+            "base_production": 500,
+            "cost_multiplier": 1.15,
+            "icon": "🎮",
+            "flavor": "Parallel processing powerhouse.",
+        },
+        "tensor_core": {
+            "id": "tensor_core",
+            "name": "Tensor Core",
+            "category": "gpu",
+            "base_cost": 50000,
+            "base_production": 5000,
+            "cost_multiplier": 1.15,
+            "icon": "🤖",
+            "flavor": "AI acceleration unit.",
+        },
+        "ethernet_card": {
+            "id": "ethernet_card",
+            "name": "Ethernet Card",
+            "category": "network",
+            "base_cost": 3000,
+            "base_production": 300,
+            "cost_multiplier": 1.15,
+            "icon": "🌐",
+            "flavor": "Connect to world.",
+        },
+        "fiber_optic": {
+            "id": "fiber_optic",
+            "name": "Fiber Optic",
+            "category": "network",
+            "base_cost": 30000,
+            "base_production": 3000,
+            "cost_multiplier": 1.15,
+            "icon": "💫",
+            "flavor": "Light-speed data transfer.",
+        },
+        "mobile_chip": {
+            "id": "mobile_chip",
+            "name": "Mobile Chip",
+            "category": "mobile",
+            "base_cost": 15000,
+            "base_production": 1500,
+            "cost_multiplier": 1.15,
+            "icon": "📱",
+            "flavor": "Computing in your pocket.",
+        },
+        "ai_accelerator": {
+            "id": "ai_accelerator",
+            "name": "AI Accelerator",
+            "category": "ai",
+            "base_cost": 100000,
+            "base_production": 10000,
+            "cost_multiplier": 1.15,
+            "icon": "🧬",
+            "flavor": "Neural network processor.",
+        },
+    },
+    "HARDWARE_UPGRADES": {
+        "overclock": {
+            "id": "overclock",
+            "category": "cpu",
+            "name": "CPU Overclock",
+            "icon": "🚀",
+            "base_cost": 5000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all CPU production",
+        },
+        "memory_optimization": {
+            "id": "memory_optimization",
+            "category": "ram",
+            "name": "Memory Optimization",
+            "icon": "🔧",
+            "base_cost": 8000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all RAM production",
+        },
+        "data_compression": {
+            "id": "data_compression",
+            "category": "storage",
+            "name": "Data Compression",
+            "icon": "📦",
+            "base_cost": 12000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all Storage production",
+        },
+        "ray_tracing": {
+            "id": "ray_tracing",
+            "category": "gpu",
+            "name": "Ray Tracing",
+            "icon": "✨",
+            "base_cost": 20000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all GPU production",
+        },
+        "bandwidth_boost": {
+            "id": "bandwidth_boost",
+            "category": "network",
+            "name": "Bandwidth Boost",
+            "icon": "📡",
+            "base_cost": 25000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all Network production",
+        },
+        "battery_efficiency": {
+            "id": "battery_efficiency",
+            "category": "mobile",
+            "name": "Battery Efficiency",
+            "icon": "🔋",
+            "base_cost": 30000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all Mobile production",
+        },
+        "neural_network": {
+            "id": "neural_network",
+            "category": "ai",
+            "name": "Neural Network",
+            "icon": "🧠",
+            "base_cost": 50000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all AI production",
         },
     },
 }
@@ -275,14 +468,33 @@ HARDWARE_CATEGORIES = {
     },
 }
 
+COMPONENT_BASE_COSTS = {
+    "CPU": 100,
+    "BUS": 50,
+    "RAM": 200,
+    "STORAGE": 300,
+    "GPU": 400,
+}
+
+
+def get_all_generators():
+    """Get merged dictionary of basic and hardware generators"""
+    basic = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
+    hardware = CONFIG.get("HARDWARE_GENERATORS", {})
+    return {**basic, **hardware}
+
+
+def get_all_upgrades():
+    """Get merged dictionary of basic and hardware upgrades"""
+    basic = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
+    hardware = CONFIG.get("HARDWARE_UPGRADES", {})
+    return {**basic, **hardware}
+
 # Initialize UPGRADES from CONFIG since TOON parsing has issues
 UPGRADES = {}
 if "UPGRADES" in CONFIG:
     for upgrade_id, upgrade in CONFIG["UPGRADES"].items():
         UPGRADES[upgrade_id] = upgrade
-        print(f"Loaded upgrade: {upgrade_id}")
-else:
-    print("No upgrades found in config, will use hardcoded later")
 
 
 # Ensure we have generators and upgrades from CONFIG if TOON loading failed
@@ -290,11 +502,8 @@ def ensure_config_loaded():
     global GENERATORS, UPGRADES
     if not GENERATORS:
         GENERATORS = CONFIG["GENERATORS"]
-        print("Using hardcoded generators from CONFIG")
     if not UPGRADES:
         UPGRADES = CONFIG["UPGRADES"]
-        print("Using hardcoded upgrades from CONFIG")
 
 
-# Call this after CONFIG is defined
 ensure_config_loaded()

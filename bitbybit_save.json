@@ -1,245 +1,114 @@
 {
   "version": "1.0.0",
-  "timestamp": 43416,
+  "timestamp": 1470628,
   "state": {
-    "bits": 124,
-    "total_bits_earned": 808,
-    "total_clicks": 1919,
-    "start_time": 130,
+    "bits": 248052634,
+    "total_bits_earned": 248641972,
+    "total_clicks": 638,
+    "start_time": 152,
     "total_play_time": 0,
     "generators": {
       "rng": {
-        "count": 15,
-        "total_bought": 15
+        "count": 21,
+        "total_bought": 21
       },
       "biased_coin": {
-        "count": 2,
-        "total_bought": 2
+        "count": 10,
+        "total_bought": 10
       },
       "dice_roller": {
+        "count": 24,
+        "total_bought": 24
+      },
+      "cpu_core": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "cpu_cache": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "memory_stick": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "memory_bank": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "hard_drive": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "solid_state": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "graphics_card": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "tensor_core": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "ethernet_card": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "fiber_optic": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "mobile_chip": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "ai_accelerator": {
         "count": 0,
         "total_bought": 0
       }
     },
     "unlocked_generators": [
       "rng",
-      "biased_coin"
+      "biased_coin",
+      "dice_roller"
     ],
     "upgrades": {
       "entropy_amplification": {
-        "level": 0
+        "level": 3
       },
       "click_power": {
         "level": 0
+      },
+      "overclock": {
+        "level": 0
+      },
+      "memory_optimization": {
+        "level": 0
+      },
+      "data_compression": {
+        "level": 0
+      },
+      "ray_tracing": {
+        "level": 0
+      },
+      "bandwidth_boost": {
+        "level": 0
+      },
+      "battery_efficiency": {
+        "level": 0
+      },
+      "neural_network": {
+        "level": 0
       }
     },
-    "tutorial_step": 2,
-    "has_seen_tutorial": true,
+    "tutorial_step": 0,
+    "has_seen_tutorial": false,
     "visual_settings": {
       "crt_effects": false,
       "binary_rain": true,
       "particle_effects": true
-    }
-  },
-  "HARDWARE_GENERATORS": {
-    "cpu_core": {
-      "id": "cpu_core",
-      "name": "CPU Core",
-      "category": "cpu",
-      "base_cost": 50,
-      "base_production": 5,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83e\udde0",
-      "flavor": "The heart of computation."
-    },
-    "cpu_cache": {
-      "id": "cpu_cache",
-      "name": "CPU Cache",
-      "category": "cpu",
-      "base_cost": 500,
-      "base_production": 50,
-      "cost_multiplier": 1.15,
-      "icon": "\u26a1",
-      "flavor": "Lightning-fast memory access."
-    },
-    "memory_stick": {
-      "id": "memory_stick",
-      "name": "Memory Stick",
-      "category": "ram",
-      "base_cost": 200,
-      "base_production": 20,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83d\udce6",
-      "flavor": "Volatile but speedy storage."
-    },
-    "memory_bank": {
-      "id": "memory_bank",
-      "name": "Memory Bank",
-      "category": "ram",
-      "base_cost": 2000,
-      "base_production": 200,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83c\udfe6",
-      "flavor": "Organized memory architecture."
-    },
-    "hard_drive": {
-      "id": "hard_drive",
-      "name": "Hard Drive",
-      "category": "storage",
-      "base_cost": 1000,
-      "base_production": 100,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83d\udcbe",
-      "flavor": "Spinning platters of data."
-    },
-    "solid_state": {
-      "id": "solid_state",
-      "name": "SSD",
-      "category": "storage",
-      "base_cost": 10000,
-      "base_production": 1000,
-      "cost_multiplier": 1.15,
-      "icon": "\u26a1",
-      "flavor": "Flash-based storage revolution."
-    },
-    "graphics_card": {
-      "id": "graphics_card",
-      "name": "Graphics Card",
-      "category": "gpu",
-      "base_cost": 5000,
-      "base_production": 500,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83c\udfae",
-      "flavor": "Parallel processing powerhouse."
-    },
-    "tensor_core": {
-      "id": "tensor_core",
-      "name": "Tensor Core",
-      "category": "gpu",
-      "base_cost": 50000,
-      "base_production": 5000,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83e\udd16",
-      "flavor": "AI acceleration unit."
-    },
-    "ethernet_card": {
-      "id": "ethernet_card",
-      "name": "Ethernet Card",
-      "category": "network",
-      "base_cost": 3000,
-      "base_production": 300,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83c\udf10",
-      "flavor": "Connect to world."
-    },
-    "fiber_optic": {
-      "id": "fiber_optic",
-      "name": "Fiber Optic",
-      "category": "network",
-      "base_cost": 30000,
-      "base_production": 3000,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83d\udcab",
-      "flavor": "Light-speed data transfer."
-    },
-    "mobile_chip": {
-      "id": "mobile_chip",
-      "name": "Mobile Chip",
-      "category": "mobile",
-      "base_cost": 15000,
-      "base_production": 1500,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83d\udcf1",
-      "flavor": "Computing in your pocket."
-    },
-    "ai_accelerator": {
-      "id": "ai_accelerator",
-      "name": "AI Accelerator",
-      "category": "ai",
-      "base_cost": 100000,
-      "base_production": 10000,
-      "cost_multiplier": 1.15,
-      "icon": "\ud83e\uddec",
-      "flavor": "Neural network processor."
-    }
-  },
-  "HARDWARE_UPGRADES": {
-    "overclock": {
-      "id": "overclock",
-      "category": "cpu",
-      "name": "CPU Overclock",
-      "icon": "\ud83d\ude80",
-      "base_cost": 5000,
-      "cost_multiplier": 5,
-      "effect": 2,
-      "max_level": 5,
-      "description": "Double all CPU production"
-    },
-    "memory_optimization": {
-      "id": "memory_optimization",
-      "category": "ram",
-      "name": "Memory Optimization",
-      "icon": "\ud83d\udd27",
-      "base_cost": 8000,
-      "cost_multiplier": 5,
-      "effect": 2,
-      "max_level": 5,
-      "description": "Double all RAM production"
-    },
-    "data_compression": {
-      "id": "data_compression",
-      "category": "storage",
-      "name": "Data Compression",
-      "icon": "\ud83d\udce6",
-      "base_cost": 12000,
-      "cost_multiplier": 5,
-      "effect": 2,
-      "max_level": 5,
-      "description": "Double all Storage production"
-    },
-    "ray_tracing": {
-      "id": "ray_tracing",
-      "category": "gpu",
-      "name": "Ray Tracing",
-      "icon": "\u2728",
-      "base_cost": 20000,
-      "cost_multiplier": 5,
-      "effect": 2,
-      "max_level": 5,
-      "description": "Double all GPU production"
-    },
-    "bandwidth_boost": {
-      "id": "bandwidth_boost",
-      "category": "network",
-      "name": "Bandwidth Boost",
-      "icon": "\ud83d\udce1",
-      "base_cost": 25000,
-      "cost_multiplier": 5,
-      "effect": 2,
-      "max_level": 5,
-      "description": "Double all Network production"
-    },
-    "battery_efficiency": {
-      "id": "battery_efficiency",
-      "category": "mobile",
-      "name": "Battery Efficiency",
-      "icon": "\ud83d\udd0b",
-      "base_cost": 30000,
-      "cost_multiplier": 5,
-      "effect": 2,
-      "max_level": 5,
-      "description": "Double all Mobile production"
-    },
-    "neural_network": {
-      "id": "neural_network",
-      "category": "ai",
-      "name": "Neural Network",
-      "icon": "\ud83e\udde0",
-      "base_cost": 50000,
-      "cost_multiplier": 5,
-      "effect": 2,
-      "max_level": 5,
-      "description": "Double all AI production"
     }
   }
 }

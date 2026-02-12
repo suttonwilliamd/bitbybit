@@ -180,10 +180,8 @@ class SmartBitVisualization:
             "streams": float("inf"),  # >100M: Data streams
         }
 
-        # Performance settings
         self.quality_level = "high"  # high, medium, low
         self.max_particles = 1000
-        self.particle_pool = []  # Object pooling for performance
 
     def get_visualization_mode(self, bits):
         """Determine visualization mode based on bit count"""
@@ -567,83 +565,9 @@ class BitVisualization(SmartBitVisualization):
 
     def __init__(self, center_x, center_y):
         super().__init__(center_x, center_y)
-        # Set high quality by default for legacy behavior
         self.set_quality_level("high")
 
     def draw(self, screen, bits=None):
-        """Legacy draw method that doesn't require bits parameter"""
         if bits is None:
-            bits = 0  # Default value for compatibility
+            bits = 0
         super().draw(screen, bits=bits)
-
-    def draw(self, screen):
-        # Draw background particles
-        for particle in self.background_particles:
-            alpha = particle["lifetime"] / 8.0  # Normalize to 0-1
-            color = tuple(int(c * alpha) for c in particle["color"])
-            # Ensure color values are valid (0-255)
-            color = tuple(max(0, min(255, c)) for c in color)
-            pygame.draw.circle(
-                screen,
-                color,
-                (int(particle["x"]), int(particle["y"])),
-                particle["size"],
-            )
-
-        # Draw data streams
-        for stream in self.data_streams:
-            if stream["progress"] > 0:
-                current_x = (
-                    stream["start_x"]
-                    + (stream["end_x"] - stream["start_x"]) * stream["progress"]
-                )
-                current_y = (
-                    stream["start_y"]
-                    + (stream["end_y"] - stream["start_y"]) * stream["progress"]
-                )
-
-                # Draw stream as connected dots
-                trail_length = 5
-                for i in range(trail_length):
-                    trail_progress = max(0, stream["progress"] - (i * 0.02))
-                    if trail_progress > 0:
-                        trail_x = (
-                            stream["start_x"]
-                            + (stream["end_x"] - stream["start_x"]) * trail_progress
-                        )
-                        trail_y = (
-                            stream["start_y"]
-                            + (stream["end_y"] - stream["start_y"]) * trail_progress
-                        )
-                        alpha = (1.0 - i / trail_length) * (1.0 - stream["progress"])
-                        color = tuple(int(c * alpha) for c in stream["color"])
-                        # Ensure color values are valid (0-255)
-                        color = tuple(max(0, min(255, c)) for c in color)
-                        pygame.draw.circle(
-                            screen,
-                            color,
-                            (int(trail_x), int(trail_y)),
-                            stream["width"] - i,
-                        )
-
-        # Draw main bit dots with enhanced glow
-        for dot in self.dots:
-            # Add extra glow effect
-            if dot.lifetime > 0.5:
-                glow_size = dot.size + 4
-                glow_alpha = (dot.lifetime - 0.5) * 0.3
-                glow_color = tuple(int(c * glow_alpha) for c in COLORS["electric_cyan"])
-                pygame.draw.circle(
-                    screen, glow_color, (int(dot.x), int(dot.y)), glow_size
-                )
-
-            dot.draw(screen)
-
-        # Draw central pulse effect
-        if self.pulse_timer > 0:
-            pulse_radius = int(abs(math.sin(self.pulse_timer)) * 30)
-            pulse_alpha = abs(math.sin(self.pulse_timer)) * 0.3
-            pulse_color = tuple(int(c * pulse_alpha) for c in COLORS["electric_cyan"])
-            pygame.draw.circle(
-                screen, pulse_color, (self.center_x, self.center_y), pulse_radius, 2
-            )

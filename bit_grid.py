@@ -6,35 +6,7 @@ import pygame
 import math
 import random
 from constants import COLORS
-
-
-class BitDot:
-    def __init__(self, center_x, center_y, bits_value):
-        self.center_x = center_x
-        self.center_y = center_y
-        self.angle = random.uniform(0, 2 * math.pi)
-        self.radius = 0
-        self.target_radius = random.uniform(20, 80)
-        self.lifetime = 1.0
-        self.size = 4
-        self.bits_value = bits_value
-        self.spiral_speed = random.uniform(1, 3)
-
-    def update(self, dt):
-        # Spiral outward animation
-        self.radius += (self.target_radius - self.radius) * 2 * dt
-        self.angle += self.spiral_speed * dt
-        self.lifetime -= dt
-        # Calculate actual position
-        self.x = self.center_x + math.cos(self.angle) * self.radius
-        self.y = self.center_y + math.sin(self.angle) * self.radius
-
-    def draw(self, screen):
-        if self.lifetime > 0:
-            alpha = int(255 * self.lifetime)
-
-            color = COLORS["electric_cyan"]
-            pygame.draw.circle(screen, color, (int(self.x), int(self.y)), self.size)
+from visual_effects import BitDot
 
 
 class MotherboardBitGrid:
@@ -44,15 +16,15 @@ class MotherboardBitGrid:
         self.width = width
         self.height = height
 
-        # Motherboard component definitions - based on real-world hardware specifications
-        # Using mainframe era (1960s) as starting point
+        # Motherboard component definitions - re-arranged for no overlapping
+        # Layout designed like a real motherboard with proper spacing
         self.components = {
             "CPU": {
-                "x_ratio": 0.15,  # Moved left
-                "y_ratio": 0.35,
-                "width_ratio": 0.25,  # Slightly smaller
-                "height_ratio": 0.3,
-                "bits": 64,  # 64-bit registers (realistic for early mainframes)
+                "x_ratio": 0.05,  # Left side, top
+                "y_ratio": 0.1,
+                "width_ratio": 0.18,  # Compact square
+                "height_ratio": 0.25,
+                "bits": 64,  # 64-bit registers
                 "unlocked": True,
                 "level": 1,
                 "color": (200, 50, 50),
@@ -60,11 +32,11 @@ class MotherboardBitGrid:
                 "description": "64-bit Registers",
             },
             "BUS": {
-                "x_ratio": 0.42,  # Centered, spans between CPU and GPU
-                "y_ratio": 0.15,
-                "width_ratio": 0.35,  # Still spans width but proportionally smaller
-                "height_ratio": 0.15,
-                "bits": 16,  # 16-bit address bus (typical for mainframe era)
+                "x_ratio": 0.28,  # Top center, between CPU and RAM
+                "y_ratio": 0.05,  # Top row
+                "width_ratio": 0.44,  # Wide but not full width
+                "height_ratio": 0.12,  # Thin horizontal bar
+                "bits": 16,  # 16-bit address bus
                 "unlocked": True,
                 "level": 1,
                 "color": (100, 100, 150),
@@ -72,11 +44,11 @@ class MotherboardBitGrid:
                 "description": "16-bit Address Bus",
             },
             "RAM": {
-                "x_ratio": 0.02,  # Far left
-                "y_ratio": 0.6,  # Lower
-                "width_ratio": 0.22,  # Slightly smaller
-                "height_ratio": 0.35,
-                "bits": 1024,  # 1KB RAM (realistic for 1960s mainframes)
+                "x_ratio": 0.05,  # Left side, middle
+                "y_ratio": 0.4,  # Middle-left, below CPU
+                "width_ratio": 0.22,  # Moderate width
+                "height_ratio": 0.3,  # Moderate height
+                "bits": 1024,  # 1KB RAM
                 "unlocked": False,
                 "level": 0,
                 "color": (50, 200, 50),
@@ -84,11 +56,11 @@ class MotherboardBitGrid:
                 "description": "1KB Core Memory",
             },
             "STORAGE": {
-                "x_ratio": 0.76,  # Far right
-                "y_ratio": 0.6,  # Lower
-                "width_ratio": 0.22,  # Slightly smaller
-                "height_ratio": 0.35,
-                "bits": 8192,  # 8KB storage (typical for early disk drives)
+                "x_ratio": 0.75,  # Right side, bottom
+                "y_ratio": 0.6,  # Bottom-right
+                "width_ratio": 0.2,  # Compact
+                "height_ratio": 0.3,  # Same height as RAM
+                "bits": 8192,  # 8KB storage
                 "unlocked": False,
                 "level": 0,
                 "color": (50, 100, 200),
@@ -96,11 +68,11 @@ class MotherboardBitGrid:
                 "description": "8KB Disk Drive",
             },
             "GPU": {
-                "x_ratio": 0.53,  # Moved right, more space from CPU
-                "y_ratio": 0.05,  # Moved up
-                "width_ratio": 0.22,  # Slightly smaller
-                "height_ratio": 0.25,  # Adjusted proportions
-                "bits": 512,  # 512B video memory (realistic for early graphics terminals)
+                "x_ratio": 0.38,  # Center-right, top-middle
+                "y_ratio": 0.25,  # Middle area, right of CPU
+                "width_ratio": 0.18,  # Same size as CPU
+                "height_ratio": 0.22,  # Slightly shorter than CPU
+                "bits": 512,  # 512B video memory
                 "unlocked": False,
                 "level": 0,
                 "color": (200, 50, 200),
@@ -121,42 +93,47 @@ class MotherboardBitGrid:
             comp["bit_states"] = [0] * total_bits
             comp["bit_animations"] = {}
 
-        # Global state
         self.total_bits_earned = 0
         self.last_bits_count = 0
         self.last_rebirth_progress = 0
 
-        # Colors
         self.colors = {
-            0: (40, 40, 40),  # 0 bit (dark gray)
-            1: (50, 200, 50),  # 1 bit (green)
-            "transitioning": (100, 150, 100),  # Transitioning state
-            "component_border": (120, 120, 140),  # Component borders
-            "locked": (30, 30, 30),  # Locked component color
-            "connection": (80, 80, 100),  # Connection lines
+            0: (40, 40, 40),
+            1: (50, 200, 50),
+            "transitioning": (100, 150, 100),
+            "component_border": (120, 120, 140),
+            "locked": (30, 30, 30),
+            "connection": (80, 80, 100),
         }
 
-    def update(self, bits, total_bits_earned, rebirth_threshold, hardware_generation=0):
-        # Store current state
+    def update_dimensions(self, x, y, width, height):
+        """Update the grid dimensions and recalculate component positions"""
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        for comp_name, comp in self.components.items():
+            comp["x"] = self.x + int(self.width * comp["x_ratio"])
+            comp["y"] = self.y + int(self.height * comp["y_ratio"])
+            comp["width"] = int(self.width * comp["width_ratio"])
+            comp["height"] = int(self.height * comp["height_ratio"])
+
+    def update(self, bits, total_bits_earned, rebirth_threshold, hardware_generation=0, dt=1/60):
         self.total_bits_earned = total_bits_earned
         self.last_rebirth_progress = min(1.0, total_bits_earned / rebirth_threshold)
         self.hardware_generation = hardware_generation
+        self.dt = dt
 
-        # Unlock components based on hardware generation and progress
         self._update_component_unlocks()
 
-        # Update bits based on current progress
         self._update_bits_to_progress()
 
-        # Animate based on production
         production_rate = max(0, bits - self.last_bits_count)
         if production_rate > 0:
             self._animate_production(production_rate)
 
-        # Update animations
         self._update_animations()
 
-        # Store current state
         self.last_bits_count = bits
 
     def _update_component_unlocks(self):
@@ -312,22 +289,20 @@ class MotherboardBitGrid:
 
     def _update_animations(self):
         """Update all ongoing bit animations"""
+        dt = getattr(self, "dt", 1/60)
         for comp_name, comp in self.components.items():
             if not comp["unlocked"]:
                 continue
 
-            # Update bit animations
             completed_animations = []
             for anim_key, anim in comp["bit_animations"].items():
-                anim["progress"] += 1 / 60  # Assuming 60 FPS
+                anim["progress"] += dt
 
                 if anim["progress"] >= anim["duration"]:
-                    # Animation complete - set final value
                     comp_name, bit_idx = anim_key
                     comp["bit_states"][bit_idx] = anim["to_value"]
                     completed_animations.append(anim_key)
 
-            # Remove completed animations
             for anim_key in completed_animations:
                 del comp["bit_animations"][anim_key]
 
@@ -425,45 +400,75 @@ class MotherboardBitGrid:
             screen.blit(label, text_rect)
 
     def _draw_component_bits(self, screen, comp):
-        """Draw the bits within a component"""
+        """Draw the bits within a component as individual squares"""
         total_bits = comp["bits"]
 
-        # Calculate grid dimensions for bits
-        total_bits = comp["bits"]
-
-        # Ensure minimum component size
         if comp["width"] <= 30 or comp["height"] <= 50:
             return
 
-        # Calculate grid dimensions for bits
-        grid_cols = max(1, int(math.sqrt(total_bits * comp["width"] / comp["height"])))
-        grid_rows = (total_bits + grid_cols - 1) // grid_cols
+        # Account for 3px border on each side plus internal padding
+        border_thickness = 6  # 3px border on left + 3px border on right
+        padding = 10  # Internal padding
+        available_width = comp["width"] - border_thickness - padding * 2
+        available_height = comp["height"] - border_thickness - padding * 2
 
-        bit_width = max(1, (comp["width"] - 20) // grid_cols)
-        bit_height = max(1, (comp["height"] - 40) // grid_rows)
+        min_bit_size = 3
+        max_bit_size = 12
 
-        start_x = comp["x"] + 10
-        start_y = comp["y"] + 30
+        # Use actual filled bits count for sizing, not theoretical capacity
+        filled_bits = sum(comp["bit_states"])
+        if filled_bits == 0:
+            filled_bits = 1  # Avoid division by zero
+        ideal_bit_size = min(
+            max_bit_size,
+            int(math.sqrt((available_width * available_height) / filled_bits))
+        )
+        bit_size = max(min_bit_size, ideal_bit_size)
 
-        for bit_idx in range(total_bits):
+        gap = 1
+        total_bit_cell = bit_size + gap
+
+        grid_cols = max(1, available_width // total_bit_cell)
+        # Calculate rows based on actual filled bits, not theoretical capacity
+        grid_rows = max(1, (filled_bits + grid_cols - 1) // grid_cols)
+
+        if grid_rows * total_bit_cell > available_height:
+            bit_size = max(min_bit_size, (available_height // grid_rows) - gap)
+            total_bit_cell = bit_size + gap
+
+        # Position bits within border and padding
+        border_thickness = 3
+        padding = 10
+        start_x = comp["x"] + border_thickness + padding
+        start_y = comp["y"] + border_thickness + padding
+
+        # Use actual bit states count for grid calculation, not theoretical capacity
+        actual_bits = len(comp["bit_states"])
+        total_bits_to_draw = min(actual_bits, grid_cols * grid_rows)
+
+        for bit_idx in range(total_bits_to_draw):
             row = bit_idx // grid_cols
             col = bit_idx % grid_cols
 
-            if row >= grid_rows:
-                continue
-
-            bit_x = start_x + col * bit_width
-            bit_y = start_y + row * bit_height
-
-            # Check if bit is animating
+            bit_x = start_x + col * total_bit_cell
+            bit_y = start_y + row * total_bit_cell
+            
+            # Ensure bit stays within component height boundaries
+            max_y = comp["y"] + comp["height"] - border_thickness - padding
+            if bit_y + bit_size > max_y:
+                continue  # Skip this bit as it would overflow vertically
+            
             anim_key = (comp["name"], bit_idx)
-            bit_value = comp["bit_states"][bit_idx]
+            # Safety check - don't access bit_states beyond array bounds
+            if bit_idx < len(comp["bit_states"]):
+                bit_value = comp["bit_states"][bit_idx]
+            else:
+                bit_value = 0
 
             if anim_key in comp["bit_animations"]:
                 anim = comp["bit_animations"][anim_key]
                 progress = anim["progress"] / anim["duration"]
 
-                # Interpolate color during animation
                 from_color = self.colors[anim["from_value"]]
                 to_color = self.colors[anim["to_value"]]
 
@@ -471,25 +476,22 @@ class MotherboardBitGrid:
                     int(from_color[i] + (to_color[i] - from_color[i]) * progress)
                     for i in range(3)
                 )
-
-                # Add glow effect during animation
-                if progress < 0.5:
-                    glow_surface = pygame.Surface((bit_width, bit_height))
-                    glow_surface.set_alpha(100)
-                    glow_color = tuple(min(255, c + 50) for c in color)
-                    glow_surface.fill(glow_color)
-                    screen.blit(glow_surface, (bit_x, bit_y))
             else:
                 color = self.colors[bit_value]
 
-            # Draw bit with component color tint
             tinted_color = tuple(
                 min(255, int(color[i] * 0.7 + comp["color"][i] * 0.3)) for i in range(3)
             )
 
             pygame.draw.rect(
-                screen, tinted_color, (bit_x, bit_y, bit_width - 1, bit_height - 1)
+                screen, tinted_color, (bit_x, bit_y, bit_size, bit_size)
             )
+
+            if bit_value == 1 and bit_size >= 4:
+                highlight_color = tuple(min(255, c + 30) for c in tinted_color)
+                pygame.draw.rect(
+                    screen, highlight_color, (bit_x, bit_y, bit_size, bit_size), 1
+                )
 
     def reset_on_rebirth(self):
         """Reset all bits to 0 when rebirth occurs"""

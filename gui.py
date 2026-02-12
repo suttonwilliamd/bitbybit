@@ -10,8 +10,12 @@ import os
 import random
 from datetime import datetime
 
-# Import all the modular components
-from constants import *
+from constants import (
+    COLORS, CONFIG, GENERATORS, UPGRADES, WINDOW_WIDTH, WINDOW_HEIGHT,
+    FPS, SAVE_FILE, AUTO_SAVE_INTERVAL, REBIRTH_THRESHOLD,
+    HARDWARE_GENERATIONS, HARDWARE_CATEGORIES, COMPONENT_BASE_COSTS,
+    get_all_generators, get_all_upgrades
+)
 from game_state import GameState
 from visual_effects import Particle, BinaryRain, BitVisualization, SmartBitVisualization
 from ui_components import Button, FloatingText
@@ -72,10 +76,9 @@ class BitByBitGame:
         self.medium_font = pygame.font.Font(None, 28)
         self.small_font = pygame.font.Font(None, 20)
         self.tiny_font = pygame.font.Font(None, 16)
-        # Try to load monospace font
         try:
             self.monospace_font = pygame.font.SysFont("Courier New", 24)
-        except:
+        except (pygame.error, OSError):
             self.monospace_font = pygame.font.Font(None, 24)
 
         # Game state
@@ -90,18 +93,20 @@ class BitByBitGame:
         self.reduced_motion_mode = False
         self.visual_quality = "high"  # high, medium, low
 
-        # Bit grid for accumulator visualization - expanded for more room
+        # Bit grid for accumulator visualization
         self.bit_grid = MotherboardBitGrid(
-            WINDOW_WIDTH // 2 - 300,  # Center the wider grid
-            140,
-            600,  # Increased from 400 to 600 pixels wide
-            200,  # Position within accumulator area
+            WINDOW_WIDTH // 2 - 300,
+            120,
+            600,
+            240,
         )
 
-        # UI elements
         self.click_button = Button(
-            WINDOW_WIDTH // 2 - 150, 420, 300, 60, "+1 bit", (60, 60, 80)
+            WINDOW_WIDTH // 2 - 100, 500, 200, 50, "+1 bit", (60, 60, 80)
         )
+
+        self._gradient_surface = None
+        self._last_gradient_size = (0, 0)
 
         # Header buttons
         self.settings_button = Button(
@@ -134,28 +139,60 @@ class BitByBitGame:
         self.generators_panel_open = False
         self.upgrades_panel_open = False
 
-        # Scrollable panels
-        self.generators_scroll_panel = ScrollablePanel(
-            50, 520, 600, 300, "INFORMATION SOURCES"
-        )
-        self.upgrades_scroll_panel = ScrollablePanel(700, 520, 450, 300, "UPGRADES")
+        # Calculate responsive panel dimensions
+        panel_margin = 50
+        panel_spacing = 30
+        toggle_button_height = 40
+        accumulator_height = 400  # Leave space for accumulator area
+        
+        # Calculate complete space needed for click button including visual elements
+        button_height = 50
+        button_spacing = 15
+        button_border_and_glow = 4  # 2px border + 2px potential glow
+        aesthetic_spacing = 40  # Better visual breathing room
+        total_button_space = button_height + button_spacing + button_border_and_glow + aesthetic_spacing
 
-        # Panel toggle buttons (start in collapsed state) - with accessibility support
-        # Position them safely below click button to avoid overlap
+        # Panel positions - ensure complete visual clearance for click button
+        panel_y_start = accumulator_height + total_button_space
+        available_height = WINDOW_HEIGHT - panel_y_start - 50  # Leave margin at bottom
+        panel_height = max(250, min(available_height, 350))  # Between 250-350px
+
+        # Panel widths - ensure both fit side by side with margins
+        total_panel_width = WINDOW_WIDTH - (panel_margin * 2) - panel_spacing
+        generators_width = int(total_panel_width * 0.55)  # 55% for generators
+        upgrades_width = int(total_panel_width * 0.45)  # 45% for upgrades
+
+        # Scrollable panels with responsive sizing
+        self.generators_scroll_panel = ScrollablePanel(
+            panel_margin,
+            panel_y_start + toggle_button_height,
+            generators_width,
+            panel_height,
+            "INFORMATION SOURCES",
+        )
+        self.upgrades_scroll_panel = ScrollablePanel(
+            panel_margin + generators_width + panel_spacing,
+            panel_y_start + toggle_button_height,
+            upgrades_width,
+            panel_height,
+            "UPGRADES",
+        )
+
+        # Panel toggle buttons with responsive sizing
         self.generators_toggle = Button(
-            50,
-            510,
-            600,
-            40,
+            panel_margin,
+            panel_y_start,
+            generators_width,
+            toggle_button_height,
             "▶ INFORMATION SOURCES",
             (35, 40, 55),
             high_contrast=self.high_contrast_mode,
         )
         self.upgrades_toggle = Button(
-            700,
-            510,
-            450,
-            40,
+            panel_margin + generators_width + panel_spacing,
+            panel_y_start,
+            upgrades_width,
+            toggle_button_height,
             "▶ UPGRADES",
             (35, 40, 55),
             high_contrast=self.high_contrast_mode,
@@ -215,39 +252,59 @@ class BitByBitGame:
         self.settings_button.rect.x = int(new_width - 150 * scale_x)
         self.stats_button.rect.x = int(new_width - 280 * scale_x)
 
-        # Update panel positions with better proportions
-        panel_width = int(600 * scale_x)
-        panel_height = int(300 * scale_y)
+        # Update panel positions with responsive sizing
+        panel_margin = int(50 * scale_x)
+        panel_spacing = int(30 * scale_x)
+        toggle_button_height = int(40 * scale_y)
+        accumulator_height = int(400 * scale_y)
+        
+        # Calculate complete space needed for click button including visual elements
+        button_height = int(50 * scale_y)
+        button_spacing = int(15 * scale_y)
+        button_border_and_glow = int(4 * scale_y)  # 2px border + 2px potential glow
+        aesthetic_spacing = int(40 * scale_y)  # Better visual breathing room
+        total_button_space = button_height + button_spacing + button_border_and_glow + aesthetic_spacing
 
-        # Generators panel (40% of width)
-        generators_x = int(50 * scale_x)
-        generators_y = int(520 * scale_y)
-        generators_height = min(panel_height, new_height - generators_y - 150)
+        # Panel positions - ensure complete visual clearance for click button
+        panel_y_start = accumulator_height + total_button_space
+        available_height = new_height - panel_y_start - int(80 * scale_y)
+        panel_height = max(
+            int(250 * scale_y), min(available_height, int(350 * scale_y))
+        )
+
+        # Panel widths - ensure both fit side by side
+        total_panel_width = new_width - (panel_margin * 2) - panel_spacing
+        generators_width = int(total_panel_width * 0.55)
+        upgrades_width = int(total_panel_width * 0.45)
+
+        # Generators panel
+        generators_x = panel_margin
+        generators_y = panel_y_start + toggle_button_height
 
         self.generators_scroll_panel.rect.x = generators_x
         self.generators_scroll_panel.rect.y = generators_y
-        self.generators_scroll_panel.rect.width = panel_width
-        self.generators_scroll_panel.rect.height = generators_height
+        self.generators_scroll_panel.rect.width = generators_width
+        self.generators_scroll_panel.rect.height = panel_height
 
-        # Upgrades panel (35% of width)
-        upgrades_x = int(700 * scale_x)
-        upgrades_y = int(520 * scale_y)
-        upgrades_width = int(450 * scale_x)
-        upgrades_height = min(panel_height, new_height - upgrades_y - 150)
+        # Upgrades panel
+        upgrades_x = panel_margin + generators_width + panel_spacing
+        upgrades_y = panel_y_start + toggle_button_height
 
         self.upgrades_scroll_panel.rect.x = upgrades_x
         self.upgrades_scroll_panel.rect.y = upgrades_y
         self.upgrades_scroll_panel.rect.width = upgrades_width
-        self.upgrades_scroll_panel.rect.height = upgrades_height
+        self.upgrades_scroll_panel.rect.height = panel_height
 
         # Update panel toggle buttons
         self.generators_toggle.rect.x = generators_x
-        self.generators_toggle.rect.y = generators_y - 40
-        self.generators_toggle.rect.width = panel_width
+        self.generators_toggle.rect.y = panel_y_start
+        self.generators_toggle.rect.width = generators_width
+        self.generators_toggle.rect.height = toggle_button_height
 
         self.upgrades_toggle.rect.x = upgrades_x
-        self.upgrades_toggle.rect.y = upgrades_y - 40
+        self.upgrades_toggle.rect.y = panel_y_start
         self.upgrades_toggle.rect.width = upgrades_width
+        self.upgrades_toggle.rect.height = toggle_button_height
 
         # Update rebirth button
         self.rebirth_button.rect.x = int(new_width // 2 - 150 * scale_x)
@@ -283,6 +340,7 @@ class BitByBitGame:
         card_height = 140
         card_width = 500
 
+        # Setup buttons for basic generators
         for i, (gen_id, generator) in enumerate(CONFIG["GENERATORS"].items()):
             y = y_start + i * (card_height + 10)
 
@@ -293,6 +351,15 @@ class BitByBitGame:
             buy_x10 = Button(x_start + card_width - 100, button_y, 70, 30, "BUY x10")
 
             self.generator_buy_buttons[gen_id] = {"x1": buy_x1, "x10": buy_x10}
+        
+        # Setup buttons for hardware generators
+        if "HARDWARE_GENERATORS" in CONFIG:
+            for gen_id, generator in CONFIG["HARDWARE_GENERATORS"].items():
+                # Hardware generators use similar button positioning
+                buy_x1 = Button(x_start + card_width - 180, 50, 70, 30, "BUY x1")
+                buy_x10 = Button(x_start + card_width - 100, 50, 70, 30, "BUY x10")
+                
+                self.generator_buy_buttons[gen_id] = {"x1": buy_x1, "x10": buy_x10}
 
     def setup_upgrade_buttons(self):
         x_start = 750
@@ -563,13 +630,13 @@ class BitByBitGame:
         """Handle clicks on generator card buttons"""
         panel = self.generators_scroll_panel
 
-        basic_generators = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
-        hardware_generators = CONFIG.get("HARDWARE_GENERATORS", {})
-        all_generators = {**basic_generators, **hardware_generators}
+        all_generators = get_all_generators()
 
         y_offset = -panel.get_scroll_offset()
 
         for gen_id, generator in all_generators.items():
+            basic_generators = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
+            hardware_generators = CONFIG.get("HARDWARE_GENERATORS", {})
             # Check if unlocked
             if gen_id in basic_generators:
                 if not self.state.is_generator_unlocked(gen_id):
@@ -582,46 +649,52 @@ class BitByBitGame:
             cost = self.state.get_generator_cost(gen_id)
             can_afford = self.state.can_afford(cost)
 
-            # Card position
+            # Card position (optimized dimensions)
             card_x = panel.rect.x + 10
-            card_y = panel.rect.y + 50 + y_offset + 10
+            card_y = panel.rect.y + 50 + y_offset + 8  # Reduced from 10
             card_width = panel.rect.width - 40
-            card_height = 90
+            card_height = 70  # Reduced from 90
 
             # Check if click is within this card
             card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
             if not card_rect.collidepoint(mouse_pos):
-                y_offset += card_height + 12
+                y_offset += card_height + 8  # Reduced spacing
                 continue
 
-            # Check button positions (bottom right of card)
-            button_y = card_y + card_height - 32
+            # Check button positions (bottom right of card) - updated for compact layout
+            button_y = card_y + card_height - 25  # Reduced from 32
+            btn_width = 60  # Updated to match card drawing
+            btn_height = 22  # Updated to match card drawing
 
-            # BUY x1 button
-            btn1_rect = pygame.Rect(card_x + card_width - 155, button_y, 70, 28)
+            # BUY x10 button (left)
+            btn1_rect = pygame.Rect(
+                card_x + card_width - btn_width * 2 - 8, button_y, btn_width, btn_height
+            )
             if btn1_rect.collidepoint(mouse_pos) and can_afford:
-                self.buy_generator(gen_id, 1)
-                return
-
-            # BUY x10 button
-            btn2_rect = pygame.Rect(card_x + card_width - 75, button_y, 70, 28)
-            if btn2_rect.collidepoint(mouse_pos) and can_afford:
                 self.buy_generator(gen_id, 10)
                 return
 
-            y_offset += card_height + 12
+            # BUY x1 button (right)
+            btn2_rect = pygame.Rect(
+                card_x + card_width - btn_width - 4, button_y, btn_width, btn_height
+            )
+            if btn2_rect.collidepoint(mouse_pos) and can_afford:
+                self.buy_generator(gen_id, 1)
+                return
+
+            y_offset += card_height + 8  # Reduced spacing
 
     def handle_upgrade_card_clicks(self, mouse_pos):
         """Handle clicks on upgrade card buttons"""
         panel = self.upgrades_scroll_panel
 
-        basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
-        hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
-        all_upgrades = {**basic_upgrades, **hardware_upgrades}
+        all_upgrades = get_all_upgrades()
 
         y_offset = -panel.get_scroll_offset()
 
         for upgrade_id, upgrade in all_upgrades.items():
+            basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
+            hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
             # Check if unlocked
             if upgrade_id in basic_upgrades:
                 if not self.state.is_upgrade_unlocked(upgrade_id):
@@ -634,42 +707,40 @@ class BitByBitGame:
             cost = self.state.get_upgrade_cost(upgrade_id)
             can_afford = self.state.can_afford(cost) and level < upgrade["max_level"]
 
-            # Card position
+            # Card position (optimized dimensions)
             card_x = panel.rect.x + 10
-            card_y = panel.rect.y + 50 + y_offset + 10
+            card_y = panel.rect.y + 50 + y_offset + 8  # Reduced from 10
             card_width = panel.rect.width - 40
-            card_height = 85
+            card_height = 65  # Reduced from 85
 
             # Check if click is within this card
             card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
             if not card_rect.collidepoint(mouse_pos):
-                y_offset += card_height + 12
+                y_offset += card_height + 8  # Reduced spacing
                 continue
 
             # Check if maxed
             if level >= upgrade["max_level"]:
-                y_offset += card_height + 12
+                y_offset += card_height + 8  # Reduced spacing
                 continue
 
-            # BUY button (bottom right) - match drawing position
-            button_x = card_x + card_width - 100
-            button_y = card_y + card_height - 30
-            btn_rect = pygame.Rect(button_x, button_y, 80, 24)
+            # BUY button (bottom right) - updated for compact layout
+            button_x = card_x + card_width - 80  # Adjusted for compact layout
+            button_y = card_y + card_height - 25  # Reduced from 30
+            btn_rect = pygame.Rect(button_x, button_y, 70, 20)  # Smaller button
 
             if btn_rect.collidepoint(mouse_pos) and can_afford:
                 self.buy_upgrade(upgrade_id)
                 return
 
-            y_offset += card_height + 12
+            y_offset += card_height + 8  # Reduced spacing
 
     def upgrade_component(self, comp_name):
         """Upgrade a motherboard component"""
         comp = self.bit_grid.components[comp_name]
 
-        # Calculate upgrade cost based on component and current level
-        base_cost = {"CPU": 100, "BUS": 50, "RAM": 200, "STORAGE": 300, "GPU": 400}
         cost_multiplier = 2.5 ** comp["level"]
-        cost = int(base_cost.get(comp_name, 100) * cost_multiplier)
+        cost = int(COMPONENT_BASE_COSTS.get(comp_name, 100) * cost_multiplier)
 
         if self.state.can_afford(cost) and comp["unlocked"] and comp["level"] < 10:
             self.state.bits -= cost
@@ -750,57 +821,59 @@ class BitByBitGame:
             self.last_auto_save = current_time
 
     def draw_accumulator(self):
-        # Update bit grid with current bits and rebirth progress
         production_rate = self.state.get_production_rate()
+        dt = 1 / FPS
+
+        scale_x = self.current_width / self.base_width
+        scale_y = self.current_height / self.base_height
+
+        acc_width = int(650 * scale_x)
+        acc_height = int(340 * scale_y)
+        acc_x = self.current_width // 2 - acc_width // 2
+        acc_y = int(85 * scale_y)
+
+        self.bit_grid.x = acc_x + int(25 * scale_x)
+        self.bit_grid.y = acc_y + int(50 * scale_y)
+        self.bit_grid.width = acc_width - int(50 * scale_x)
+        self.bit_grid.height = int(180 * scale_y)
+        self.bit_grid.update_dimensions(
+            self.bit_grid.x, self.bit_grid.y, 
+            self.bit_grid.width, self.bit_grid.height
+        )
+
         self.bit_grid.update(
             self.state.bits,
             self.state.total_bits_earned,
             CONFIG["REBIRTH_THRESHOLD"],
             self.state.hardware_generation,
+            dt,
         )
 
-        # Draw accumulator background - expanded width
-        acc_rect = pygame.Rect(
-            self.current_width // 2 - int(300 * (self.current_width / self.base_width)),
-            int(100 * (self.current_height / self.base_height)),
-            int(600 * (self.current_width / self.base_width)),
-            int(300 * (self.current_height / self.base_height)),
-        )
+        acc_rect = pygame.Rect(acc_x, acc_y, acc_width, acc_height)
         center_x = self.current_width // 2
-        center_y = int(250 * (self.current_height / self.base_height))
 
-        # Dark background for accumulator
-        pygame.draw.rect(self.screen, (10, 10, 20), acc_rect, border_radius=8)
+        pygame.draw.rect(self.screen, (10, 10, 20), acc_rect, border_radius=12)
 
-        # Animated glow effect around accumulator
         time_ms = pygame.time.get_ticks()
-        glow_intensity = abs(math.sin(time_ms * 0.001)) * 0.3 + 0.2
-
-        # Draw border with classic styling
         border_glow = abs(math.sin(time_ms * 0.002)) * 0.2 + 0.8
         border_color = tuple(int(c * border_glow) for c in COLORS["electric_cyan"])
-        pygame.draw.rect(self.screen, border_color, acc_rect, 2, border_radius=8)
+        pygame.draw.rect(self.screen, border_color, acc_rect, 2, border_radius=12)
 
-        # Title with data accumulator aesthetic
         title_text = self.small_font.render(
             "DATA ACCUMULATOR", True, COLORS["muted_blue"]
         )
-        title_rect = title_text.get_rect(center=(center_x, 120))
+        title_rect = title_text.get_rect(center=(center_x, acc_y + int(18 * scale_y)))
         self.screen.blit(title_text, title_rect)
 
-        # Draw the bit grid
         self.bit_grid.draw(self.screen)
 
-        # Show bit completeness percentage
         bit_percent = self.bit_grid.get_bit_completeness_percentage()
         progress_text = self.small_font.render(
             f"{bit_percent:.0f}% Complete", True, COLORS["matrix_green"]
         )
-        progress_rect = progress_text.get_rect(center=(center_x, 160))
+        progress_rect = progress_text.get_rect(center=(center_x, acc_y + int(38 * scale_y)))
         self.screen.blit(progress_text, progress_rect)
 
-        # Enhanced bits display with smooth animation
-        # Initialize smooth display values if not present
         if not hasattr(self, "display_bits"):
             self.display_bits = self.state.bits
         if not hasattr(self, "display_compressed_bits"):
@@ -808,8 +881,7 @@ class BitByBitGame:
         if not hasattr(self, "display_rate"):
             self.display_rate = self.state.get_production_rate()
 
-        # Smooth number transitions
-        smoothing_factor = 0.1  # Adjust for faster/slower transitions
+        smoothing_factor = 0.1
         self.display_bits += (self.state.bits - self.display_bits) * smoothing_factor
         if hasattr(self.state, "compressed_bits"):
             self.display_compressed_bits += (
@@ -819,7 +891,6 @@ class BitByBitGame:
             self.state.get_production_rate() - self.display_rate
         ) * smoothing_factor
 
-        # Render bits text with enhanced effects
         if self.state.era == "compression":
             bits_str = f"{self.format_number(int(self.display_compressed_bits))} cb"
             bits_color = COLORS["neon_purple"]
@@ -828,160 +899,56 @@ class BitByBitGame:
             bits_color = COLORS["electric_cyan"]
 
         bits_text = self.monospace_font.render(bits_str, True, bits_color)
-        bits_rect = bits_text.get_rect(center=(center_x, 360))
+        bits_y = acc_y + int(255 * scale_y)
+        bits_rect = bits_text.get_rect(center=(center_x, bits_y))
 
-        # Enhanced glow effect for bits display
-        # Multi-layer glow for depth
-        for i, (offset, alpha) in enumerate(
-            [
-                ((2, 2), 30),  # Outer glow
-                ((1, 1), 60),  # Middle glow
-                ((-1, -1), 40),  # Diagonal glow
-            ]
-        ):
+        for offset, alpha in [((2, 2), 30), ((1, 1), 60), ((-1, -1), 40)]:
             glow_pos = (bits_rect.x + offset[0], bits_rect.y + offset[1])
             glow_surface = bits_text.copy()
-            glow_color = (*bits_color, alpha)
             glow_surface.set_alpha(alpha)
             self.screen.blit(glow_surface, glow_pos)
 
-        # Pulse effect when values change significantly
-        current_rate = self.state.get_production_rate()
-        if hasattr(self, "last_display_rate"):
-            rate_change = abs(current_rate - self.last_display_rate)
-            if (
-                current_rate > 0 and rate_change > current_rate * 0.1
-            ):  # 10% change triggers pulse
-                pulse_intensity = min(1.0, rate_change / current_rate)
-                # Draw pulse ring
-                pulse_radius = int(20 + pulse_intensity * 30)
-                pulse_alpha = int(pulse_intensity * 100)
-                pulse_surf = pygame.Surface(
-                    (pulse_radius * 2, pulse_radius * 2), pygame.SRCALPHA
-                )
-                pygame.draw.circle(
-                    pulse_surf,
-                    (*bits_color, pulse_alpha),
-                    (pulse_radius, pulse_radius),
-                    3,
-                )
-                self.screen.blit(
-                    pulse_surf,
-                    (
-                        bits_rect.centerx - pulse_radius,
-                        bits_rect.centery - pulse_radius,
-                    ),
-                )
-                pygame.draw.circle(
-                    pulse_surf,
-                    (*bits_color, pulse_alpha),
-                    (pulse_radius, pulse_radius),
-                    pulse_radius,
-                    3,
-                )
-                self.screen.blit(
-                    pulse_surf,
-                    (
-                        bits_rect.centerx - pulse_radius,
-                        bits_rect.centery - pulse_radius,
-                    ),
-                )
-
-        self.last_display_rate = current_rate
         self.screen.blit(bits_text, bits_rect)
 
-        # Enhanced rate display with visual feedback
+        current_rate = self.state.get_production_rate()
+        self.last_display_rate = current_rate
+
+        rate_y = acc_y + int(285 * scale_y)
+
         if self.state.era == "compression":
             efficiency = self.state.efficiency * 100
-
-            # Rate text with enhanced glow
             rate_str = f"+{self.format_number(int(self.display_rate))} cb/s"
             rate_color = COLORS["neon_purple"]
-            rate_text = self.monospace_font.render(rate_str, True, rate_color)
-            rate_rect = rate_text.get_rect(center=(center_x, 385))
-
-            # Glow for rate
-            for offset in [(1, 1), (-1, -1)]:
-                glow_pos = (rate_rect.x + offset[0], rate_rect.y + offset[1])
-                glow_surface = rate_text.copy()
-                glow_surface.set_alpha(40)
-                self.screen.blit(glow_surface, glow_pos)
-            self.screen.blit(rate_text, rate_rect)
-
-            # Efficiency indicator with color coding
-            eff_color = (
-                COLORS["matrix_green"] if efficiency > 90 else COLORS["signal_orange"]
-            )
-            eff_text = self.small_font.render(
-                f"Efficiency: {efficiency:.1f}%", True, eff_color
-            )
-            eff_rect = eff_text.get_rect(center=(center_x, 410))
-
-            # Efficiency bar
-            bar_width = 200
-            bar_height = 8
-            bar_x = center_x - bar_width // 2
-            bar_y = 425
-            fill_width = int(bar_width * (efficiency / 100))
-
-            # Bar background
-            pygame.draw.rect(
-                self.screen,
-                COLORS["card_background"],
-                (bar_x, bar_y, bar_width, bar_height),
-                border_radius=4,
-            )
-            # Bar fill
-            pygame.draw.rect(
-                self.screen,
-                eff_color,
-                (bar_x, bar_y, fill_width, bar_height),
-                border_radius=4,
-            )
-            # Bar border
-            pygame.draw.rect(
-                self.screen,
-                COLORS["muted_blue"],
-                (bar_x, bar_y, bar_width, bar_height),
-                1,
-                border_radius=4,
-            )
-
-            self.screen.blit(eff_text, eff_rect)
         else:
-            # Regular rate display for entropy era
             rate_str = f"+{self.format_number(int(self.display_rate))} b/s"
             rate_color = COLORS["matrix_green"]
-            rate_text = self.monospace_font.render(rate_str, True, rate_color)
-            rate_rect = rate_text.get_rect(center=(center_x, 385))
 
-            # Multi-layer glow for rate
-            for i, (offset, alpha) in enumerate(
-                [
-                    ((2, 2), 25),
-                    ((1, 1), 50),
-                ]
-            ):
-                glow_pos = (rate_rect.x + offset[0], rate_rect.y + offset[1])
-                glow_surface = rate_text.copy()
-                glow_surface.set_alpha(alpha)
-                self.screen.blit(glow_surface, glow_pos)
+        rate_text = self.monospace_font.render(rate_str, True, rate_color)
+        rate_rect = rate_text.get_rect(center=(center_x, rate_y))
 
-            self.screen.blit(rate_text, rate_rect)
+        for offset, alpha in [((1, 1), 25), ((-1, -1), 50)]:
+            glow_pos = (rate_rect.x + offset[0], rate_rect.y + offset[1])
+            glow_surface = rate_text.copy()
+            glow_surface.set_alpha(alpha)
+            self.screen.blit(glow_surface, glow_pos)
 
-        # Click button with dynamic text based on click power
+        self.screen.blit(rate_text, rate_rect)
+
+        button_y = acc_y + acc_height + int(15 * scale_y)
+        button_width = int(200 * scale_x)
+        button_height = int(50 * scale_y)
+        button_x = center_x - button_width // 2
+
         if self.state.era == "entropy":
-            # Update button text to show actual click power
             click_power = self.state.get_click_power()
+            self.click_button.rect = pygame.Rect(button_x, button_y, button_width, button_height)
             self.click_button.text = f"+{self.format_number(click_power)} bit{'s' if click_power != 1 else ''}"
-            self.click_button.rect.y = 420  # Reposition button lower
             self.click_button.draw(self.screen)
         else:
-            # Show different button for compression era
-            click_text = self.small_font.render(
+            click_text = self.medium_font.render(
                 f"Tokens: {self.state.compression_tokens} ⭐", True, COLORS["gold"]
             )
-            click_rect = click_text.get_rect(center=(center_x, 420))
+            click_rect = click_text.get_rect(center=(center_x, button_y + button_height // 2))
             self.screen.blit(click_text, click_rect)
 
     def _update_button_accessibility(self):
@@ -1150,7 +1117,8 @@ Total Clicks: {self.state.total_clicks}
         )
 
     def check_tutorial(self):
-        if self.state.has_seen_tutorial:
+        # Don't show tutorial if player has already seen it OR has compressed/rebirthed
+        if self.state.has_seen_tutorial or self.state.total_rebirths > 0:
             return
 
         step = self.state.tutorial_step
@@ -1206,222 +1174,19 @@ Total Clicks: {self.state.total_clicks}
                 "tutorial_step": self.state.tutorial_step,
                 "has_seen_tutorial": self.state.has_seen_tutorial,
                 "visual_settings": self.state.visual_settings,
-            },
-            # Hardware-specific generators and upgrades
-            "HARDWARE_GENERATORS": {
-                # CPU generators
-                "cpu_core": {
-                    "id": "cpu_core",
-                    "name": "CPU Core",
-                    "category": "cpu",
-                    "base_cost": 50,
-                    "base_production": 5,
-                    "cost_multiplier": 1.15,
-                    "icon": "🧠",
-                    "flavor": "The heart of computation.",
-                },
-                "cpu_cache": {
-                    "id": "cpu_cache",
-                    "name": "CPU Cache",
-                    "category": "cpu",
-                    "base_cost": 500,
-                    "base_production": 50,
-                    "cost_multiplier": 1.15,
-                    "icon": "⚡",
-                    "flavor": "Lightning-fast memory access.",
-                },
-                # RAM generators
-                "memory_stick": {
-                    "id": "memory_stick",
-                    "name": "Memory Stick",
-                    "category": "ram",
-                    "base_cost": 200,
-                    "base_production": 20,
-                    "cost_multiplier": 1.15,
-                    "icon": "📦",
-                    "flavor": "Volatile but speedy storage.",
-                },
-                "memory_bank": {
-                    "id": "memory_bank",
-                    "name": "Memory Bank",
-                    "category": "ram",
-                    "base_cost": 2000,
-                    "base_production": 200,
-                    "cost_multiplier": 1.15,
-                    "icon": "🏦",
-                    "flavor": "Organized memory architecture.",
-                },
-                # Storage generators
-                "hard_drive": {
-                    "id": "hard_drive",
-                    "name": "Hard Drive",
-                    "category": "storage",
-                    "base_cost": 1000,
-                    "base_production": 100,
-                    "cost_multiplier": 1.15,
-                    "icon": "💾",
-                    "flavor": "Spinning platters of data.",
-                },
-                "solid_state": {
-                    "id": "solid_state",
-                    "name": "SSD",
-                    "category": "storage",
-                    "base_cost": 10000,
-                    "base_production": 1000,
-                    "cost_multiplier": 1.15,
-                    "icon": "⚡",
-                    "flavor": "Flash-based storage revolution.",
-                },
-                # GPU generators
-                "graphics_card": {
-                    "id": "graphics_card",
-                    "name": "Graphics Card",
-                    "category": "gpu",
-                    "base_cost": 5000,
-                    "base_production": 500,
-                    "cost_multiplier": 1.15,
-                    "icon": "🎮",
-                    "flavor": "Parallel processing powerhouse.",
-                },
-                "tensor_core": {
-                    "id": "tensor_core",
-                    "name": "Tensor Core",
-                    "category": "gpu",
-                    "base_cost": 50000,
-                    "base_production": 5000,
-                    "cost_multiplier": 1.15,
-                    "icon": "🤖",
-                    "flavor": "AI acceleration unit.",
-                },
-                # Network generators
-                "ethernet_card": {
-                    "id": "ethernet_card",
-                    "name": "Ethernet Card",
-                    "category": "network",
-                    "base_cost": 3000,
-                    "base_production": 300,
-                    "cost_multiplier": 1.15,
-                    "icon": "🌐",
-                    "flavor": "Connect to world.",
-                },
-                "fiber_optic": {
-                    "id": "fiber_optic",
-                    "name": "Fiber Optic",
-                    "category": "network",
-                    "base_cost": 30000,
-                    "base_production": 3000,
-                    "cost_multiplier": 1.15,
-                    "icon": "💫",
-                    "flavor": "Light-speed data transfer.",
-                },
-                # Mobile generators
-                "mobile_chip": {
-                    "id": "mobile_chip",
-                    "name": "Mobile Chip",
-                    "category": "mobile",
-                    "base_cost": 15000,
-                    "base_production": 1500,
-                    "cost_multiplier": 1.15,
-                    "icon": "📱",
-                    "flavor": "Computing in your pocket.",
-                },
-                # AI generators
-                "ai_accelerator": {
-                    "id": "ai_accelerator",
-                    "name": "AI Accelerator",
-                    "category": "ai",
-                    "base_cost": 100000,
-                    "base_production": 10000,
-                    "cost_multiplier": 1.15,
-                    "icon": "🧬",
-                    "flavor": "Neural network processor.",
-                },
-            },
-            "HARDWARE_UPGRADES": {
-                # CPU upgrades
-                "overclock": {
-                    "id": "overclock",
-                    "category": "cpu",
-                    "name": "CPU Overclock",
-                    "icon": "🚀",
-                    "base_cost": 5000,
-                    "cost_multiplier": 5,
-                    "effect": 2,  # 2x CPU multiplier
-                    "max_level": 5,
-                    "description": "Double all CPU production",
-                },
-                # RAM upgrades
-                "memory_optimization": {
-                    "id": "memory_optimization",
-                    "category": "ram",
-                    "name": "Memory Optimization",
-                    "icon": "🔧",
-                    "base_cost": 8000,
-                    "cost_multiplier": 5,
-                    "effect": 2,  # 2x RAM multiplier
-                    "max_level": 5,
-                    "description": "Double all RAM production",
-                },
-                # Storage upgrades
-                "data_compression": {
-                    "id": "data_compression",
-                    "category": "storage",
-                    "name": "Data Compression",
-                    "icon": "📦",
-                    "base_cost": 12000,
-                    "cost_multiplier": 5,
-                    "effect": 2,  # 2x Storage multiplier
-                    "max_level": 5,
-                    "description": "Double all Storage production",
-                },
-                # GPU upgrades
-                "ray_tracing": {
-                    "id": "ray_tracing",
-                    "category": "gpu",
-                    "name": "Ray Tracing",
-                    "icon": "✨",
-                    "base_cost": 20000,
-                    "cost_multiplier": 5,
-                    "effect": 2,  # 2x GPU multiplier
-                    "max_level": 5,
-                    "description": "Double all GPU production",
-                },
-                # Network upgrades
-                "bandwidth_boost": {
-                    "id": "bandwidth_boost",
-                    "category": "network",
-                    "name": "Bandwidth Boost",
-                    "icon": "📡",
-                    "base_cost": 25000,
-                    "cost_multiplier": 5,
-                    "effect": 2,  # 2x Network multiplier
-                    "max_level": 5,
-                    "description": "Double all Network production",
-                },
-                # Mobile upgrades
-                "battery_efficiency": {
-                    "id": "battery_efficiency",
-                    "category": "mobile",
-                    "name": "Battery Efficiency",
-                    "icon": "🔋",
-                    "base_cost": 30000,
-                    "cost_multiplier": 5,
-                    "effect": 2,  # 2x Mobile multiplier
-                    "max_level": 5,
-                    "description": "Double all Mobile production",
-                },
-                # AI upgrades
-                "neural_network": {
-                    "id": "neural_network",
-                    "category": "ai",
-                    "name": "Neural Network",
-                    "icon": "🧠",
-                    "base_cost": 50000,
-                    "cost_multiplier": 5,
-                    "effect": 2,  # 2x AI multiplier
-                    "max_level": 5,
-                    "description": "Double all AI production",
-                },
+                
+                # Compression/rebirth state
+                "total_rebirths": self.state.total_rebirths,
+                "total_lifetime_bits": self.state.total_lifetime_bits,
+                "hardware_generation": self.state.hardware_generation,
+                "unlocked_hardware_categories": self.state.unlocked_hardware_categories,
+                "era": self.state.era,
+                "compression_tokens": self.state.compression_tokens,
+                "total_compression_tokens": self.state.total_compression_tokens,
+                "compressed_bits": self.state.compressed_bits,
+                "total_compressed_bits": self.state.total_compressed_bits,
+                "overhead_rate": self.state.overhead_rate,
+                "efficiency": self.state.efficiency,
             },
         }
 
@@ -1452,6 +1217,21 @@ Total Clicks: {self.state.total_clicks}
                 "start_time", pygame.time.get_ticks()
             )
             self.state.total_play_time = state_data.get("total_play_time", 0)
+            
+            # Load compression/rebirth state
+            self.state.total_rebirths = state_data.get("total_rebirths", 0)
+            self.state.total_lifetime_bits = state_data.get("total_lifetime_bits", 0)
+            self.state.hardware_generation = state_data.get("hardware_generation", 0)
+            self.state.unlocked_hardware_categories = state_data.get("unlocked_hardware_categories", ["cpu"])
+            
+            # Load compression era state
+            self.state.era = state_data.get("era", "entropy")
+            self.state.compression_tokens = state_data.get("compression_tokens", 0)
+            self.state.total_compression_tokens = state_data.get("total_compression_tokens", 0)
+            self.state.compressed_bits = state_data.get("compressed_bits", 0)
+            self.state.total_compressed_bits = state_data.get("total_compressed_bits", 0)
+            self.state.overhead_rate = state_data.get("overhead_rate", 0)
+            self.state.efficiency = state_data.get("efficiency", 1.0)
             self.state.generators = state_data.get("generators", self.state.generators)
             self.state.unlocked_generators = state_data.get(
                 "unlocked_generators", ["rng"]
@@ -1462,6 +1242,28 @@ Total Clicks: {self.state.total_clicks}
             self.state.visual_settings = state_data.get(
                 "visual_settings", self.state.visual_settings
             )
+
+            # Merge missing generators/upgrades that were added since the save was made
+            # Initialize basic generators that might be missing
+            for gen_id in CONFIG["GENERATORS"]:
+                if gen_id not in self.state.generators:
+                    self.state.generators[gen_id] = {"count": 0, "total_bought": 0}
+            
+            # Initialize hardware generators that might be missing
+            if "HARDWARE_GENERATORS" in CONFIG:
+                for gen_id in CONFIG["HARDWARE_GENERATORS"]:
+                    if gen_id not in self.state.generators:
+                        self.state.generators[gen_id] = {"count": 0, "total_bought": 0}
+            
+            # Initialize missing upgrades
+            for upgrade_id in CONFIG["UPGRADES"]:
+                if upgrade_id not in self.state.upgrades:
+                    self.state.upgrades[upgrade_id] = {"level": 0}
+            
+            if "HARDWARE_UPGRADES" in CONFIG:
+                for upgrade_id in CONFIG["HARDWARE_UPGRADES"]:
+                    if upgrade_id not in self.state.upgrades:
+                        self.state.upgrades[upgrade_id] = {"level": 0}
 
             # Calculate offline progress
             if save_data.get("timestamp"):
@@ -1647,127 +1449,115 @@ Total Clicks: {self.state.total_clicks}
         )
         surface.blit(border_surf, (x, y))
 
-        # Icon (larger, properly positioned with fallback)
-        icon_size = 48
-        icon_x = x + 15
+        # Icon (optimized for smaller cards)
+        icon_size = 36  # Reduced from 48
+        icon_x = x + 12
         icon_y = y + height // 2 - icon_size // 2
 
         # Try to render emoji icon with fallback
         icon_text = generator.get("icon", "🎲")
         try:
             icon_font = pygame.font.Font(
-                None, 48
-            )  # Larger font for better emoji support
+                None,
+                36,  # Smaller font for compact cards
+            )
             icon_surface = icon_font.render(
                 icon_text, True, border_color if can_afford else COLORS["muted_blue"]
             )
             surface.blit(icon_surface, (icon_x, icon_y))
-        except:
-            # Fallback: draw geometric shape if emoji fails
+        except (pygame.error, UnicodeEncodeError):
             pygame.draw.circle(
                 surface,
                 border_color if can_afford else COLORS["muted_blue"],
                 (icon_x + icon_size // 2, icon_y + icon_size // 2),
-                20,
+                15,
             )
 
-        # Text area with proper spacing
-        text_x = x + 75
-        line_height = 22
+        # Text area with optimized spacing
+        text_x = x + 55  # Moved left due to smaller icon
+        line_height = 18  # Reduced from 22
 
-        # Name (top line, bold)
-        name_text = self.medium_font.render(
+        # Name (top line, compact)
+        name_text = self.small_font.render(  # Use smaller font
             generator["name"], True, COLORS["soft_white"]
         )
-        surface.blit(name_text, (text_x, y + 15))
+        surface.blit(name_text, (text_x, y + 10))
 
-        # Quantity (second line)
-        qty_text = self.small_font.render(f"Qty: {count}", True, COLORS["muted_blue"])
-        surface.blit(qty_text, (text_x, y + 15 + line_height))
-
-        # Production rate (third line)
+        # Quantity and production on same line to save space
         if production > 0:
-            rate_text = self.small_font.render(
-                f"Rate: +{self.format_number(production)} b/s",
+            qty_prod_text = self.tiny_font.render(
+                f"Qty: {count} | Rate: +{self.format_number(production)} b/s",
                 True,
-                COLORS["matrix_green"],
+                COLORS["muted_blue"],
             )
-            surface.blit(rate_text, (text_x, y + 15 + line_height * 2))
+            surface.blit(qty_prod_text, (text_x, y + 28))
+        else:
+            qty_text = self.tiny_font.render(
+                f"Qty: {count}", True, COLORS["muted_blue"]
+            )
+            surface.blit(qty_text, (text_x, y + 28))
 
         # Cost and buttons area (bottom right)
-        bottom_y = y + height - 35
+        bottom_y = y + height - 25  # Reduced from 35
 
         # Cost text (left of buttons)
-        cost_text = self.small_font.render(
+        cost_text = self.tiny_font.render(
             f"{self.format_number(cost)}",
             True,
             cost_color,
         )
-        surface.blit(cost_text, (x + width - 185, bottom_y + 5))
+        surface.blit(cost_text, (x + width - 150, bottom_y + 6))
 
-        # Draw BUY buttons with better styling
-        btn_width = 70
-        btn_height = 28
-        btn_spacing = 5
-
-        # BUY x1 button
-        btn1_x = x + width - btn_width - btn_spacing
-        btn1_rect = pygame.Rect(btn1_x, bottom_y, btn_width, btn_height)
-        btn1_color = COLORS["electric_cyan"] if can_afford else (60, 60, 60)
-        btn1_text_color = COLORS["soft_white"] if can_afford else (120, 120, 120)
-
-        pygame.draw.rect(surface, btn1_color, btn1_rect, border_radius=4)
-        pygame.draw.rect(surface, border_color, btn1_rect, 1, border_radius=4)
-
-        btn1_text = self.small_font.render("BUY x1", True, btn1_text_color)
-        btn1_text_rect = btn1_text.get_rect(center=btn1_rect.center)
-        surface.blit(btn1_text, btn1_text_rect)
-
-        # BUY x10 button
-        btn2_x = x + width - btn_width * 2 - btn_spacing * 2
-        btn2_rect = pygame.Rect(btn2_x, bottom_y, btn_width, btn_height)
-        btn2_color = COLORS["electric_cyan"] if can_afford else (60, 60, 60)
-        btn2_text_color = COLORS["soft_white"] if can_afford else (120, 120, 120)
-
-        pygame.draw.rect(surface, btn2_color, btn2_rect, border_radius=4)
-        pygame.draw.rect(surface, border_color, btn2_rect, 1, border_radius=4)
-
-        btn2_text = self.small_font.render("BUY x10", True, btn2_text_color)
-        btn2_text_rect = btn2_text.get_rect(center=btn2_rect.center)
-        surface.blit(btn2_text, btn2_text_rect)
-
-        # Buy buttons (bottom right, INSIDE the card)
-        button_y = y + height - 32
+        # Buy buttons (optimized for compact layout)
+        btn_width = 60  # Reduced from 70
+        btn_height = 22  # Reduced from 28
+        btn_spacing = 4
         btn_color = (45, 55, 70) if can_afford else (30, 33, 40)
 
-        # BUY x1 button
-        btn1_rect = pygame.Rect(x + width - 155, button_y, 70, 28)
-        pygame.draw.rect(surface, btn_color, btn1_rect, border_radius=4)
+        # BUY x10 button (left)
+        btn1_rect = pygame.Rect(
+            x + width - btn_width * 2 - btn_spacing * 2, bottom_y, btn_width, btn_height
+        )
+        pygame.draw.rect(
+            surface,
+            btn_color,
+            btn1_rect,
+            border_radius=3,
+        )
         pygame.draw.rect(
             surface,
             COLORS["electric_cyan"] if can_afford else COLORS["muted_blue"],
             btn1_rect,
             1,
-            border_radius=4,
+            border_radius=3,
         )
         btn1_text = self.tiny_font.render(
-            "BUY x1", True, COLORS["soft_white"] if can_afford else COLORS["muted_blue"]
+            "BUY x10",
+            True,
+            COLORS["soft_white"] if can_afford else COLORS["muted_blue"],
         )
         btn1_text_rect = btn1_text.get_rect(center=btn1_rect.center)
         surface.blit(btn1_text, btn1_text_rect)
 
-        # BUY x10 button
-        btn2_rect = pygame.Rect(x + width - 75, button_y, 70, 28)
-        pygame.draw.rect(surface, btn_color, btn2_rect, border_radius=4)
+        # BUY x1 button (right)
+        btn2_rect = pygame.Rect(
+            x + width - btn_width - btn_spacing, bottom_y, btn_width, btn_height
+        )
+        pygame.draw.rect(
+            surface,
+            btn_color,
+            btn2_rect,
+            border_radius=3,
+        )
         pygame.draw.rect(
             surface,
             COLORS["electric_cyan"] if can_afford else COLORS["muted_blue"],
             btn2_rect,
             1,
-            border_radius=4,
+            border_radius=3,
         )
         btn2_text = self.tiny_font.render(
-            "BUY x10",
+            "BUY x1",
             True,
             COLORS["soft_white"] if can_afford else COLORS["muted_blue"],
         )
@@ -1826,35 +1616,36 @@ Total Clicks: {self.state.total_clicks}
         )
         surface.blit(border_surf, (x, y))
 
-        # Icon (left side, larger with fallback)
-        icon_x = x + 15
-        icon_y = y + height // 2 - 24
+        # Icon (optimized for compact cards)
+        icon_x = x + 12
+        icon_y = y + height // 2 - 18
         icon_text = upgrade.get("icon", "⚡")
 
         try:
-            icon_font = pygame.font.Font(None, 48)  # Larger for better emoji support
+            icon_font = pygame.font.Font(None, 36)  # Smaller for compact cards
             icon_surface = icon_font.render(
                 icon_text, True, border_color if can_afford else COLORS["muted_blue"]
             )
             surface.blit(icon_surface, (icon_x, icon_y))
-        except:
-            # Fallback: draw geometric shape
+        except (pygame.error, UnicodeEncodeError):
             pygame.draw.circle(
                 surface,
                 border_color if can_afford else COLORS["muted_blue"],
-                (icon_x + 24, icon_y + 24),
-                20,
+                (icon_x + 18, icon_y + 18),
+                15,
             )
 
-        # Text area with better spacing
-        text_x = x + 65
-        line_height = 22
+        # Text area with optimized spacing
+        text_x = x + 50  # Moved left due to smaller icon
+        line_height = 18  # Reduced from 22
 
-        # Name (top line, prominent)
-        name_text = self.medium_font.render(upgrade["name"], True, COLORS["soft_white"])
-        surface.blit(name_text, (text_x, y + 12))
+        # Name (top line, compact)
+        name_text = self.small_font.render(
+            upgrade["name"], True, COLORS["soft_white"]
+        )  # Smaller font
+        surface.blit(name_text, (text_x, y + 8))
 
-        # Level (second line)
+        # Level and info on same line to save space
         level_color = COLORS["gold"] if is_maxed else COLORS["neon_purple"]
         level_text = self.small_font.render(
             f"Level {level}/{max_level}",
@@ -1930,9 +1721,9 @@ Total Clicks: {self.state.total_clicks}
         # Draw generators on scroll surface
         y_offset = -panel.get_scroll_offset()
 
+        all_generators = get_all_generators()
         basic_generators = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
         hardware_generators = CONFIG.get("HARDWARE_GENERATORS", {})
-        all_generators = {**basic_generators, **hardware_generators}
 
         for gen_id, generator in all_generators.items():
             # Check if unlocked
@@ -1963,9 +1754,9 @@ Total Clicks: {self.state.total_clicks}
                 production = 0
             can_afford = self.state.can_afford(cost)
 
-            # Card dimensions
-            card_height = 90
-            card_y = y_offset + 10
+            # Card dimensions - optimized for better space utilization
+            card_height = 70  # Reduced from 90
+            card_y = y_offset + 8  # Reduced from 10
 
             # Only draw if visible (optimization)
             if card_y + card_height > -20 and card_y < scroll_surface.get_height():
@@ -1983,7 +1774,7 @@ Total Clicks: {self.state.total_clicks}
                     can_afford,
                 )
 
-            y_offset += card_height + 12
+            y_offset += card_height + 8  # Reduced spacing from 12
 
         # Update content height for scrolling
         panel.set_content_height(y_offset + panel.get_scroll_offset() + 20)
@@ -2019,9 +1810,9 @@ Total Clicks: {self.state.total_clicks}
 
         y_offset = -panel.get_scroll_offset()
 
+        all_upgrades = get_all_upgrades()
         basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
         hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
-        all_upgrades = {**basic_upgrades, **hardware_upgrades}
 
         for upgrade_id, upgrade in all_upgrades.items():
             # Check if unlocked
@@ -2036,9 +1827,9 @@ Total Clicks: {self.state.total_clicks}
             cost = self.state.get_upgrade_cost(upgrade_id)
             can_afford = self.state.can_afford(cost) and level < upgrade["max_level"]
 
-            # Card
-            card_height = 85
-            card_y = y_offset + 10
+            # Card - optimized for better space utilization
+            card_height = 65  # Reduced from 85
+            card_y = y_offset + 8  # Reduced from 10
 
             if card_y + card_height > -20 and card_y < scroll_surface.get_height():
                 self.draw_upgrade_card(
@@ -2054,7 +1845,7 @@ Total Clicks: {self.state.total_clicks}
                     can_afford,
                 )
 
-            y_offset += card_height + 12
+            y_offset += card_height + 8  # Reduced spacing from 12
 
         panel.set_content_height(y_offset + panel.get_scroll_offset() + 20)
 
@@ -2070,16 +1861,8 @@ Total Clicks: {self.state.total_clicks}
             comp = self.bit_grid.components[comp_name]
 
             if comp["unlocked"]:
-                # Calculate upgrade cost
-                base_cost = {
-                    "CPU": 100,
-                    "BUS": 50,
-                    "RAM": 200,
-                    "STORAGE": 300,
-                    "GPU": 400,
-                }
                 cost_multiplier = 2.5 ** comp["level"]
-                cost = int(base_cost.get(comp_name, 100) * cost_multiplier)
+                cost = int(COMPONENT_BASE_COSTS.get(comp_name, 100) * cost_multiplier)
                 can_afford = self.state.can_afford(cost) and comp["level"] < 10
 
                 # Update button state
@@ -2699,37 +2482,44 @@ Total Clicks: {self.state.total_clicks}
                 self.screen, COLORS["electric_cyan"], quality_rect, 3, border_radius=8
             )
 
+    def _get_gradient_surface(self):
+        if (self._gradient_surface is None or 
+            self._last_gradient_size != (self.current_width, self.current_height)):
+            self._gradient_surface = pygame.Surface((self.current_width, self.current_height))
+            for i in range(self.current_height):
+                color_ratio = i / self.current_height
+                color = (
+                    int(
+                        COLORS["deep_space_blue"][0]
+                        + (
+                            COLORS["deep_space_gradient_end"][0]
+                            - COLORS["deep_space_blue"][0]
+                        )
+                        * color_ratio
+                    ),
+                    int(
+                        COLORS["deep_space_blue"][1]
+                        + (
+                            COLORS["deep_space_gradient_end"][1]
+                            - COLORS["deep_space_blue"][1]
+                        )
+                        * color_ratio
+                    ),
+                    int(
+                        COLORS["deep_space_blue"][2]
+                        + (
+                            COLORS["deep_space_gradient_end"][2]
+                            - COLORS["deep_space_blue"][2]
+                        )
+                        * color_ratio
+                    ),
+                )
+                pygame.draw.line(self._gradient_surface, color, (0, i), (self.current_width, i))
+            self._last_gradient_size = (self.current_width, self.current_height)
+        return self._gradient_surface
+
     def draw(self):
-        # Background with gradient
-        for i in range(self.current_height):
-            color_ratio = i / self.current_height
-            color = (
-                int(
-                    COLORS["deep_space_blue"][0]
-                    + (
-                        COLORS["deep_space_gradient_end"][0]
-                        - COLORS["deep_space_blue"][0]
-                    )
-                    * color_ratio
-                ),
-                int(
-                    COLORS["deep_space_blue"][1]
-                    + (
-                        COLORS["deep_space_gradient_end"][1]
-                        - COLORS["deep_space_blue"][1]
-                    )
-                    * color_ratio
-                ),
-                int(
-                    COLORS["deep_space_blue"][2]
-                    + (
-                        COLORS["deep_space_gradient_end"][2]
-                        - COLORS["deep_space_blue"][2]
-                    )
-                    * color_ratio
-                ),
-            )
-            pygame.draw.line(self.screen, color, (0, i), (self.current_width, i))
+        self.screen.blit(self._get_gradient_surface(), (0, 0))
 
         # Draw binary rain (if enabled)
         if self.state.visual_settings["binary_rain"]:
