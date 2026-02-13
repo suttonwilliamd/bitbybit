@@ -167,7 +167,7 @@ class LayoutManager:
         acc_width = int(min(700 * self.scale_x, self.center_area_w - 20))
         acc_height = int(440 * self.scale_y)
         acc_x = self.center_area_x + (self.center_area_w - acc_width) // 2
-        acc_y = int(80 * self.scale_y)
+        acc_y = int(90 * self.scale_y)
         return pygame.Rect(acc_x, acc_y, acc_width, acc_height)
     
     def get_information_core_rect(self):
@@ -185,7 +185,7 @@ class LayoutManager:
         acc = self.get_accumulator_rect()
         return pygame.Rect(
             acc.x + int(16 * self.scale_x),
-            acc.y + int(60 * self.scale_y),
+            acc.y + int(70 * self.scale_y),
             acc.width - int(32 * self.scale_x),
             acc.height - int(80 * self.scale_y)
         )

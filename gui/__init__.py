@@ -166,7 +166,12 @@ class BitByBitGame:
         self._gradient_surface = None
         self._last_gradient_size = (0, 0)
 
+        self.cheat_mode = False
+        self.cheat_purchases = set()
+
         self.load_game()
+
+        self.handle_window_resize(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     def _setup_fonts(self):
         try:
@@ -494,6 +499,12 @@ class BitByBitGame:
                 elif event.key == pygame.K_END:
                     self.hardware_scroll_panel.scroll_to_bottom()
                     self.upgrades_scroll_panel.scroll_to_bottom()
+                elif event.key == pygame.K_LCTRL or event.key == pygame.K_RCTRL:
+                    self.cheat_mode = True
+
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_LCTRL or event.key == pygame.K_RCTRL:
+                    self.cheat_mode = False
 
             if self.showing_rebirth_confirmation:
                 if event.type == pygame.MOUSEBUTTONDOWN:
@@ -603,10 +614,6 @@ class BitByBitGame:
             ):
                 self.handle_upgrade_card_clicks(mouse_pos)
 
-            for comp_name, button in self.component_upgrade_buttons.items():
-                if button.is_clicked(event):
-                    self.upgrade_component(comp_name)
-
             if self.settings_button.is_clicked(event):
                 self.showing_settings = True
             elif self.stats_button.is_clicked(event):
@@ -685,14 +692,20 @@ class BitByBitGame:
 
         self.check_tutorial()
 
+    def can_afford(self, cost):
+        if self.cheat_mode:
+            return True
+        return self.state.can_afford(cost)
+
     def buy_generator(self, generator_id, quantity):
-        if not self.state.is_generator_unlocked(generator_id):
+        if not self.cheat_mode and not self.state.is_generator_unlocked(generator_id):
             return
 
         cost = self.state.get_generator_cost(generator_id, quantity)
 
-        if self.state.can_afford(cost):
-            self.state.bits -= cost
+        if self.can_afford(cost):
+            if not self.cheat_mode:
+                self.state.bits -= cost
             self.state.generators[generator_id]["count"] += quantity
             self.state.generators[generator_id]["total_bought"] += quantity
 
@@ -713,7 +726,7 @@ class BitByBitGame:
                 self._add_particles(particles_to_add)
 
     def buy_upgrade(self, upgrade_id):
-        if not self.state.is_upgrade_unlocked(upgrade_id):
+        if not self.cheat_mode and not self.state.is_upgrade_unlocked(upgrade_id):
             return
 
         basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
@@ -724,10 +737,11 @@ class BitByBitGame:
         cost = self.state.get_upgrade_cost(upgrade_id)
 
         if (
-            self.state.can_afford(cost)
+            self.can_afford(cost)
             and self.state.upgrades[upgrade_id]["level"] < upgrade["max_level"]
         ):
-            self.state.bits -= cost
+            if not self.cheat_mode:
+                self.state.bits -= cost
             self.state.upgrades[upgrade_id]["level"] += 1
 
             self.bit_grid.add_purchase_effect()
@@ -758,19 +772,20 @@ class BitByBitGame:
 
         for gen_id, generator in all_generators.items():
             is_locked = False
-            if gen_id in basic_generators:
-                if not self.state.is_generator_unlocked(gen_id):
-                    is_locked = True
-            elif gen_id in hardware_generators:
-                if not self.state.is_hardware_category_unlocked(generator.get("category", "")):
-                    is_locked = True
+            if not self.cheat_mode:
+                if gen_id in basic_generators:
+                    if not self.state.is_generator_unlocked(gen_id):
+                        is_locked = True
+                elif gen_id in hardware_generators:
+                    if not self.state.is_hardware_category_unlocked(generator.get("category", "")):
+                        is_locked = True
 
-            if is_locked:
+            if is_locked and not self.cheat_mode:
                 continue
 
             count = self.state.generators[gen_id]["count"]
             cost = self.state.get_generator_cost(gen_id)
-            can_afford = self.state.can_afford(cost)
+            can_afford = self.can_afford(cost)
 
             card_x = panel.rect.x + 20
             card_y = panel.rect.y + 50 + y_offset + 8
@@ -811,16 +826,17 @@ class BitByBitGame:
 
         for upgrade_id, upgrade in all_upgrades.items():
             is_locked = False
-            if upgrade_id in basic_upgrades:
-                if not self.state.is_upgrade_unlocked(upgrade_id):
-                    is_locked = True
-            elif upgrade_id in hardware_upgrades:
-                if not self.state.is_hardware_category_unlocked(upgrade.get("category", "")):
-                    is_locked = True
+            if not self.cheat_mode:
+                if upgrade_id in basic_upgrades:
+                    if not self.state.is_upgrade_unlocked(upgrade_id):
+                        is_locked = True
+                elif upgrade_id in hardware_upgrades:
+                    if not self.state.is_hardware_category_unlocked(upgrade.get("category", "")):
+                        is_locked = True
 
             level = self.state.upgrades[upgrade_id]["level"]
             cost = self.state.get_upgrade_cost(upgrade_id)
-            can_afford = self.state.can_afford(cost) and level < upgrade["max_level"]
+            can_afford = self.can_afford(cost) and level < upgrade["max_level"]
 
             card_x = panel.rect.x + 20
             card_y = panel.rect.y + 50 + y_offset + 8
@@ -850,8 +866,9 @@ class BitByBitGame:
         cost_multiplier = 2.5 ** comp["level"]
         cost = int(COMPONENT_BASE_COSTS.get(comp_name, 100) * cost_multiplier)
 
-        if self.state.can_afford(cost) and comp["unlocked"] and comp["level"] < 10:
-            self.state.bits -= cost
+        if self.can_afford(cost) and comp["unlocked"] and comp["level"] < 10:
+            if not self.cheat_mode:
+                self.state.bits -= cost
             self.bit_grid.upgrade_component(comp_name)
 
             self.bit_grid.add_purchase_effect()
@@ -883,6 +900,16 @@ class BitByBitGame:
 
         if hasattr(self, 'motherboard_notification'):
             self.motherboard_notification.update(dt)
+
+        # Update bit_grid with current game state
+        self.bit_grid.update(
+            self.state.bits,
+            self.state.total_bits_earned,
+            self.state.get_rebirth_threshold(),
+            self.state.hardware_generation,
+            dt,
+            self.state.get_production_rate()
+        )
 
         production_rate = self.state.get_production_rate()
         production = production_rate * dt
@@ -972,6 +999,12 @@ class BitByBitGame:
                 prestige_surface = self.small_font.render(prestige_text, True, COLORS["quantum_violet"])
                 prestige_rect = prestige_surface.get_rect(center=(self.current_width // 2, 55))
                 self.screen.blit(prestige_surface, prestige_rect)
+
+            if self.cheat_mode:
+                cheat_text = "⚡ CHEAT MODE: FREE UPGRADES ⚡"
+                cheat_surface = self.large_font.render(cheat_text, True, COLORS["red_error"])
+                cheat_rect = cheat_surface.get_rect(center=(self.current_width // 2, 80))
+                self.screen.blit(cheat_surface, cheat_rect)
 
             if self.state.can_prestige():
                 self.prestige_button.draw(self.screen)
@@ -1096,12 +1129,13 @@ class BitByBitGame:
         hardware_generators = CONFIG.get("HARDWARE_GENERATORS", {})
 
         for gen_id, generator in all_generators.items():
-            if gen_id in basic_generators:
-                if not self.state.is_generator_unlocked(gen_id):
-                    continue
-            elif gen_id in hardware_generators:
-                if not self.state.is_hardware_category_unlocked(generator["category"]):
-                    continue
+            if not self.cheat_mode:
+                if gen_id in basic_generators:
+                    if not self.state.is_generator_unlocked(gen_id):
+                        continue
+                elif gen_id in hardware_generators:
+                    if not self.state.is_hardware_category_unlocked(generator["category"]):
+                        continue
 
             count = self.state.generators[gen_id]["count"]
             cost = self.state.get_generator_cost(gen_id)
@@ -1128,7 +1162,7 @@ class BitByBitGame:
                 draw_generator_card(
                     scroll_surface, 10, card_y, panel.rect.width - 40, card_height,
                     generator, gen_id, count, cost, production, 
-                    self.state.can_afford(cost), self.state.can_afford(cost_x10),
+                    self.can_afford(cost), self.can_afford(cost_x10),
                     self.state, CONFIG, self.medium_font, self.small_font, self.tiny_font
                 )
 
@@ -1165,16 +1199,17 @@ class BitByBitGame:
         hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
 
         for upgrade_id, upgrade in all_upgrades.items():
-            if upgrade_id in basic_upgrades:
-                if not self.state.is_upgrade_unlocked(upgrade_id):
-                    continue
-            elif upgrade_id in hardware_upgrades:
-                if not self.state.is_hardware_category_unlocked(upgrade["category"]):
-                    continue
+            if not self.cheat_mode:
+                if upgrade_id in basic_upgrades:
+                    if not self.state.is_upgrade_unlocked(upgrade_id):
+                        continue
+                elif upgrade_id in hardware_upgrades:
+                    if not self.state.is_hardware_category_unlocked(upgrade["category"]):
+                        continue
 
             level = self.state.upgrades[upgrade_id]["level"]
             cost = self.state.get_upgrade_cost(upgrade_id)
-            can_afford = self.state.can_afford(cost) and level < upgrade["max_level"]
+            can_afford = self.can_afford(cost) and level < upgrade["max_level"]
 
             card_height = 85
             card_y = y_offset + 8
@@ -1195,31 +1230,6 @@ class BitByBitGame:
 
         if panel.content_height > panel.rect.height - 60:
             draw_scrollbar(self.screen, panel, pygame.mouse.get_pos())
-
-        for comp_name, button in self.component_upgrade_buttons.items():
-            comp = self.bit_grid.components[comp_name]
-
-            button.rect.x = comp["x"] + comp["width"] - button.rect.width - 6
-            button.rect.y = comp["y"] + 4
-
-            if comp["unlocked"]:
-                from constants import COMPONENT_BASE_COSTS
-                cost_multiplier = 2.5 ** comp["level"]
-                cost = int(COMPONENT_BASE_COSTS.get(comp_name, 100) * cost_multiplier)
-                can_afford = self.state.can_afford(cost) and comp["level"] < 10
-
-                button.is_enabled = can_afford
-                button.draw(self.screen)
-
-                cost_text = self.tiny_font.render(
-                    self.format_number(cost), True, (200, 200, 210)
-                )
-                cost_rect = cost_text.get_rect(
-                    midtop=(button.rect.centerx, button.rect.bottom + 2)
-                )
-                self.screen.blit(cost_text, cost_rect)
-            else:
-                button.is_enabled = False
 
     def handle_settings_events(self, event):
         mouse_pos = pygame.mouse.get_pos()
@@ -1403,7 +1413,7 @@ class BitByBitGame:
 
         step = self.state.tutorial_step
 
-        if step == 0 and self.state.total_bits_earned >= 10:
+        if step == 0 and self.state.total_bits_earned >= 5:
             has_generators = any(
                 gen["count"] > 0 for gen in self.state.generators.values()
             )
