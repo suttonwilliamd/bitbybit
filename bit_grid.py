@@ -101,9 +101,9 @@ class MotherboardBitGrid:
         self.last_rebirth_progress = 0
 
         self.colors = {
-            0: (40, 40, 40),
-            1: (50, 200, 50),
-            "transitioning": (100, 150, 100),
+            0: (0, 0, 0),  # Black - empty bit
+            1: (57, 255, 20),  # Classic phosphor green - filled bit
+            "transitioning": (100, 255, 100),
             "component_border": (120, 120, 140),
             "locked": (20, 20, 28),
             "connection": (55, 60, 80),
@@ -164,7 +164,10 @@ class MotherboardBitGrid:
 
     def update(self, bits, total_bits_earned, rebirth_threshold, hardware_generation=0, dt=1/60):
         self.total_bits_earned = total_bits_earned
-        self.last_rebirth_progress = min(1.0, total_bits_earned / rebirth_threshold)
+        # Use current bits for visual progress (not lifetime)
+        # Scale: 1MB = full grid, but make it tunable
+        visual_threshold = rebirth_threshold if rebirth_threshold > 0 else 1024 * 1024
+        self.last_rebirth_progress = min(1.0, bits / visual_threshold)
         self.hardware_generation = hardware_generation
         self.dt = dt
         self._update_component_unlocks()
@@ -220,10 +223,19 @@ class MotherboardBitGrid:
         if total_capacity == 0:
             return
 
+        # Use current bits for visual progress
         fill_percentage = min(1.0, self.last_rebirth_progress)
-        target_filled_bits = int(total_capacity * fill_percentage)
+        
+        # Calculate target with float, then convert
+        target_filled_bits_float = total_capacity * fill_percentage
+        target_filled_bits = int(target_filled_bits_float)
+        
+        # Always fill at least 1 bit if we have any progress
+        if fill_percentage > 0 and target_filled_bits == 0:
+            target_filled_bits = 1
+        
         current_filled_bits = self._get_current_filled_bits()
-
+        
         if target_filled_bits > current_filled_bits:
             bits_to_add = target_filled_bits - current_filled_bits
             self._distribute_bits(bits_to_add)
@@ -337,6 +349,10 @@ class MotherboardBitGrid:
             pygame.draw.rect(screen, bg_color, (x, y, w, h), border_radius=6)
             pygame.draw.rect(screen, border_draw, (x, y, w, h), 2, border_radius=6)
 
+            # Draw individual bits inside the component
+            self._draw_component_bits(screen, comp)
+
+            # Draw text on top of bits
             label_cache_key = ("label", cache_key)
             if label_cache_key not in self._text_cache:
                 self._text_cache[label_cache_key] = label_font.render(

@@ -28,9 +28,12 @@ class GameState:
         self.tutorial_step = 0
         self.has_seen_tutorial = False
 
-        # Visual settings
+        # Era: entropy, compression
+        self.era = "entropy"
+
+        # Visual settings - CRT effects ON by default for the aesthetic
         self.visual_settings = {
-            "crt_effects": False,  # Off by default
+            "crt_effects": True,  # Enabled for cyberpunk terminal aesthetic
             "binary_rain": True,
             "particle_effects": True,
         }
@@ -46,7 +49,7 @@ class GameState:
 
         # Compression generators and upgrades
         self.compression_generators = {}
-        self.compression_upgrades = {}
+        self.data_shard_upgrades = {}
 
         # Meta progression
         self.total_rebirths = 0
@@ -90,9 +93,9 @@ class GameState:
                     self.compression_generators[gen["id"]] = gen
 
             compression_ups = load_toon_file("config/compression_upgrades.toon")
-            if "compression_token_upgrades" in compression_ups:
-                for upgrade in compression_ups["compression_token_upgrades"]:
-                    self.compression_upgrades[upgrade["id"]] = upgrade
+            if "data_shard_upgrades" in compression_ups:
+                for upgrade in compression_ups["data_shard_upgrades"]:
+                    self.data_shard_upgrades[upgrade["id"]] = upgrade
         except (FileNotFoundError, KeyError, ImportError):
             pass
 
@@ -100,8 +103,8 @@ class GameState:
         for gen_id in self.compression_generators:
             self.compression_generators[gen_id] = {"count": 0, "total_bought": 0}
 
-        for upgrade_id in self.compression_upgrades:
-            self.compression_upgrades[upgrade_id] = {"level": 0}
+        for upgrade_id in self.data_shard_upgrades:
+            self.data_shard_upgrades[upgrade_id] = {"level": 0}
 
     def get_production_rate(self):
         if self.era == "entropy":
@@ -160,30 +163,48 @@ class GameState:
                         "overhead_production", 0
                     )
 
-            # Apply token bonuses
-            compression_ratio_bonus = (
-                self.compression_upgrades.get("compression_ratio", {}).get("level", 0)
-                * 0.05
-            )
-            overhead_reduction = overhead_production * compression_ratio_bonus
-
+            # Apply data shard upgrade bonuses
+            mastery_bonus = self.get_data_shard_upgrade_effect("compression_mastery") / 100.0
+            parallel_bonus = self.get_data_shard_upgrade_effect("parallel_streams") / 100.0
+            
+            # Apply compression mastery bonus to production
+            compressed_production *= (1 + mastery_bonus)
+            
+            # Apply parallel streams bonus per generator type
+            if parallel_bonus > 0:
+                gen_count = sum(gen_data["count"] for gen_data in self.compression_generators.values())
+                compressed_production *= (1 + parallel_bonus * gen_count / 10)
+            
+            # Calculate efficiency floor from upgrades
+            efficiency_floor = self.get_data_shard_upgrade_effect("efficiency_shield") / 100.0
+            
+            # Calculate penalty threshold reduction from entropy barrier
+            penalty_threshold_reduction = self.get_data_shard_upgrade_effect("entropy_barrier") / 100.0
+            
             # Calculate net production and efficiency
-            net_overhead = max(0, overhead_production - overhead_reduction)
+            net_overhead = overhead_production
             efficiency = (
                 compressed_production / (compressed_production + net_overhead)
                 if (compressed_production + net_overhead) > 0
                 else 1.0
             )
+            
+            # Apply efficiency floor
+            efficiency = max(efficiency, efficiency_floor)
 
             self.efficiency = efficiency
             self.overhead_rate = net_overhead
 
-            # Apply efficiency penalties
-            if efficiency < 0.5:
+            # Apply efficiency penalties with threshold reduction
+            penalty_50 = 0.5 - penalty_threshold_reduction
+            penalty_70 = 0.7 - penalty_threshold_reduction
+            penalty_90 = 0.9 - penalty_threshold_reduction
+            
+            if efficiency < penalty_50:
                 penalty = 0.5
-            elif efficiency < 0.7:
+            elif efficiency < penalty_70:
                 penalty = 0.75
-            elif efficiency < 0.9:
+            elif efficiency < penalty_90:
                 penalty = 0.9
             else:
                 penalty = 1.0
@@ -321,7 +342,8 @@ class GameState:
         # Base tokens + bonus for era completion
         base_tokens = int(math.log2(self.total_bits_earned) - 20)
         era_bonus = self.hardware_generation * 5  # Bonus tokens for higher eras
-        return base_tokens + era_bonus
+        shard_bonus = self.get_rebirth_shard_bonus()
+        return int((base_tokens + era_bonus) * (1 + shard_bonus))
 
     def can_rebirth(self, bit_grid=None):
         """Check if rebirth is available - requires 100% era completion"""
@@ -497,11 +519,12 @@ class GameState:
 
     def can_collect_data_shards(self):
         """Check if player can collect NEW data shards"""
-        if self.total_bits_earned < 10000:
+        threshold = self.get_collect_threshold()
+        if self.total_bits_earned < threshold:
             return False
         
         bits_since_collect = self.total_bits_earned - self.last_collect_bits
-        return bits_since_collect >= 10000
+        return bits_since_collect >= threshold
 
     def collect_data_shards(self):
         """Collect data shards based on current progress (doesn't reset anything)"""
@@ -514,3 +537,61 @@ class GameState:
             self.total_data_shards += shards
             self.last_collect_bits = self.total_bits_earned
         return shards
+
+    def get_data_shard_upgrade_cost(self, upgrade_id):
+        """Calculate cost for next level of a data shard upgrade"""
+        if upgrade_id not in self.data_shard_upgrades:
+            return 0
+        
+        upgrade = self.data_shard_upgrades[upgrade_id]
+        current_level = upgrade.get("level", 0)
+        max_level = upgrade.get("max_level", 1)
+        
+        if current_level >= max_level:
+            return None
+        
+        base_cost = upgrade.get("base_cost", 1)
+        cost_scale = upgrade.get("cost_scale", 1)
+        
+        return base_cost + (current_level * cost_scale)
+    
+    def get_data_shard_upgrade_effect(self, upgrade_id):
+        """Calculate current effect bonus from a data shard upgrade"""
+        if upgrade_id not in self.data_shard_upgrades:
+            return 0
+        
+        upgrade = self.data_shard_upgrades[upgrade_id]
+        current_level = upgrade.get("level", 0)
+        effect_per_level = upgrade.get("effect_per_level", 0)
+        
+        return current_level * effect_per_level
+    
+    def can_purchase_data_shard_upgrade(self, upgrade_id):
+        """Check if player can afford a data shard upgrade"""
+        cost = self.get_data_shard_upgrade_cost(upgrade_id)
+        if cost is None:
+            return False
+        return self.data_shards >= cost
+    
+    def purchase_data_shard_upgrade(self, upgrade_id):
+        """Purchase a data shard upgrade using data shards"""
+        if not self.can_purchase_data_shard_upgrade(upgrade_id):
+            return False
+        
+        cost = self.get_data_shard_upgrade_cost(upgrade_id)
+        if cost is None:
+            return False
+        
+        self.data_shards -= cost
+        self.data_shard_upgrades[upgrade_id]["level"] += 1
+        return True
+    
+    def get_collect_threshold(self):
+        """Get the bits threshold for collecting data shards (modified by quick_collect)"""
+        base_threshold = 10000
+        reduction = self.get_data_shard_upgrade_effect("quick_collect") / 100.0
+        return int(base_threshold * (1 - reduction))
+    
+    def get_rebirth_shard_bonus(self):
+        """Get the bonus multiplier for shards earned on rebirth"""
+        return self.get_data_shard_upgrade_effect("shard_doubler") / 100.0

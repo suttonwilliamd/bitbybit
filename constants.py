@@ -91,7 +91,8 @@ if "generators" in GENERATORS_CONFIG and GENERATORS_CONFIG["generators"]:
 CONFIG = {
     "SAVE_FILE": "bitbybit_save.json",
     "AUTO_SAVE_INTERVAL": 30000,  # 30 seconds
-    "REBIRTH_THRESHOLD": 128 * 1024 * 1024,  # 128 MB in bits
+    "REBIRTH_THRESHOLD": 128 * 1024 * 1024,  # 128 MB in bits - for rebirth
+    "VISUAL_FILL_THRESHOLD": 10000,            # 10K bits - fills at 1MB total
     "GENERATORS": {
         "rng": {
             "id": "rng",
