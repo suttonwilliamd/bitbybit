@@ -118,7 +118,7 @@ def draw_standard_accumulator(screen, state, bit_grid, current_width, current_he
     acc_width = int(min(750 * scale_x, center_width - 20))
     acc_height = int(480 * scale_y)
     acc_x = center_x + (center_width - acc_width) // 2
-    acc_y = int(70 * scale_y)
+    acc_y = int(95 * scale_y)
 
     # Position bit grid to fill the accumulator
     grid_padding = int(50 * scale_x)
@@ -131,9 +131,10 @@ def draw_standard_accumulator(screen, state, bit_grid, current_width, current_he
     bit_grid.update(
         state.bits,
         state.total_bits_earned,
-        CONFIG.get("VISUAL_FILL_THRESHOLD", 1024 * 1024),  # Use lower threshold for visuals
+        CONFIG.get("VISUAL_FILL_THRESHOLD", 1024 * 1024),
         state.hardware_generation,
         dt,
+        state.get_production_rate(),
     )
 
     acc_rect = pygame.Rect(acc_x, acc_y, acc_width, acc_height)

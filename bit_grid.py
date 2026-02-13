@@ -1,13 +1,202 @@
 """
 Bit grid visualization for Bit by Bit Game
 Motherboard-style tech tree with horizontal flow: CPU → BUS → RAM/GPU/STORAGE
+Exact bit-level LED representation v2.2
 """
 
 import pygame
 import math
 import random
-from constants import COLORS
-from visual_effects import BitDot
+from constants import COLORS, get_exact_bits
+
+# Try to import numpy for high-performance LED rendering
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    np = None
+
+
+class LEDGrid:
+    """Exact bit-level LED grid with density scaling for large capacities"""
+    
+    _font_cache = None
+    _label_cache = {}
+    
+    def __init__(self, rect, exact_bits: int):
+        self.rect = rect
+        self.exact_bits = max(1, exact_bits)  # Ensure at least 1
+        self.max_cells = 1048576
+        self.cells = min(self.exact_bits, self.max_cells)
+        self.density = self.exact_bits / self.cells if self.exact_bits > self.max_cells else 1.0
+        
+        self.grid_w = int(math.sqrt(self.cells))
+        self.grid_h = self.cells // self.grid_w
+        
+        self.grid = np.zeros((self.grid_h, self.grid_w, 3), dtype=np.uint8) if HAS_NUMPY else None
+        self.surf = pygame.Surface((rect.width, rect.height)) if rect.width > 0 and rect.height > 0 else None
+        self.glow = np.zeros((self.grid_h, self.grid_w), dtype=np.float32) if HAS_NUMPY else None
+        
+        self._setup_label()
+        
+        self.current_lit = 0
+        self.passive_glow_timer = 0
+        self.click_bursts = []
+        
+        self._cached_text_surf = None
+        self._cached_label = None
+        
+    def _setup_label(self):
+        if self.density > 1:
+            self.label = f"{self.exact_bits:,} bits\n1 LED = {int(self.density):,} bits"
+        else:
+            self.label = f"{self.exact_bits:,} bits\n1 LED = 1 bit"
+    
+    def update_fill(self, frac: float):
+        """Update fill based on progress fraction (0.0 - 1.0)"""
+        lit = int(frac * self.cells)
+        self.current_lit = lit
+        
+        if not HAS_NUMPY or self.grid is None:
+            return
+            
+        rows = lit // self.grid_w
+        cols = lit % self.grid_w
+        
+        self.grid[:] = [16, 16, 32]
+        if rows > 0:
+            self.grid[:rows, :] = [0, 255, 20]
+        if cols > 0 and rows < self.grid_h:
+            self.grid[rows, :cols] = [0, 255, 20]
+    
+    def animate_passive(self, bits_per_sec: float, dt: float):
+        """Animate passive fill based on bits per second"""
+        if bits_per_sec <= 0 or not HAS_NUMPY or self.glow is None:
+            return
+            
+        new_lights = int(bits_per_sec * dt / self.density)
+        if new_lights > 0:
+            max_row = max(0, self.grid_h - 20)
+            num_bursts = min(new_lights, 100)
+            recent_rows = np.random.randint(max_row, self.grid_h, num_bursts)
+            self.grid[recent_rows, :] = [0, 173, 255]
+            self.glow[recent_rows] = 1.0
+    
+    def animate_click(self, click_bits: float):
+        """Animate click burst effect"""
+        if click_bits <= 0 or not HAS_NUMPY or self.glow is None:
+            return
+            
+        cells_to_light = int(click_bits / self.density)
+        if cells_to_light > 0:
+            actual_cells = self.grid_h * self.grid_w
+            indices = np.random.randint(0, actual_cells, min(cells_to_light, 50))
+            rows, cols = np.unravel_index(indices, (self.grid_h, self.grid_w))
+            self.grid[rows, cols] = [255, 215, 0]
+            self.glow[rows, cols] = 1.5
+    
+    def render(self, screen):
+        """Render the LED grid to screen"""
+        if LEDGrid._font_cache is None:
+            LEDGrid._font_cache = pygame.font.SysFont("Consolas", 18)
+        
+        if not HAS_NUMPY or self.grid is None or self.surf is None:
+            self._render_fallback(screen)
+            return
+        
+        if self._cached_label != self.label:
+            self._cached_label = self.label
+            self._cached_text_surf = LEDGrid._font_cache.render(self.label, True, (200, 255, 255))
+        
+        if self._cached_text_surf:
+            screen.blit(self._cached_text_surf, (self.rect.x, self.rect.bottom - 40))
+            
+        self.glow *= 0.85
+        glow_int = (self.glow * 128).astype(np.uint8)
+        
+        combined = self.grid.astype(np.float32)
+        glow_broadcast = np.stack([glow_int] * 3, axis=-1)
+        combined = combined + glow_broadcast
+        combined = np.clip(combined, 0, 255).astype(np.uint8)
+        
+        try:
+            pygame.surfarray.blit_array(self.surf, combined)
+        except:
+            pass
+        
+        px_per_led = min(self.rect.width / self.grid_w, self.rect.height / self.grid_h)
+        
+        if px_per_led < 1 and self.grid_w > 0 and self.grid_h > 0:
+            try:
+                scaled = pygame.transform.smoothscale(
+                    self.surf, 
+                    (int(self.grid_w * px_per_led), int(self.grid_h * px_per_led))
+                )
+                screen.blit(scaled, (self.rect.x, self.rect.y))
+            except:
+                screen.blit(self.surf, (self.rect.x, self.rect.y))
+        else:
+            screen.blit(self.surf, (self.rect.x, self.rect.y))
+        
+        if self._cached_label != self.label:
+            self._cached_label = self.label
+            self._cached_text_surf = LEDGrid._font_cache.render(self.label, True, (200, 255, 255))
+        
+        if self._cached_text_surf:
+            screen.blit(self._cached_text_surf, (self.rect.x, self.rect.bottom - 40))
+    
+    def _render_fallback(self, screen):
+        """Fallback rendering when numpy is not available"""
+        if self.rect.width <= 0 or self.rect.height <= 0:
+            return
+            
+        if self.current_lit == 0:
+            pygame.draw.rect(screen, (16, 16, 32), self.rect)
+            return
+        
+        grid_w = int(math.sqrt(self.cells))
+        grid_h = self.cells // grid_w
+        
+        px_w = self.rect.width / grid_w
+        px_h = self.rect.height / grid_h
+        
+        fill_color = (0, 255, 20)
+        empty_color = (16, 16, 32)
+        
+        lit = self.current_lit
+        for row in range(grid_h):
+            for col in range(grid_w):
+                idx = row * grid_w + col
+                if idx >= self.cells:
+                    break
+                    
+                x = self.rect.x + int(col * px_w)
+                y = self.rect.y + int(row * px_h)
+                w = max(1, int(px_w) - 1)
+                h = max(1, int(px_h) - 1)
+                
+                color = fill_color if idx < lit else empty_color
+                pygame.draw.rect(screen, color, (x, y, w, h))
+        
+        if LEDGrid._font_cache is None:
+            LEDGrid._font_cache = pygame.font.SysFont("Consolas", 18)
+        
+        if self._cached_label != self.label:
+            self._cached_label = self.label
+            self._cached_text_surf = LEDGrid._font_cache.render(self.label, True, (200, 255, 255))
+        
+        if self._cached_text_surf:
+            screen.blit(self._cached_text_surf, (self.rect.x, self.rect.bottom - 40))
+    
+    def reset(self):
+        """Reset on rebirth"""
+        if HAS_NUMPY:
+            if self.grid is not None:
+                self.grid[:] = [16, 16, 32]
+            if self.glow is not None:
+                self.glow[:] = 0
+        self.current_lit = 0
 
 
 class MotherboardBitGrid:
@@ -16,6 +205,17 @@ class MotherboardBitGrid:
         self.y = y
         self.width = width
         self.height = height
+        
+        self.hardware_generation = 0
+        self.dt = 1/60
+        
+        self.category_map = {
+            "CPU": "cpu",
+            "BUS": "cpu",
+            "RAM": "ram",
+            "GPU": "gpu",
+            "STORAGE": "storage",
+        }
 
         self.components = {
             "CPU": {
@@ -23,6 +223,7 @@ class MotherboardBitGrid:
                 "row": 0,
                 "row_span": 2,
                 "bits": 64,
+                "exact_bits": 512,
                 "unlocked": True,
                 "level": 1,
                 "color": (200, 50, 50),
@@ -34,6 +235,7 @@ class MotherboardBitGrid:
                 "row": 0,
                 "row_span": 2,
                 "bits": 16,
+                "exact_bits": 512,
                 "unlocked": True,
                 "level": 1,
                 "color": (100, 120, 180),
@@ -45,6 +247,7 @@ class MotherboardBitGrid:
                 "row": 0,
                 "row_span": 1,
                 "bits": 1024,
+                "exact_bits": 393216,
                 "unlocked": False,
                 "level": 0,
                 "color": (50, 200, 50),
@@ -56,6 +259,7 @@ class MotherboardBitGrid:
                 "row": 1,
                 "row_span": 1,
                 "bits": 512,
+                "exact_bits": 512,
                 "unlocked": False,
                 "level": 0,
                 "color": (200, 50, 200),
@@ -67,6 +271,7 @@ class MotherboardBitGrid:
                 "row": 0,
                 "row_span": 2,
                 "bits": 8192,
+                "exact_bits": 8192,
                 "unlocked": False,
                 "level": 0,
                 "color": (50, 120, 220),
@@ -86,6 +291,8 @@ class MotherboardBitGrid:
         self._num_cols = 4
         self._num_rows = 2
 
+        self.led_grids = {}
+        
         for comp in self.components.values():
             total_bits = comp["bits"]
             comp["bit_states"] = [0] * total_bits
@@ -95,10 +302,14 @@ class MotherboardBitGrid:
             comp["height"] = 0
 
         self._layout_components()
+        
+        self._init_led_grids()
 
         self.total_bits_earned = 0
         self.last_bits_count = 0
         self.last_rebirth_progress = 0
+        
+        self.bits_per_sec = 0
 
         self.colors = {
             0: (0, 0, 0),  # Black - empty bit
@@ -115,6 +326,96 @@ class MotherboardBitGrid:
 
         self._text_cache = {}
         self._cache_version = 0
+
+        self._click_bursts = []
+        self._passive_glow_timers = {}
+    
+    def _init_led_grids(self):
+        """Initialize LED grids for each component"""
+        self.led_grids = {}
+        
+        for comp_name, comp in self.components.items():
+            x = comp["x"]
+            y = comp["y"]
+            w = comp["width"]
+            h = comp["height"]
+            
+            border_thickness = 6
+            padding = 10
+            led_w = w - border_thickness * 2 - padding * 2
+            led_h = h - border_thickness * 2 - padding * 2
+            
+            if led_w > 0 and led_h > 0:
+                rect = pygame.Rect(x + border_thickness + padding, 
+                                   y + border_thickness + padding,
+                                   led_w, led_h)
+                exact_bits = max(1, comp.get("exact_bits", comp["bits"]))
+                self.led_grids[comp_name] = LEDGrid(rect, exact_bits)
+    
+    def _update_led_grids(self):
+        """Update LED grid positions on dimension change"""
+        for comp_name, comp in self.components.items():
+            if comp_name not in self.led_grids:
+                continue
+                
+            x = comp["x"]
+            y = comp["y"]
+            w = comp["width"]
+            h = comp["height"]
+            
+            border_thickness = 6
+            padding = 10
+            led_w = w - border_thickness * 2 - padding * 2
+            led_h = h - border_thickness * 2 - padding * 2
+            
+            if led_w > 10 and led_h > 10:
+                rect = pygame.Rect(x + border_thickness + padding, 
+                                   y + border_thickness + padding,
+                                   led_w, led_h)
+                old_grid = self.led_grids[comp_name]
+                old_bits = old_grid.exact_bits
+                self.led_grids[comp_name] = LEDGrid(rect, old_bits)
+    
+    def _get_exact_bits(self, comp_name):
+        """Get exact bits for a component based on category and generation"""
+        category = self.category_map.get(comp_name, "cpu")
+        gen = self.hardware_generation
+        return get_exact_bits(category, gen)
+
+    def _render_led_grid(self, screen, comp):
+        """Render component using LEDGrid"""
+        comp_name = comp["name"]
+        
+        if comp_name not in self.led_grids:
+            return
+            
+        led_grid = self.led_grids[comp_name]
+        
+        if comp["unlocked"]:
+            exact_bits = max(1, self._get_exact_bits(comp_name))
+            if led_grid.exact_bits != exact_bits:
+                x = comp["x"]
+                y = comp["y"]
+                w = comp["width"]
+                h = comp["height"]
+                border_thickness = 6
+                padding = 10
+                led_w = w - border_thickness * 2 - padding * 2
+                led_h = h - border_thickness * 2 - padding * 2
+                if led_w > 10 and led_h > 10:
+                    rect = pygame.Rect(x + border_thickness + padding, 
+                                      y + border_thickness + padding,
+                                      led_w, led_h)
+                    self.led_grids[comp_name] = LEDGrid(rect, exact_bits)
+                    led_grid = self.led_grids[comp_name]
+            
+            fill_frac = 0.0
+            if comp["bits"] > 0:
+                filled = sum(comp["bit_states"])
+                fill_frac = filled / comp["bits"]
+            led_grid.update_fill(fill_frac)
+            led_grid.animate_passive(self.bits_per_sec, self.dt)
+            led_grid.render(screen)
 
     def _get_fonts(self):
         if self._label_font is None:
@@ -161,15 +462,15 @@ class MotherboardBitGrid:
         self.height = height
         self._label_font = None
         self._layout_components()
+        self._update_led_grids()
 
-    def update(self, bits, total_bits_earned, rebirth_threshold, hardware_generation=0, dt=1/60):
+    def update(self, bits, total_bits_earned, rebirth_threshold, hardware_generation=0, dt=1/60, bits_per_sec=0):
         self.total_bits_earned = total_bits_earned
-        # Use current bits for visual progress (not lifetime)
-        # Scale: 1MB = full grid, but make it tunable
         visual_threshold = rebirth_threshold if rebirth_threshold > 0 else 1024 * 1024
-        self.last_rebirth_progress = min(1.0, bits / visual_threshold)
+        self.last_rebirth_progress = min(1.0, total_bits_earned / visual_threshold)
         self.hardware_generation = hardware_generation
         self.dt = dt
+        self.bits_per_sec = bits_per_sec
         self._update_component_unlocks()
         self._update_bits_to_progress()
         self.last_bits_count = bits
@@ -202,11 +503,17 @@ class MotherboardBitGrid:
         return total_capacity
 
     def _get_current_filled_bits(self):
+        if hasattr(self, '_cached_filled_bits') and self._cached_filled_bits >= 0:
+            return self._cached_filled_bits
         filled_bits = 0
         for comp in self.components.values():
             if comp["unlocked"]:
                 filled_bits += sum(comp["bit_states"])
+        self._cached_filled_bits = filled_bits
         return filled_bits
+
+    def _invalidate_filled_bits_cache(self):
+        self._cached_filled_bits = -1
 
     def _are_all_unlocked_components_full(self):
         for comp in self.components.values():
@@ -223,16 +530,7 @@ class MotherboardBitGrid:
         if total_capacity == 0:
             return
 
-        # Use current bits for visual progress
-        fill_percentage = min(1.0, self.last_rebirth_progress)
-        
-        # Calculate target with float, then convert
-        target_filled_bits_float = total_capacity * fill_percentage
-        target_filled_bits = int(target_filled_bits_float)
-        
-        # Always fill at least 1 bit if we have any progress
-        if fill_percentage > 0 and target_filled_bits == 0:
-            target_filled_bits = 1
+        target_filled_bits = min(self.total_bits_earned, total_capacity)
         
         current_filled_bits = self._get_current_filled_bits()
         
@@ -274,6 +572,9 @@ class MotherboardBitGrid:
                         break
                 if not found_zero:
                     break
+        
+        if bits_added > 0:
+            self._invalidate_filled_bits_cache()
 
     def draw(self, screen):
         self._draw_connections(screen)
@@ -399,75 +700,8 @@ class MotherboardBitGrid:
             pygame.draw.rect(screen, comp["color"], (bar_x, bar_y, fill_width, bar_height), border_radius=3)
 
     def _draw_component_bits(self, screen, comp):
-        total_bits = comp["bits"]
-
-        if comp["width"] <= 30 or comp["height"] <= 50:
-            return
-
-        border_thickness = 6
-        padding = 10
-        available_width = comp["width"] - border_thickness - padding * 2
-        available_height = comp["height"] - border_thickness - padding * 2
-
-        min_bit_size = 3
-        max_bit_size = 12
-
-        if total_bits == 0:
-            total_bits = 1
-        ideal_bit_size = min(
-            max_bit_size,
-            int(math.sqrt((available_width * available_height) / total_bits))
-        )
-        bit_size = max(min_bit_size, ideal_bit_size)
-
-        gap = 1
-        total_bit_cell = bit_size + gap
-
-        grid_cols = max(1, available_width // total_bit_cell)
-        grid_rows = max(1, (total_bits + grid_cols - 1) // grid_cols)
-
-        if grid_rows * total_bit_cell > available_height:
-            bit_size = max(min_bit_size, (available_height // grid_rows) - gap)
-            total_bit_cell = bit_size + gap
-
-        border_thickness = 3
-        padding = 10
-        start_x = comp["x"] + border_thickness + padding
-        start_y = comp["y"] + border_thickness + padding
-
-        total_bits_to_draw = min(total_bits, grid_cols * grid_rows)
-
-        for bit_idx in range(total_bits_to_draw):
-            row = bit_idx // grid_cols
-            col = bit_idx % grid_cols
-
-            bit_x = start_x + col * total_bit_cell
-            bit_y = start_y + row * total_bit_cell
-
-            max_y = comp["y"] + comp["height"] - border_thickness - padding
-            if bit_y + bit_size > max_y:
-                continue
-
-            if bit_idx < len(comp["bit_states"]):
-                bit_value = comp["bit_states"][bit_idx]
-            else:
-                bit_value = 0
-
-            color = self.colors[bit_value]
-
-            tinted_color = tuple(
-                min(255, int(color[i] * 0.7 + comp["color"][i] * 0.3)) for i in range(3)
-            )
-
-            pygame.draw.rect(
-                screen, tinted_color, (bit_x, bit_y, bit_size, bit_size)
-            )
-
-            if bit_value == 1 and bit_size >= 4:
-                highlight_color = tuple(min(255, c + 30) for c in tinted_color)
-                pygame.draw.rect(
-                    screen, highlight_color, (bit_x, bit_y, bit_size, bit_size), 1
-                )
+        """Draw component bits using LEDGrid"""
+        self._render_led_grid(screen, comp)
 
     def reset_on_rebirth(self):
         for comp_name, comp in self.components.items():
@@ -475,6 +709,10 @@ class MotherboardBitGrid:
             if comp_name not in ["CPU", "BUS"]:
                 comp["unlocked"] = False
             comp["level"] = 1 if comp_name in ["CPU", "BUS"] else 0
+        for led_grid in self.led_grids.values():
+            led_grid.reset()
+        self._invalidate_filled_bits_cache()
+        self._smoothed_era_progress = 0
 
     def upgrade_to_era(self, era_level):
         if era_level <= 0:
@@ -486,12 +724,14 @@ class MotherboardBitGrid:
         if era_level >= 3:
             self.components["GPU"]["unlocked"] = True
 
-    def get_era_completion_percentage(self):
-        total_capacity = self._get_total_capacity()
-        current_filled = self._get_current_filled_bits()
-        if total_capacity == 0:
+    def get_era_completion_percentage(self, threshold=9728):
+        if not hasattr(self, 'total_bits_earned') or self.total_bits_earned == 0:
             return 0
-        return (current_filled / total_capacity) * 100
+        raw_progress = min(100, (self.total_bits_earned / threshold) * 100)
+        if not hasattr(self, '_smoothed_era_progress'):
+            self._smoothed_era_progress = raw_progress
+        self._smoothed_era_progress += (raw_progress - self._smoothed_era_progress) * 0.3
+        return self._smoothed_era_progress
 
     def get_bit_completeness_percentage(self):
         total_bits = 0
@@ -505,10 +745,27 @@ class MotherboardBitGrid:
         return (total_ones / total_bits) * 100
 
     def add_click_effect(self):
-        pass
+        """Add click burst effect to random unlocked components"""
+        # Find unlocked components
+        unlocked = [name for name, comp in self.components.items() if comp["unlocked"]]
+        if not unlocked:
+            return
+        
+        # Add burst to random component
+        comp_name = random.choice(unlocked)
+        
+        # Use LEDGrid animate_click
+        if comp_name in self.led_grids:
+            self.led_grids[comp_name].animate_click(1)
 
     def add_purchase_effect(self):
-        pass
+        """Add purchase effect - triggers glow on multiple components"""
+        time_ms = pygame.time.get_ticks()
+        
+        # Trigger glow on all unlocked components
+        for comp_name in self.components:
+            if self.components[comp_name]["unlocked"]:
+                self._passive_glow_timers[comp_name] = time_ms
 
     def upgrade_component(self, comp_name):
         if comp_name in self.components:
