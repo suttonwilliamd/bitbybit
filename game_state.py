@@ -5,7 +5,7 @@ Game state management for Bit by Bit Game
 import pygame
 import math
 import json
-from constants import CONFIG, GENERATORS, UPGRADES, HARDWARE_GENERATIONS
+from constants import CONFIG, GENERATORS, UPGRADES, HARDWARE_GENERATIONS, COST_MULT_BY_ERA
 
 
 class GameState:
@@ -31,9 +31,9 @@ class GameState:
         # Era: entropy, compression
         self.era = "entropy"
 
-        # Visual settings - CRT effects ON by default for the aesthetic
+        # Visual settings - CRT effects OFF by default
         self.visual_settings = {
-            "crt_effects": True,  # Enabled for cyberpunk terminal aesthetic
+            "crt_effects": False,
             "binary_rain": True,
             "particle_effects": True,
         }
@@ -143,10 +143,13 @@ class GameState:
                 2, self.upgrades["entropy_amplification"]["level"]
             )
 
+            # Apply era multiplier (+25% per era as per design doc)
+            era_multiplier = CONFIG.get("ERA_MULTIPLIER", 1.25)
+
             # Apply prestige bonus
             prestige_bonus = self.get_prestige_bonus()
 
-            return base_production * entropy_multiplier * prestige_bonus
+            return base_production * entropy_multiplier * prestige_bonus * era_multiplier
 
         elif self.era == "compression":
             compressed_production = 0
@@ -232,19 +235,25 @@ class GameState:
             return float('inf')  # Unknown generator
         
         current_count = self.generators[generator_id]["count"]
+        
+        # Get era-specific cost multiplier (design doc: 1.15 for early eras, 1.10 for late)
+        era_cost_mult = COST_MULT_BY_ERA.get(self.hardware_generation, 1.15)
+        
+        # Use generator's own multiplier if set, otherwise use era multiplier
+        cost_multiplier = generator.get("cost_multiplier", era_cost_mult)
 
         if quantity == 1:
             return int(
                 generator["base_cost"]
-                * math.pow(generator["cost_multiplier"], current_count)
+                * math.pow(cost_multiplier, current_count)
             )
 
         # Bulk purchase cost calculation
         first_cost = generator["base_cost"] * math.pow(
-            generator["cost_multiplier"], current_count
+            cost_multiplier, current_count
         )
-        ratio = math.pow(generator["cost_multiplier"], quantity) - 1
-        denominator = generator["cost_multiplier"] - 1
+        ratio = math.pow(cost_multiplier, quantity) - 1
+        denominator = cost_multiplier - 1
 
         return int(first_cost * ratio / denominator)
 
@@ -353,7 +362,8 @@ class GameState:
 
         # Check if era is 100% complete (if bit_grid is available)
         if bit_grid:
-            era_completion = bit_grid.get_era_completion_percentage()
+            threshold = self.get_rebirth_threshold()
+            era_completion = bit_grid.get_era_completion_percentage(threshold)
             return era_completion >= 99.9  # Allow for floating point precision
 
         # Fallback to basic threshold check
