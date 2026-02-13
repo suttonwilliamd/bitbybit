@@ -492,7 +492,15 @@ def draw_settings_page(screen, current_width, current_height, base_width, base_h
             screen, COLORS["electric_cyan"], quality_rect, 3, border_radius=8
         )
 
-    return close_button_rect
+    return {
+        "close": close_button_rect,
+        "crt": crt_rect,
+        "rain": rain_rect,
+        "particle": particle_rect,
+        "contrast": contrast_rect,
+        "motion": motion_rect,
+        "quality": quality_rect,
+    }
 
 
 def draw_statistics_page(screen, current_width, current_height, base_width, base_height,

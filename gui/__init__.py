@@ -111,7 +111,7 @@ class BitByBitGame:
         self.hardware_panel_open = True
         self.upgrades_panel_open = True
         
-        self._settings_close_rect = None
+        self._settings_rects = None
         self._statistics_close_rect = None
 
         self._setup_layout()
@@ -461,8 +461,13 @@ class BitByBitGame:
                     self.upgrades_scroll_panel.handle_scrollbar_click(event.pos)
 
             if event.type == pygame.MOUSEMOTION:
-                self.hardware_scroll_panel.handle_scrollbar_drag(event.pos)
-                self.upgrades_scroll_panel.handle_scrollbar_drag(event.pos)
+                mouse_pos = event.pos
+                # Update hover state for scrollbars
+                self.hardware_scroll_panel.update_hover(mouse_pos)
+                self.upgrades_scroll_panel.update_hover(mouse_pos)
+                # Handle dragging
+                self.hardware_scroll_panel.handle_scrollbar_drag(mouse_pos)
+                self.upgrades_scroll_panel.handle_scrollbar_drag(mouse_pos)
 
             if event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
@@ -1041,7 +1046,7 @@ class BitByBitGame:
                 self.format_number, self.large_font, self.medium_font, self.small_font, self.tiny_font, COLORS
             )
         else:
-            self._settings_close_rect = draw_settings_page(
+            self._settings_rects = draw_settings_page(
                 self.screen, self.current_width, self.current_height,
                 self.base_width, self.base_height, self.state.visual_settings,
                 self.high_contrast_mode, self.reduced_motion_mode, self.visual_quality,
@@ -1129,11 +1134,12 @@ class BitByBitGame:
 
             y_offset += card_height + 14
 
-        panel.set_content_height(y_offset + panel.get_scroll_offset() + 20)
-        self.screen.blit(scroll_surface, (panel.rect.x + 10, panel.rect.y + 50))
+        panel.set_content_height(y_offset + panel.get_scroll_offset() + 30)
+        # Content starts below title bar (title bar is 48px, so start at 52 for 4px margin)
+        self.screen.blit(scroll_surface, (panel.rect.x + 10, panel.rect.y + 52))
 
         if panel.content_height > panel.rect.height - 60:
-            draw_scrollbar(self.screen, panel)
+            draw_scrollbar(self.screen, panel, pygame.mouse.get_pos())
 
     def _draw_upgrades_panel(self):
         if self.upgrades_panel_open:
@@ -1183,11 +1189,12 @@ class BitByBitGame:
 
             y_offset += card_height + 14
 
-        panel.set_content_height(y_offset + panel.get_scroll_offset() + 20)
-        self.screen.blit(scroll_surface, (panel.rect.x + 10, panel.rect.y + 50))
+        panel.set_content_height(y_offset + panel.get_scroll_offset() + 30)
+        # Content starts below title bar (title bar is 48px, so start at 52 for 4px margin)
+        self.screen.blit(scroll_surface, (panel.rect.x + 10, panel.rect.y + 52))
 
         if panel.content_height > panel.rect.height - 60:
-            draw_scrollbar(self.screen, panel)
+            draw_scrollbar(self.screen, panel, pygame.mouse.get_pos())
 
         for comp_name, button in self.component_upgrade_buttons.items():
             comp = self.bit_grid.components[comp_name]
@@ -1217,33 +1224,25 @@ class BitByBitGame:
     def handle_settings_events(self, event):
         mouse_pos = pygame.mouse.get_pos()
 
-        if self._settings_close_rect and event.type == pygame.MOUSEBUTTONDOWN:
-            if self._settings_close_rect.collidepoint(mouse_pos):
+        if self._settings_rects and event.type == pygame.MOUSEBUTTONDOWN:
+            if self._settings_rects["close"].collidepoint(mouse_pos):
                 self.showing_settings = False
                 return
 
-        crt_toggle_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 270, 400, 40)
-        rain_toggle_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 300, 400, 40)
-        particle_toggle_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 350, 400, 40)
-        high_contrast_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 400, 400, 40)
-        reduced_motion_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 450, 400, 40)
-        quality_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 500, 400, 40)
-
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if crt_toggle_rect.collidepoint(mouse_pos):
+            if self._settings_rects["crt"].collidepoint(mouse_pos):
                 self.state.visual_settings["crt_effects"] = not self.state.visual_settings["crt_effects"]
-            elif rain_toggle_rect.collidepoint(mouse_pos):
+            elif self._settings_rects["rain"].collidepoint(mouse_pos):
                 self.state.visual_settings["binary_rain"] = not self.state.visual_settings["binary_rain"]
-            elif particle_toggle_rect.collidepoint(mouse_pos):
+            elif self._settings_rects["particle"].collidepoint(mouse_pos):
                 self.state.visual_settings["particle_effects"] = not self.state.visual_settings["particle_effects"]
-            elif high_contrast_rect.collidepoint(mouse_pos):
+            elif self._settings_rects["contrast"].collidepoint(mouse_pos):
                 self.high_contrast_mode = not self.high_contrast_mode
                 self._update_button_accessibility()
-            elif reduced_motion_rect.collidepoint(mouse_pos):
+            elif self._settings_rects["motion"].collidepoint(mouse_pos):
                 self.reduced_motion_mode = not self.reduced_motion_mode
                 quality = "low" if self.reduced_motion_mode else self.visual_quality
                 self.bit_visualization.set_quality_level(quality)
-            elif quality_rect.collidepoint(mouse_pos):
+            elif self._settings_rects["quality"].collidepoint(mouse_pos):
                 quality_levels = ["high", "medium", "low"]
                 current_index = quality_levels.index(self.visual_quality)
                 self.visual_quality = quality_levels[(current_index + 1) % len(quality_levels)]
