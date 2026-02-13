@@ -121,6 +121,11 @@ class BitByBitGame:
         self.showing_tutorial = False
         self.tutorial_text = ""
         
+        # Save/load feedback
+        self.last_save_error = None
+        self.last_load_error = None
+        self.save_success_message = None
+        
         self.crt_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
         self.crt_surface.set_alpha(30)
 
@@ -875,6 +880,32 @@ class BitByBitGame:
             self.save_game()
             self.last_auto_save = current_time
 
+        # Clear old messages after 3 seconds
+        if self.save_success_message and current_time - self.state.last_save_time < 3000:
+            self.save_success_message = None
+
+    def _draw_save_feedback(self):
+        """Draw save/load feedback messages on screen"""
+        current_time = pygame.time.get_ticks()
+        
+        # Draw save error
+        if self.last_save_error:
+            text = self.small_font.render(self.last_save_error, True, COLORS["red_error"])
+            text_rect = text.get_rect(center=(self.current_width // 2, 100))
+            self.screen.blit(text, text_rect)
+        
+        # Draw load error
+        if self.last_load_error:
+            text = self.small_font.render(self.last_load_error, True, COLORS["red_error"])
+            text_rect = text.get_rect(center=(self.current_width // 2, 100))
+            self.screen.blit(text, text_rect)
+        
+        # Draw save success
+        if self.save_success_message and current_time - self.state.last_save_time < 3000:
+            text = self.small_font.render(self.save_success_message, True, COLORS["matrix_green"])
+            text_rect = text.get_rect(center=(self.current_width // 2, 100))
+            self.screen.blit(text, text_rect)
+
     def draw(self):
         self._draw_background()
 
@@ -933,6 +964,9 @@ class BitByBitGame:
 
             self.settings_button.draw(self.screen)
             self.stats_button.draw(self.screen)
+
+            # Draw save/load feedback messages
+            self._draw_save_feedback()
 
             draw_tooltips(
                 self.screen, pygame.mouse.get_pos(), self.hardware_panel_open,
@@ -1339,7 +1373,7 @@ Total Clicks: {self.state.total_clicks}
 
     def save_game(self):
         save_data = {
-            "version": "1.0.0",
+            "version": "1.1.0",
             "timestamp": pygame.time.get_ticks(),
             "state": {
                 "bits": self.state.bits,
@@ -1368,15 +1402,44 @@ Total Clicks: {self.state.total_clicks}
                 "prestige_currency": self.state.prestige_currency,
                 "total_prestige_currency": self.state.total_prestige_currency,
                 "prestige_count": self.state.prestige_count,
+                "compression_generators": self.state.compression_generators,
+                "compression_upgrades": self.state.compression_upgrades,
             },
         }
 
+        save_file = CONFIG["SAVE_FILE"]
+        backup_file = save_file + ".backup"
+        temp_file = save_file + ".tmp"
+
         try:
-            with open(CONFIG["SAVE_FILE"], "w") as f:
+            # Write to temp file first
+            with open(temp_file, "w") as f:
                 json.dump(save_data, f, indent=2)
+            
+            # If there's an existing save, back it up
+            if os.path.exists(save_file):
+                if os.path.exists(backup_file):
+                    os.remove(backup_file)
+                os.rename(save_file, backup_file)
+            
+            # Rename temp to actual save
+            os.rename(temp_file, save_file)
+            
             self.state.last_save_time = pygame.time.get_ticks()
+            self.last_save_error = None
+            self.save_success_message = "Game saved!"
+            
         except Exception as e:
-            print(f"Failed to save game: {e}")
+            # Restore from backup if something went wrong
+            if os.path.exists(backup_file) and not os.path.exists(save_file):
+                try:
+                    os.rename(backup_file, save_file)
+                except:
+                    pass
+            error_msg = f"Failed to save game: {e}"
+            print(error_msg)
+            self.last_save_error = error_msg
+            self.save_success_message = None
 
     def load_game(self):
         if not os.path.exists(CONFIG["SAVE_FILE"]):
@@ -1388,7 +1451,13 @@ Total Clicks: {self.state.total_clicks}
             with open(CONFIG["SAVE_FILE"], "r") as f:
                 save_data = json.load(f)
 
-            state_data = save_data["state"]
+            # Check save version for migration
+            save_version = save_data.get("version", "1.0.0")
+            save_data = self._migrate_save(save_data, save_version)
+
+            state_data = save_data.get("state", {})
+            
+            # Use .get() for all fields with sensible defaults
             self.state.bits = state_data.get("bits", 0)
             self.state.total_bits_earned = state_data.get("total_bits_earned", 0)
             self.state.total_clicks = state_data.get("total_clicks", 0)
@@ -1412,9 +1481,14 @@ Total Clicks: {self.state.total_clicks}
             self.state.total_prestige_currency = state_data.get("total_prestige_currency", 0)
             self.state.prestige_count = state_data.get("prestige_count", 0)
             
+            # Migration: compression_tokens -> data_shards
             if "compression_tokens" in state_data:
-                self.state.data_shards = state_data.get("compression_tokens", 0)
-                self.state.total_data_shards = state_data.get("total_compression_tokens", 0)
+                self.state.data_shards = state_data.get("compression_tokens", 0) or 0
+                self.state.total_data_shards = state_data.get("total_compression_tokens", 0) or 0
+            
+            # Compression generators/upgrades (new in 1.1.0)
+            self.state.compression_generators = state_data.get("compression_generators", {})
+            self.state.compression_upgrades = state_data.get("compression_upgrades", {})
             
             self.state.generators = state_data.get("generators", self.state.generators)
             self.state.unlocked_generators = state_data.get("unlocked_generators", ["rng"])
@@ -1453,9 +1527,59 @@ Total Clicks: {self.state.total_clicks}
                     self.state.bits += offline_production
                     self.state.total_bits_earned += offline_production
                     print(f"Offline progress: {self.format_number(offline_production)} bits")
+            
+            self.last_load_error = None
 
+        except json.JSONDecodeError as e:
+            error_msg = f"Save file corrupted: {e}"
+            print(error_msg)
+            self.last_load_error = error_msg
+            self._try_load_backup()
         except Exception as e:
-            print(f"Failed to load game: {e}")
+            error_msg = f"Failed to load game: {e}"
+            print(error_msg)
+            self.last_load_error = error_msg
+            self._try_load_backup()
+
+    def _try_load_backup(self):
+        """Try to load from backup file if main save is corrupted"""
+        backup_file = CONFIG["SAVE_FILE"] + ".backup"
+        if os.path.exists(backup_file):
+            try:
+                with open(backup_file, "r") as f:
+                    save_data = json.load(f)
+                # Restore from backup
+                state_data = save_data.get("state", {})
+                self.state.bits = state_data.get("bits", 0)
+                self.state.total_bits_earned = state_data.get("total_bits_earned", 0)
+                self.state.generators = state_data.get("generators", {})
+                self.state.upgrades = state_data.get("upgrades", {})
+                self.state.hardware_generation = state_data.get("hardware_generation", 0)
+                self.last_load_error = "Restored from backup"
+                print("Restored game from backup")
+            except Exception as e:
+                self.last_load_error = f"Backup also corrupted: {e}"
+
+    def _migrate_save(self, save_data, version):
+        """Migrate save data from older versions"""
+        current_version = "1.1.0"
+        
+        # Version 1.0.0 -> 1.1.0
+        if version == "1.0.0":
+            print("Migrating save from v1.0.0 to v1.1.0")
+            save_data["version"] = "1.1.0"
+            # compression_generators and compression_upgrades are new
+            if "state" in save_data:
+                if "compression_generators" not in save_data["state"]:
+                    save_data["state"]["compression_generators"] = {}
+                if "compression_upgrades" not in save_data["state"]:
+                    save_data["state"]["compression_upgrades"] = {}
+        
+        # Future migrations can be added here
+        # if version < "1.2.0":
+        #     ...
+        
+        return save_data
 
     def run(self):
         while self.running:
