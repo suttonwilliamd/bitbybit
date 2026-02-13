@@ -31,9 +31,9 @@ from compression_ui import CompressionPanel, CompressionMeter, TokenDisplay, Com
 
 from .panels import ScrollablePanel
 from .cards import draw_generator_card, draw_upgrade_card, draw_panel_toggle, draw_panel_with_integrated_title, draw_scrollbar
-from .modals import draw_rebirth_confirmation, draw_prestige_confirmation, draw_tutorial, draw_settings_page
+from .modals import draw_rebirth_confirmation, draw_prestige_confirmation, draw_tutorial, draw_settings_page, draw_statistics_page
 from .top_bar import draw_top_bar
-from .accumulator import draw_accumulator
+from .accumulator import draw_accumulator, draw_data_shard_upgrades, DataShardUpgradeCard
 from .effects import draw_effects, draw_crt_overlay, draw_circuit_background, draw_tooltips
 from .information_core import draw_information_core
 from .rebirth_bar import draw_rebirth_bar
@@ -107,8 +107,12 @@ class BitByBitGame:
         self.showing_settings = False
         self.showing_rebirth_confirmation = False
         self.showing_prestige_confirmation = False
+        self.showing_statistics = False
         self.hardware_panel_open = True
         self.upgrades_panel_open = True
+        
+        self._settings_close_rect = None
+        self._statistics_close_rect = None
 
         self._setup_layout()
         self._setup_panels()
@@ -197,7 +201,7 @@ class BitByBitGame:
 
     def _setup_compression_ui(self):
         self.compression_panel = CompressionPanel(
-            WINDOW_WIDTH // 2 - 300, 50, 600, 120
+            WINDOW_WIDTH // 2 - 300, 50, 600, 350
         )
         self.compression_meter = CompressionMeter(
             WINDOW_WIDTH // 2 - 150, 190, 300, 25
@@ -208,6 +212,7 @@ class BitByBitGame:
         self.compression_progress = CompressionProgressBar(
             WINDOW_WIDTH // 2 - 200, 270, 400, 30
         )
+        self.data_shard_upgrade_cards = []
 
     def _setup_header_buttons(self):
         self.settings_button = Button(
@@ -450,6 +455,20 @@ class BitByBitGame:
                 self.hardware_scroll_panel.handle_scroll(event)
                 self.upgrades_scroll_panel.handle_scroll(event)
 
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    self.hardware_scroll_panel.handle_scrollbar_click(event.pos)
+                    self.upgrades_scroll_panel.handle_scrollbar_click(event.pos)
+
+            if event.type == pygame.MOUSEMOTION:
+                self.hardware_scroll_panel.handle_scrollbar_drag(event.pos)
+                self.upgrades_scroll_panel.handle_scrollbar_drag(event.pos)
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    self.hardware_scroll_panel.stop_drag()
+                    self.upgrades_scroll_panel.stop_drag()
+
             if event.type == pygame.KEYDOWN:
                 scroll_amount = 50
                 if event.key == pygame.K_UP:
@@ -533,6 +552,15 @@ class BitByBitGame:
                     self.showing_settings = False
                 continue
 
+            if self.showing_statistics:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    self.showing_statistics = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if hasattr(self, '_statistics_close_rect') and self._statistics_close_rect:
+                        if self._statistics_close_rect.collidepoint(mouse_pos):
+                            self.showing_statistics = False
+                continue
+
             if self.showing_tutorial:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     continue_rect = pygame.Rect(
@@ -596,6 +624,12 @@ class BitByBitGame:
                 if shards_collected > 0:
                     self.create_shards_collected_effect(shards_collected)
 
+            if self.state.era == "compression":
+                for card in self.data_shard_upgrade_cards:
+                    if card.contains(mouse_pos) and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        if self.state.can_purchase_data_shard_upgrade(card.upgrade_id):
+                            self.state.purchase_data_shard_upgrade(card.upgrade_id)
+
         if not self.showing_settings and not self.showing_rebirth_confirmation and not self.showing_prestige_confirmation:
             self.click_button.update(mouse_pos)
             self.settings_button.update(mouse_pos)
@@ -619,6 +653,10 @@ class BitByBitGame:
 
             if self.state.can_collect_data_shards():
                 self.collect_shards_button.update(mouse_pos)
+
+            if self.state.era == "compression":
+                for card in self.data_shard_upgrade_cards:
+                    card.hovered = card.contains(mouse_pos)
 
     def handle_click(self):
         click_power = self.state.get_click_power()
@@ -914,7 +952,7 @@ class BitByBitGame:
         if self.state.visual_settings["binary_rain"]:
             self.binary_rain.draw(self.screen)
 
-        if not self.showing_settings and not self.showing_rebirth_confirmation and not self.showing_prestige_confirmation:
+        if not self.showing_settings and not self.showing_rebirth_confirmation and not self.showing_prestige_confirmation and not self.showing_statistics:
             if self.state.visual_settings["particle_effects"]:
                 self.bit_visualization.draw(self.screen, self.state.bits)
 
@@ -942,6 +980,13 @@ class BitByBitGame:
                 self.current_width, self.current_height, self.base_width, self.base_height,
                 self.monospace_font, self.medium_font, self.small_font, COLORS
             )
+
+            if self.state.era == "compression":
+                comp_panel_rect = self.layout.get_compression_panel_rect()
+                self.data_shard_upgrade_cards = draw_data_shard_upgrades(
+                    self.screen, self.state, comp_panel_rect,
+                    self.small_font, self.medium_font, COLORS
+                )
 
             self._draw_panels()
 
@@ -989,8 +1034,14 @@ class BitByBitGame:
                 WINDOW_WIDTH, WINDOW_HEIGHT,
                 self.large_font, self.medium_font, self.small_font, COLORS
             )
+        elif self.showing_statistics:
+            self._statistics_close_rect = draw_statistics_page(
+                self.screen, self.current_width, self.current_height,
+                self.base_width, self.base_height, self.state,
+                self.format_number, self.large_font, self.medium_font, self.small_font, self.tiny_font, COLORS
+            )
         else:
-            draw_settings_page(
+            self._settings_close_rect = draw_settings_page(
                 self.screen, self.current_width, self.current_height,
                 self.base_width, self.base_height, self.state.visual_settings,
                 self.high_contrast_mode, self.reduced_motion_mode, self.visual_quality,
@@ -1166,7 +1217,12 @@ class BitByBitGame:
     def handle_settings_events(self, event):
         mouse_pos = pygame.mouse.get_pos()
 
-        crt_toggle_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 250, 400, 40)
+        if self._settings_close_rect and event.type == pygame.MOUSEBUTTONDOWN:
+            if self._settings_close_rect.collidepoint(mouse_pos):
+                self.showing_settings = False
+                return
+
+        crt_toggle_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 270, 400, 40)
         rain_toggle_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 300, 400, 40)
         particle_toggle_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 350, 400, 40)
         high_contrast_rect = pygame.Rect(WINDOW_WIDTH // 2 - 200, 400, 400, 40)
@@ -1214,14 +1270,7 @@ class BitByBitGame:
                                 sub_button.high_contrast = self.high_contrast_mode
 
     def show_statistics(self):
-        print(f"""
-=== STATISTICS ===
-Time Played: {(pygame.time.get_ticks() - self.state.start_time) // 1000}s
-Total Bits Earned: {self.format_number(self.state.total_bits_earned)}
-Current Production: {self.format_number(self.state.get_production_rate())} b/s
-Total Clicks: {self.state.total_clicks}
-================
-        """)
+        self.showing_statistics = True
 
     def create_rebirth_effect(self):
         center_x = WINDOW_WIDTH // 2
@@ -1403,7 +1452,7 @@ Total Clicks: {self.state.total_clicks}
                 "total_prestige_currency": self.state.total_prestige_currency,
                 "prestige_count": self.state.prestige_count,
                 "compression_generators": self.state.compression_generators,
-                "compression_upgrades": self.state.compression_upgrades,
+                "data_shard_upgrades": self.state.data_shard_upgrades,
             },
         }
 
@@ -1488,7 +1537,12 @@ Total Clicks: {self.state.total_clicks}
             
             # Compression generators/upgrades (new in 1.1.0)
             self.state.compression_generators = state_data.get("compression_generators", {})
-            self.state.compression_upgrades = state_data.get("compression_upgrades", {})
+            
+            # Migration: compression_upgrades -> data_shard_upgrades
+            if "compression_upgrades" in state_data:
+                self.state.data_shard_upgrades = state_data.get("compression_upgrades", {})
+            else:
+                self.state.data_shard_upgrades = state_data.get("data_shard_upgrades", {})
             
             self.state.generators = state_data.get("generators", self.state.generators)
             self.state.unlocked_generators = state_data.get("unlocked_generators", ["rng"])
@@ -1568,12 +1622,15 @@ Total Clicks: {self.state.total_clicks}
         if version == "1.0.0":
             print("Migrating save from v1.0.0 to v1.1.0")
             save_data["version"] = "1.1.0"
-            # compression_generators and compression_upgrades are new
+            # compression_generators and data_shard_upgrades are new
             if "state" in save_data:
                 if "compression_generators" not in save_data["state"]:
                     save_data["state"]["compression_generators"] = {}
                 if "compression_upgrades" not in save_data["state"]:
-                    save_data["state"]["compression_upgrades"] = {}
+                    save_data["state"]["data_shard_upgrades"] = {}
+                else:
+                    # Migration: compression_upgrades -> data_shard_upgrades
+                    save_data["state"]["data_shard_upgrades"] = save_data["state"].pop("compression_upgrades", {})
         
         # Future migrations can be added here
         # if version < "1.2.0":
