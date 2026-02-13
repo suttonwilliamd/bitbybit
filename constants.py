@@ -58,6 +58,7 @@ COLORS = {
     "card_disabled": (25, 25, 30),  # Disabled cards
     # Text colors - improved readability with high contrast
     "soft_white": (240, 245, 255),  # Primary text
+    "white": (255, 255, 255),  # Pure white
     "muted_blue": (120, 140, 180),  # Secondary text
     "muted_gray": (100, 110, 130),  # Tertiary text
     "text_disabled": (80, 85, 95),  # Disabled text
@@ -265,6 +266,56 @@ CONFIG = {
             "icon": "🧬",
             "flavor": "Neural network processor.",
         },
+        "quantum_processor": {
+            "id": "quantum_processor",
+            "name": "Quantum Processor",
+            "category": "quantum",
+            "base_cost": 500000,
+            "base_production": 50000,
+            "cost_multiplier": 1.15,
+            "icon": "⚛️",
+            "flavor": "Superposition and entanglement.",
+        },
+        "qubit_register": {
+            "id": "qubit_register",
+            "name": "Qubit Register",
+            "category": "quantum",
+            "base_cost": 1000000,
+            "base_production": 100000,
+            "cost_multiplier": 1.15,
+            "icon": "🔮",
+            "flavor": "Quantum state storage.",
+        },
+        "hyper_cluster": {
+            "id": "hyper_cluster",
+            "name": "Hyper Cluster",
+            "category": "hyper",
+            "base_cost": 5000000,
+            "base_production": 500000,
+            "cost_multiplier": 1.15,
+            "icon": "🌌",
+            "flavor": "Massive distributed computing.",
+        },
+        "dimension_gate": {
+            "id": "dimension_gate",
+            "name": "Dimension Gate",
+            "category": "hyper",
+            "base_cost": 10000000,
+            "base_production": 1000000,
+            "cost_multiplier": 1.15,
+            "icon": "🌀",
+            "flavor": "Interdimensional data processing.",
+        },
+        "singularity_core": {
+            "id": "singularity_core",
+            "name": "Singularity Core",
+            "category": "singularity",
+            "base_cost": 50000000,
+            "base_production": 5000000,
+            "cost_multiplier": 1.15,
+            "icon": "✨",
+            "flavor": "Transcendent computation.",
+        },
     },
     "HARDWARE_UPGRADES": {
         "overclock": {
@@ -344,6 +395,39 @@ CONFIG = {
             "max_level": 5,
             "description": "Double all AI production",
         },
+        "quantum_entanglement": {
+            "id": "quantum_entanglement",
+            "category": "quantum",
+            "name": "Quantum Entanglement",
+            "icon": "🔗",
+            "base_cost": 100000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all Quantum production",
+        },
+        "hyper_parallelism": {
+            "id": "hyper_parallelism",
+            "category": "hyper",
+            "name": "Hyper Parallelism",
+            "icon": "⚡",
+            "base_cost": 200000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all Hyper production",
+        },
+        "transcendence": {
+            "id": "transcendence",
+            "category": "singularity",
+            "name": "Transcendence",
+            "icon": "🌟",
+            "base_cost": 500000,
+            "cost_multiplier": 5,
+            "effect": 2,
+            "max_level": 5,
+            "description": "Double all Singularity production",
+        },
     },
 }
 
@@ -420,6 +504,39 @@ HARDWARE_GENERATIONS = {
         "visual_theme": "ai",
         "icon": "🤖",
     },
+    7: {
+        "name": "Quantum Era",
+        "description": "Quantum computing revolution",
+        "storage_capacity": 2 * 1024 * 1024 * 1024 * 1024,  # 2 TB threshold
+        "unlock_categories": [
+            "cpu", "ram", "storage", "gpu", "network", "mobile", "ai", "quantum",
+        ],
+        "primary_category": "quantum",
+        "visual_theme": "quantum",
+        "icon": "⚛️",
+    },
+    8: {
+        "name": "Hyper Era",
+        "description": "Hyperscale computing",
+        "storage_capacity": 8 * 1024 * 1024 * 1024 * 1024,  # 8 TB threshold
+        "unlock_categories": [
+            "cpu", "ram", "storage", "gpu", "network", "mobile", "ai", "quantum", "hyper",
+        ],
+        "primary_category": "hyper",
+        "visual_theme": "hyper",
+        "icon": "🌌",
+    },
+    9: {
+        "name": "Singularity Era",
+        "description": "Technological singularity",
+        "storage_capacity": 32 * 1024 * 1024 * 1024 * 1024,  # 32 TB threshold
+        "unlock_categories": [
+            "cpu", "ram", "storage", "gpu", "network", "mobile", "ai", "quantum", "hyper", "singularity",
+        ],
+        "primary_category": "singularity",
+        "visual_theme": "singularity",
+        "icon": "✨",
+    },
 }
 
 # Hardware Categories
@@ -466,6 +583,24 @@ HARDWARE_CATEGORIES = {
         "icon": "🤖",
         "color": (255, 165, 0),  # Orange
     },
+    "quantum": {
+        "name": "Quantum",
+        "description": "Quantum Processor - Qubit-based computing",
+        "icon": "⚛️",
+        "color": (138, 43, 226),  # Purple
+    },
+    "hyper": {
+        "name": "Hyper",
+        "description": "Hyperscale Cluster - Distributed computing",
+        "icon": "🌌",
+        "color": (75, 0, 130),  # Indigo
+    },
+    "singularity": {
+        "name": "Singularity",
+        "description": "Transcendent Computing - Beyond limits",
+        "icon": "✨",
+        "color": (255, 215, 0),  # Gold
+    },
 }
 
 COMPONENT_BASE_COSTS = {
@@ -507,3 +642,17 @@ def ensure_config_loaded():
 
 
 ensure_config_loaded()
+
+
+def format_number(num):
+    """Format a number with K/M/B/T suffixes"""
+    if num < 1000:
+        return str(int(num))
+    elif num < 1000000:
+        return f"{num / 1000:.1f}K"
+    elif num < 1000000000:
+        return f"{num / 1000000:.1f}M"
+    elif num < 1000000000000:
+        return f"{num / 1000000000:.1f}B"
+    else:
+        return f"{num / 1000000000000:.1f}T"

@@ -35,10 +35,10 @@ class GameState:
             "particle_effects": True,
         }
 
-        # Compression era state
-        self.era = "entropy"  # entropy, compression, channel, quantum
-        self.compression_tokens = 0
-        self.total_compression_tokens = 0
+        # Data Shards system
+        self.data_shards = 0  # New name for compression tokens
+        self.total_data_shards = 0
+        self.last_collect_bits = 0  # Track last collection threshold
         self.compressed_bits = 0
         self.total_compressed_bits = 0
         self.overhead_rate = 0
@@ -53,6 +53,11 @@ class GameState:
         self.total_lifetime_bits = 0
         self.hardware_generation = 0  # 0=Mainframe, 1=Apple II, 2=IBM PC, etc.
         self.unlocked_hardware_categories = ["cpu"]  # Start with CPU only
+
+        # Prestige system
+        self.prestige_currency = 0  # New prestige currency
+        self.total_prestige_currency = 0
+        self.prestige_count = 0
 
         # Initialize structures
         self.initialize_structures()
@@ -135,7 +140,10 @@ class GameState:
                 2, self.upgrades["entropy_amplification"]["level"]
             )
 
-            return base_production * entropy_multiplier
+            # Apply prestige bonus
+            prestige_bonus = self.get_prestige_bonus()
+
+            return base_production * entropy_multiplier * prestige_bonus
 
         elif self.era == "compression":
             compressed_production = 0
@@ -190,7 +198,8 @@ class GameState:
             self.upgrades["click_power"]["level"]
             * CONFIG["UPGRADES"]["click_power"]["effect"]
         )
-        return base_click + click_upgrade_bonus
+        prestige_click_bonus = self.get_click_prestige_bonus()
+        return base_click + click_upgrade_bonus + prestige_click_bonus
 
     def get_generator_cost(self, generator_id, quantity=1):
         # Check both basic and hardware generators
@@ -279,7 +288,6 @@ class GameState:
         if "HARDWARE_UPGRADES" not in CONFIG:
             return 1.0
 
-        # Find the corresponding upgrade for this category
         category_upgrades = {
             "cpu": "overclock",
             "ram": "memory_optimization",
@@ -288,6 +296,9 @@ class GameState:
             "network": "bandwidth_boost",
             "mobile": "battery_efficiency",
             "ai": "neural_network",
+            "quantum": "quantum_entanglement",
+            "hyper": "hyper_parallelism",
+            "singularity": "transcendence",
         }
 
         upgrade_id = category_upgrades.get(category)
@@ -328,15 +339,17 @@ class GameState:
 
     def get_rebirth_threshold(self):
         """Get the current rebirth threshold based on hardware generation era capacity"""
-        # Era-specific bit thresholds (total bits needed to complete each era)
         era_thresholds = {
-            0: 9728,  # Mainframe Era: Complete all hardware components
-            1: 150016,  # Apple II Era: Complete all hardware components
-            2: 1114112,  # IBM PC Era: Complete all hardware components
-            3: 46137344,  # Multimedia Era: Complete all hardware components
-            4: 10884218880,  # Internet Era: Complete all hardware components
-            5: 1832519377920,  # Mobile Era: Complete all hardware components
-            6: 111669149696,  # AI Era: Complete all hardware components
+            0: 9728,  # Mainframe Era
+            1: 150016,  # Apple II Era
+            2: 1114112,  # IBM PC Era
+            3: 46137344,  # Multimedia Era
+            4: 10884218880,  # Internet Era
+            5: 1832519377920,  # Mobile Era
+            6: 111669149696,  # AI Era
+            7: 43980465111040,  # Quantum Era
+            8: 175921860444160,  # Hyper Era
+            9: 703687441776640,  # Singularity Era
         }
 
         return era_thresholds.get(self.hardware_generation, 9728)
@@ -365,18 +378,18 @@ class GameState:
         # Calculate tokens earned based on total bits
         tokens = self.get_estimated_rebirth_tokens()
 
-        # Initialize compression era data if first rebirth
-        if not hasattr(self, "compression_tokens"):
-            self.compression_tokens = 0
-            self.total_compression_tokens = 0
+        # Initialize data shards if first rebirth
+        if not hasattr(self, "data_shards"):
+            self.data_shards = 0
+            self.total_data_shards = 0
             self.era = "compression"  # Move to compression era
             self.compressed_bits = 0
             self.overhead_rate = 0
             self.efficiency = 1.0
 
-        # Add tokens
-        self.compression_tokens += tokens
-        self.total_compression_tokens += tokens
+        # Add data shards
+        self.data_shards += tokens
+        self.total_data_shards += tokens
 
         # Check if we should advance hardware generation
         advanced = self.advance_hardware_generation()
@@ -404,3 +417,100 @@ class GameState:
         self.total_rebirths = getattr(self, "total_rebirths", 0) + 1
 
         return True, advanced  # Return whether hardware generation advanced
+
+    def get_prestige_bonus(self):
+        """Calculate prestige production bonus based on prestige count"""
+        if self.prestige_count == 0:
+            return 1.0
+        # Each prestige adds 10% bonus: 1 prestige = 1.1x, 10 prestige = 2x, etc.
+        return 1.0 + (self.prestige_count * 0.1)
+
+    def get_click_prestige_bonus(self):
+        """Calculate prestige click bonus"""
+        if self.prestige_count == 0:
+            return 0
+        # Each prestige adds +1 to base click
+        return self.prestige_count
+
+    def get_prestige_currency_earned(self):
+        """Calculate prestige currency earned on prestige"""
+        # Base formula: sqrt(total_bits_earned) / 100
+        # Modified by hardware generation
+        base_earned = math.sqrt(max(0, self.total_bits_earned)) / 100
+        generation_bonus = 1.0 + (self.hardware_generation * 0.5)
+        return int(base_earned * generation_bonus)
+
+    def can_prestige(self):
+        """Check if prestige is available"""
+        # Require reaching at least hardware generation 3 and 1M total bits
+        return self.hardware_generation >= 3 and self.total_bits_earned >= 1000000
+
+    def perform_prestige(self):
+        """Perform prestige - full restart with bonuses"""
+        if not self.can_prestige():
+            return False
+
+        # Calculate prestige currency earned
+        currency_earned = self.get_prestige_currency_earned()
+
+        # Add prestige currency
+        self.prestige_currency += currency_earned
+        self.total_prestige_currency += currency_earned
+        self.prestige_count += 1
+
+        # Reset everything for full prestige
+        self.bits = 0
+        self.total_bits_earned = 0
+
+        # Reset generators
+        for gen_id in self.generators:
+            self.generators[gen_id] = {"count": 0, "total_bought": 0}
+
+        # Reset upgrades
+        for upgrade_id in self.upgrades:
+            self.upgrades[upgrade_id] = {"level": 0}
+
+        # Reset unlocks
+        self.unlocked_generators = ["rng"]
+
+        # Keep prestige currency but reset hardware
+        self.hardware_generation = 0
+        self.unlocked_hardware_categories = ["cpu"]
+
+        # Reset era
+        self.era = "entropy"
+        self.data_shards = 0
+
+        return True
+
+    def get_data_shards_earned(self):
+        """Calculate data shards earned based on total bits earned since last collection"""
+        if self.total_bits_earned < 10000:
+            return 0
+        
+        bits_since_collect = self.total_bits_earned - self.last_collect_bits
+        if bits_since_collect < 10000:
+            return 0
+        
+        shards = max(0, int(math.log10(bits_since_collect)) - 3)
+        return shards
+
+    def can_collect_data_shards(self):
+        """Check if player can collect NEW data shards"""
+        if self.total_bits_earned < 10000:
+            return False
+        
+        bits_since_collect = self.total_bits_earned - self.last_collect_bits
+        return bits_since_collect >= 10000
+
+    def collect_data_shards(self):
+        """Collect data shards based on current progress (doesn't reset anything)"""
+        if not self.can_collect_data_shards():
+            return 0
+        
+        shards = self.get_data_shards_earned()
+        if shards > 0:
+            self.data_shards += shards
+            self.total_data_shards += shards
+            self.last_collect_bits = self.total_bits_earned
+        return shards

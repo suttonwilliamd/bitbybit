@@ -41,7 +41,7 @@ class CompressionPanel:
             'color': COLORS["neon_purple"]
         })
     
-    def draw(self, screen, compressed_bits, compression_tokens, efficiency, rate):
+    def draw(self, screen, compressed_bits, data_shards, efficiency, rate):
         """Draw the enhanced compression panel"""
         # Draw panel background with gradient effect
         panel_surface = pygame.Surface((self.rect.width, self.rect.height))
@@ -134,7 +134,7 @@ class CompressionMeter:
         # Efficiency text
         font = pygame.font.Font(None, 28)
         eff_text = f"{efficiency:.1f}%"
-        text_surface = font.render(eff_text, True, COLORS["white"])
+        text_surface = font.render(eff_text, True, COLORS["soft_white"])
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
 

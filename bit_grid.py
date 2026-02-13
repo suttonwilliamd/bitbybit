@@ -295,7 +295,7 @@ class MotherboardBitGrid:
             )
 
     def _draw_component(self, screen, comp_name, comp):
-        """Draw a single component with its bits"""
+        """Draw a single component - simplified for clarity"""
         # Draw component background
         if comp["unlocked"]:
             bg_color = tuple(c // 4 for c in comp["color"])  # Darker version
@@ -307,37 +307,60 @@ class MotherboardBitGrid:
         pygame.draw.rect(
             screen, bg_color, (comp["x"], comp["y"], comp["width"], comp["height"])
         )
+        
+        # Thicker border for unlocked components
+        border_width = 3 if comp["unlocked"] else 1
         pygame.draw.rect(
             screen,
             border_color,
             (comp["x"], comp["y"], comp["width"], comp["height"]),
-            3,
+            border_width,
         )
 
         if comp["unlocked"]:
-            # Draw component label
-            font = pygame.font.Font(None, 22)
+            # Draw component label - large and clear
+            font = pygame.font.Font(None, 24)
             label = font.render(
-                f"{comp['name']} Lvl.{comp['level']}", True, (255, 255, 255)
+                f"{comp['name']} Lv.{comp['level']}", True, (255, 255, 255)
             )
-            screen.blit(label, (comp["x"] + 5, comp["y"] + 5))
+            screen.blit(label, (comp["x"] + 8, comp["y"] + 8))
 
-            # Draw description below name
-            desc_font = pygame.font.Font(None, 18)
-            desc_label = desc_font.render(comp["description"], True, (200, 200, 200))
-            screen.blit(desc_label, (comp["x"] + 5, comp["y"] + 24))
-
-            # Draw bits in a grid layout
-            if comp["width"] > 30 and comp["height"] > 50:  # Ensure minimum size
-                self._draw_component_bits(screen, comp)
+            # Draw description 
+            desc_font = pygame.font.Font(None, 16)
+            desc_label = desc_font.render(comp["description"], True, (180, 180, 180))
+            screen.blit(desc_label, (comp["x"] + 8, comp["y"] + 30))
+            
+            # Draw simplified progress bar instead of individual bits
+            self._draw_component_progress(screen, comp)
         else:
-            # Draw locked indicator
-            font = pygame.font.Font(None, 28)
-            label = font.render("LOCKED", True, (100, 100, 100))
+            # Draw locked indicator - subtle, not screaming
+            font = pygame.font.Font(None, 20)
+            label = font.render("LOCKED", True, (70, 70, 80))
             text_rect = label.get_rect(
                 center=(comp["x"] + comp["width"] // 2, comp["y"] + comp["height"] // 2)
             )
             screen.blit(label, text_rect)
+
+    def _draw_component_progress(self, screen, comp):
+        """Draw simplified progress bar for component"""
+        # Progress based on component level (each level = 10%)
+        progress = min(comp["level"] / 10.0, 1.0)
+        
+        bar_x = comp["x"] + 8
+        bar_y = comp["y"] + comp["height"] - 20
+        bar_width = comp["width"] - 16
+        bar_height = 10
+        
+        # Background
+        pygame.draw.rect(screen, (30, 30, 40), (bar_x, bar_y, bar_width, bar_height))
+        
+        # Progress fill
+        if progress > 0:
+            fill_width = int(bar_width * progress)
+            pygame.draw.rect(screen, comp["color"], (bar_x, bar_y, fill_width, bar_height))
+        
+        # Border
+        pygame.draw.rect(screen, comp["color"], (bar_x, bar_y, bar_width, bar_height), 1)
 
     def _draw_component_bits(self, screen, comp):
         """Draw the bits within a component as individual squares"""

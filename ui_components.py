@@ -28,7 +28,10 @@ class Button:
         self.active_color = active_color or COLORS["neon_purple"]
         self.is_hovered = False
         self.is_active = False
-        self.font = pygame.font.Font(None, 24)
+        try:
+            self.font = pygame.font.SysFont("segoe ui symbol", 18)
+        except:
+            self.font = pygame.font.Font(None, 24)
         self.is_enabled = True
         self.animation_time = 0
         self.high_contrast = high_contrast
@@ -182,7 +185,10 @@ class FloatingText:
         self.color = color
         self.lifetime = 1.0
         self.vy = -50
-        self.font = pygame.font.Font(None, 32)
+        try:
+            self.font = pygame.font.SysFont("segoe ui symbol", 24)
+        except:
+            self.font = pygame.font.Font(None, 32)
 
     def update(self, dt):
         self.y += self.vy * dt
