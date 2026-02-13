@@ -3,7 +3,250 @@ UI components for Bit by Bit Game
 """
 
 import pygame
-from constants import COLORS
+from constants import COLORS, WINDOW_WIDTH, WINDOW_HEIGHT
+
+
+class LayoutManager:
+    """Centralized layout management for responsive positioning"""
+    
+    def __init__(self, base_width=WINDOW_WIDTH, base_height=WINDOW_HEIGHT):
+        self.base_width = base_width
+        self.base_height = base_height
+        self.current_width = base_width
+        self.current_height = base_height
+        self._recalculate()
+    
+    def _recalculate(self):
+        """Recalculate all scale factors"""
+        self.scale_x = self.current_width / self.base_width
+        self.scale_y = self.current_height / self.base_height
+        self.min_scale = min(self.scale_x, self.scale_y)
+        
+        self.side_panel_width = int(self.current_width * 0.22)
+        self.center_area_width = self.current_width - (self.side_panel_width * 2)
+        
+        self.top_bar_height = int(70 * self.scale_y)
+        self.top_bar_y = 0
+        
+        self.toggle_button_height = int(40 * self.scale_y)
+        
+        self.panel_y_start = self.top_bar_height + int(20 * self.scale_y)
+        self.panel_height = self.current_height - self.panel_y_start - int(80 * self.scale_y)
+        
+        self.left_panel_x = int(15 * self.scale_x)
+        self.right_panel_x = self.current_width - self.side_panel_width - int(15 * self.scale_x)
+        
+        self.center_area_x = self.side_panel_width + int(20 * self.scale_x)
+        self.center_area_w = self.center_area_width - int(40 * self.scale_x)
+        
+        self.bottom_bar_height = int(80 * self.scale_y)
+        self.bottom_bar_y = self.current_height - self.bottom_bar_height
+    
+    def update_size(self, width, height):
+        """Update current dimensions and recalculate"""
+        self.current_width = width
+        self.current_height = height
+        self._recalculate()
+    
+    def scale_value(self, value, use_min=False):
+        """Scale a value by scale factors"""
+        if use_min:
+            return int(value * self.min_scale)
+        return int(value * self.scale_x)
+    
+    def scale_y_value(self, value):
+        """Scale a Y value"""
+        return int(value * self.scale_y)
+    
+    def scale_font_size(self, base_size):
+        """Scale font size proportionally"""
+        return int(base_size * self.min_scale)
+    
+    def get_center_x(self):
+        """Get center X of the window"""
+        return self.current_width // 2
+    
+    def get_center_y(self):
+        """Get center Y of the window"""
+        return self.current_height // 2
+    
+    def get_center_area_rect(self):
+        """Get the main center area rectangle for UI elements"""
+        return pygame.Rect(
+            self.center_area_x,
+            self.panel_y_start + self.toggle_button_height,
+            self.center_area_w,
+            self.panel_height
+        )
+    
+    def get_top_bar_rect(self):
+        """Get the top bar rectangle"""
+        return pygame.Rect(0, 0, self.current_width, self.top_bar_height)
+    
+    def get_bottom_bar_rect(self):
+        """Get the bottom bar rectangle"""
+        return pygame.Rect(0, self.bottom_bar_y, self.current_width, self.bottom_bar_height)
+    
+    def get_left_panel_rect(self):
+        """Get left panel rectangle"""
+        return pygame.Rect(
+            self.left_panel_x,
+            self.panel_y_start + self.toggle_button_height,
+            self.side_panel_width,
+            self.panel_height
+        )
+    
+    def get_right_panel_rect(self):
+        """Get right panel rectangle"""
+        return pygame.Rect(
+            self.right_panel_x,
+            self.panel_y_start + self.toggle_button_height,
+            self.side_panel_width,
+            self.panel_height
+        )
+    
+    def get_toggle_rect(self, is_left=True):
+        """Get toggle button rectangle"""
+        x = self.left_panel_x if is_left else self.right_panel_x
+        return pygame.Rect(
+            x,
+            self.panel_y_start,
+            self.side_panel_width,
+            self.toggle_button_height
+        )
+    
+    def get_click_button_rect(self, width_ratio=0.25):
+        """Get click button rectangle in center area"""
+        button_width = int(min(280, self.center_area_w * width_ratio))
+        return pygame.Rect(
+            self.center_area_x + (self.center_area_w - button_width) // 2,
+            self.current_height - int(260 * self.scale_y),
+            button_width,
+            int(60 * self.scale_y)
+        )
+    
+    def get_rebirth_button_rect(self):
+        """Get rebirth button rectangle"""
+        return pygame.Rect(
+            self.current_width // 2 - int(150 * self.scale_x),
+            self.current_height - int(120 * self.scale_y),
+            int(300 * self.scale_x),
+            int(40 * self.scale_y)
+        )
+    
+    def get_prestige_button_rect(self):
+        """Get prestige button rectangle"""
+        return pygame.Rect(
+            self.current_width // 2 - int(75 * self.scale_x),
+            self.current_height - int(170 * self.scale_y),
+            int(150 * self.scale_x),
+            int(35 * self.scale_y)
+        )
+    
+    def get_collect_shards_button_rect(self):
+        """Get collect shards button rectangle"""
+        return pygame.Rect(
+            self.current_width // 2 - int(75 * self.scale_x),
+            self.current_height - int(220 * self.scale_y),
+            int(150 * self.scale_x),
+            int(35 * self.scale_y)
+        )
+    
+    def get_header_button_rect(self, is_settings=True):
+        """Get header button rectangle"""
+        x = self.current_width - int(150 * self.scale_x) if is_settings else self.current_width - int(280 * self.scale_x)
+        return pygame.Rect(
+            x,
+            int(15 * self.scale_y),
+            int(120 * self.scale_x),
+            int(40 * self.scale_y)
+        )
+    
+    def get_accumulator_rect(self):
+        """Get accumulator rectangle in center area"""
+        acc_width = int(min(700 * self.scale_x, self.center_area_w - 20))
+        acc_height = int(440 * self.scale_y)
+        acc_x = self.center_area_x + (self.center_area_w - acc_width) // 2
+        acc_y = int(80 * self.scale_y)
+        return pygame.Rect(acc_x, acc_y, acc_width, acc_height)
+    
+    def get_information_core_rect(self):
+        """Get information core rectangle"""
+        radius = int(120 * self.scale_y)
+        return pygame.Rect(
+            self.get_center_x() - radius,
+            int(420 * self.scale_y),
+            radius * 2,
+            radius * 2
+        )
+    
+    def get_bit_grid_rect(self):
+        """Get bit grid rectangle within accumulator"""
+        acc = self.get_accumulator_rect()
+        return pygame.Rect(
+            acc.x + int(16 * self.scale_x),
+            acc.y + int(60 * self.scale_y),
+            acc.width - int(32 * self.scale_x),
+            acc.height - int(80 * self.scale_y)
+        )
+    
+    def get_progress_bar_rect(self):
+        """Get rebirth progress bar rectangle"""
+        return pygame.Rect(
+            int(200 * self.scale_x),
+            self.current_height - int(50 * self.scale_y),
+            int(800 * self.scale_x),
+            int(20 * self.scale_y)
+        )
+    
+    def get_compression_panel_rect(self):
+        """Get compression panel rectangle"""
+        panel_width = int(min(600 * self.scale_x, self.center_area_w - 40))
+        return pygame.Rect(
+            self.center_area_x + (self.center_area_w - panel_width) // 2,
+            self.top_bar_height + int(30 * self.scale_y),
+            panel_width,
+            int(120 * self.scale_y)
+        )
+    
+    def get_compression_meter_rect(self):
+        """Get compression meter rectangle"""
+        return pygame.Rect(
+            self.center_area_x + (self.center_area_w - int(300 * self.scale_x)) // 2,
+            self.top_bar_height + int(160 * self.scale_y),
+            int(300 * self.scale_x),
+            int(25 * self.scale_y)
+        )
+    
+    def get_token_display_pos(self):
+        """Get token display position"""
+        return (
+            self.center_area_x + self.center_area_w // 2 - int(50 * self.scale_x),
+            self.top_bar_height + int(200 * self.scale_y)
+        )
+    
+    def get_compression_progress_rect(self):
+        """Get compression progress bar rectangle"""
+        return pygame.Rect(
+            self.center_area_x + (self.center_area_w - int(400 * self.scale_x)) // 2,
+            self.top_bar_height + int(240 * self.scale_y),
+            int(400 * self.scale_x),
+            int(30 * self.scale_y)
+        )
+
+
+class GameUIState:
+    """Consolidated UI state to replace global state"""
+    
+    def __init__(self):
+        self.display_bits = 0
+        self.display_compressed_bits = 0
+        self.display_rate = 0
+    
+    def reset(self):
+        self.display_bits = 0
+        self.display_compressed_bits = 0
+        self.display_rate = 0
 
 
 class Button:
@@ -183,20 +426,32 @@ class FloatingText:
         self.y = y
         self.text = text
         self.color = color
-        self.lifetime = 1.0
-        self.vy = -50
+        self.lifetime = 1.2
+        self.vy = -80
+        self.scale = 1.5
+        self.target_scale = 1.0
         try:
-            self.font = pygame.font.SysFont("segoe ui symbol", 24)
+            self.font = pygame.font.SysFont("Consolas", 28, bold=True)
         except:
             self.font = pygame.font.Font(None, 32)
 
     def update(self, dt):
         self.y += self.vy * dt
+        self.vy += 20 * dt
         self.lifetime -= dt
+        self.scale += (self.target_scale - self.scale) * 8 * dt
 
     def draw(self, screen):
         if self.lifetime > 0:
-            alpha = int(255 * self.lifetime)
+            alpha = min(255, int(255 * self.lifetime * 2))
             text_surface = self.font.render(self.text, True, self.color)
             text_surface.set_alpha(alpha)
-            screen.blit(text_surface, (self.x, self.y))
+            
+            w, h = text_surface.get_size()
+            scaled_w = int(w * self.scale)
+            scaled_h = int(h * self.scale)
+            if scaled_w > 0 and scaled_h > 0:
+                scaled = pygame.transform.scale(text_surface, (scaled_w, scaled_h))
+                screen.blit(scaled, (self.x - scaled_w // 2, self.y - scaled_h // 2))
+            else:
+                screen.blit(text_surface, (self.x, self.y))

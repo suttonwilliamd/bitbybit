@@ -1,5 +1,6 @@
 """
-Bit grid visualization for Bit by Bit Game - Working version
+Bit grid visualization for Bit by Bit Game
+Motherboard-style tech tree with horizontal flow: CPU → BUS → RAM/GPU/STORAGE
 """
 
 import pygame
@@ -16,15 +17,12 @@ class MotherboardBitGrid:
         self.width = width
         self.height = height
 
-        # Motherboard component definitions - re-arranged for no overlapping
-        # Layout designed like a real motherboard with proper spacing
         self.components = {
             "CPU": {
-                "x_ratio": 0.05,  # Left side, top
-                "y_ratio": 0.1,
-                "width_ratio": 0.18,  # Compact square
-                "height_ratio": 0.25,
-                "bits": 64,  # 64-bit registers
+                "col": 0,
+                "row": 0,
+                "row_span": 2,
+                "bits": 64,
                 "unlocked": True,
                 "level": 1,
                 "color": (200, 50, 50),
@@ -32,65 +30,71 @@ class MotherboardBitGrid:
                 "description": "64-bit Registers",
             },
             "BUS": {
-                "x_ratio": 0.28,  # Top center, between CPU and RAM
-                "y_ratio": 0.05,  # Top row
-                "width_ratio": 0.44,  # Wide but not full width
-                "height_ratio": 0.12,  # Thin horizontal bar
-                "bits": 16,  # 16-bit address bus
+                "col": 1,
+                "row": 0,
+                "row_span": 2,
+                "bits": 16,
                 "unlocked": True,
                 "level": 1,
-                "color": (100, 100, 150),
+                "color": (100, 120, 180),
                 "name": "BUS",
                 "description": "16-bit Address Bus",
             },
             "RAM": {
-                "x_ratio": 0.05,  # Left side, middle
-                "y_ratio": 0.4,  # Middle-left, below CPU
-                "width_ratio": 0.22,  # Moderate width
-                "height_ratio": 0.3,  # Moderate height
-                "bits": 1024,  # 1KB RAM
+                "col": 2,
+                "row": 0,
+                "row_span": 1,
+                "bits": 1024,
                 "unlocked": False,
                 "level": 0,
                 "color": (50, 200, 50),
                 "name": "RAM",
                 "description": "1KB Core Memory",
             },
-            "STORAGE": {
-                "x_ratio": 0.75,  # Right side, bottom
-                "y_ratio": 0.6,  # Bottom-right
-                "width_ratio": 0.2,  # Compact
-                "height_ratio": 0.3,  # Same height as RAM
-                "bits": 8192,  # 8KB storage
-                "unlocked": False,
-                "level": 0,
-                "color": (50, 100, 200),
-                "name": "STORAGE",
-                "description": "8KB Disk Drive",
-            },
             "GPU": {
-                "x_ratio": 0.38,  # Center-right, top-middle
-                "y_ratio": 0.25,  # Middle area, right of CPU
-                "width_ratio": 0.18,  # Same size as CPU
-                "height_ratio": 0.22,  # Slightly shorter than CPU
-                "bits": 512,  # 512B video memory
+                "col": 2,
+                "row": 1,
+                "row_span": 1,
+                "bits": 512,
                 "unlocked": False,
                 "level": 0,
                 "color": (200, 50, 200),
                 "name": "GPU",
                 "description": "512B Video Memory",
             },
+            "STORAGE": {
+                "col": 3,
+                "row": 0,
+                "row_span": 2,
+                "bits": 8192,
+                "unlocked": False,
+                "level": 0,
+                "color": (50, 120, 220),
+                "name": "STORAGE",
+                "description": "8KB Disk Drive",
+            },
         }
 
-        # Calculate actual component dimensions
-        for comp_name, comp in self.components.items():
-            comp["x"] = self.x + int(self.width * comp["x_ratio"])
-            comp["y"] = self.y + int(self.height * comp["y_ratio"])
-            comp["width"] = int(self.width * comp["width_ratio"])
-            comp["height"] = int(self.height * comp["height_ratio"])
+        self._connections = [
+            ("CPU", "BUS"),
+            ("BUS", "RAM"),
+            ("BUS", "GPU"),
+            ("RAM", "STORAGE"),
+            ("GPU", "STORAGE"),
+        ]
 
-            # Initialize bit arrays for each component
+        self._num_cols = 4
+        self._num_rows = 2
+
+        for comp in self.components.values():
             total_bits = comp["bits"]
             comp["bit_states"] = [0] * total_bits
+            comp["x"] = 0
+            comp["y"] = 0
+            comp["width"] = 0
+            comp["height"] = 0
+
+        self._layout_components()
 
         self.total_bits_earned = 0
         self.last_bits_count = 0
@@ -101,284 +105,282 @@ class MotherboardBitGrid:
             1: (50, 200, 50),
             "transitioning": (100, 150, 100),
             "component_border": (120, 120, 140),
-            "locked": (30, 30, 30),
-            "connection": (80, 80, 100),
+            "locked": (20, 20, 28),
+            "connection": (55, 60, 80),
         }
 
+        self._label_font = None
+        self._desc_font = None
+        self._lock_font = None
+
+    def _get_fonts(self):
+        if self._label_font is None:
+            scale = max(0.6, min(1.5, self.height / 300))
+            label_size = max(12, int(15 * scale))
+            desc_size = max(10, int(12 * scale))
+            lock_size = max(10, int(12 * scale))
+            try:
+                self._label_font = pygame.font.SysFont("Consolas", label_size, bold=True)
+                self._desc_font = pygame.font.SysFont("Consolas", desc_size)
+                self._lock_font = pygame.font.SysFont("Consolas", lock_size)
+            except pygame.error:
+                self._label_font = pygame.font.Font(None, label_size + 4)
+                self._desc_font = pygame.font.Font(None, desc_size + 4)
+                self._lock_font = pygame.font.Font(None, lock_size + 4)
+        return self._label_font, self._desc_font, self._lock_font
+
+    def _layout_components(self):
+        scale = max(0.6, min(1.5, self.height / 300))
+        pad_x = int(10 * scale)
+        pad_y = int(8 * scale)
+        gap_x = int(12 * scale)
+        gap_y = int(8 * scale)
+
+        usable_w = self.width - pad_x * 2 - gap_x * (self._num_cols - 1)
+        usable_h = self.height - pad_y * 2 - gap_y * (self._num_rows - 1)
+        cell_w = usable_w // self._num_cols
+        cell_h = usable_h // self._num_rows
+
+        for comp in self.components.values():
+            col = comp["col"]
+            row = comp["row"]
+            row_span = comp["row_span"]
+
+            comp["x"] = self.x + pad_x + col * (cell_w + gap_x)
+            comp["y"] = self.y + pad_y + row * (cell_h + gap_y)
+            comp["width"] = cell_w
+            comp["height"] = cell_h * row_span + gap_y * (row_span - 1)
+
     def update_dimensions(self, x, y, width, height):
-        """Update the grid dimensions and recalculate component positions"""
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-        for comp_name, comp in self.components.items():
-            comp["x"] = self.x + int(self.width * comp["x_ratio"])
-            comp["y"] = self.y + int(self.height * comp["y_ratio"])
-            comp["width"] = int(self.width * comp["width_ratio"])
-            comp["height"] = int(self.height * comp["height_ratio"])
+        self._label_font = None
+        self._layout_components()
 
     def update(self, bits, total_bits_earned, rebirth_threshold, hardware_generation=0, dt=1/60):
         self.total_bits_earned = total_bits_earned
         self.last_rebirth_progress = min(1.0, total_bits_earned / rebirth_threshold)
         self.hardware_generation = hardware_generation
         self.dt = dt
-
         self._update_component_unlocks()
-
         self._update_bits_to_progress()
-
         self.last_bits_count = bits
 
     def _update_component_unlocks(self):
-        """Unlock components based on hardware generation and progress"""
         progress = self.last_rebirth_progress
         hw_gen = getattr(self, "hardware_generation", 0)
 
-        # CPU and BUS are always unlocked
         self.components["CPU"]["unlocked"] = True
         self.components["BUS"]["unlocked"] = True
 
-        # Unlock components based on hardware generation
-        if hw_gen >= 0:  # Mainframe Era (1960s)
-            if progress >= 0.1:
-                self.components["RAM"]["unlocked"] = True
-        if hw_gen >= 1:  # Apple II Era (1977)
-            if progress >= 0.05:
-                self.components["RAM"]["unlocked"] = True
-                self.components["STORAGE"]["unlocked"] = True
-        if hw_gen >= 2:  # IBM PC Era (1981)
-            if progress >= 0.03:
-                self.components["RAM"]["unlocked"] = True
-                self.components["STORAGE"]["unlocked"] = True
-                self.components["GPU"]["unlocked"] = True
-        if hw_gen >= 3:  # Later eras unlock everything early
-            self.components["RAM"]["unlocked"] = True
-            self.components["STORAGE"]["unlocked"] = True
-            self.components["GPU"]["unlocked"] = True
+        unlock_thresholds = {
+            "RAM": {0: 0.1, 1: 0.05, 2: 0.03, 3: 0.0},
+            "STORAGE": {1: 0.05, 2: 0.03, 3: 0.0},
+            "GPU": {2: 0.03, 3: 0.0},
+        }
+
+        for comp_name, thresholds in unlock_thresholds.items():
+            threshold = thresholds.get(hw_gen, 1.0)
+            if progress >= threshold:
+                self.components[comp_name]["unlocked"] = True
+            elif hw_gen < min(thresholds.keys()):
+                self.components[comp_name]["unlocked"] = False
 
     def _get_total_capacity(self):
-        """Get total bit capacity of all unlocked components"""
         total_capacity = 0
-        for comp_name, comp in self.components.items():
+        for comp in self.components.values():
             if comp["unlocked"]:
                 total_capacity += comp["bits"]
         return total_capacity
 
     def _get_current_filled_bits(self):
-        """Get total number of filled bits across all unlocked components"""
         filled_bits = 0
-        for comp_name, comp in self.components.items():
+        for comp in self.components.values():
             if comp["unlocked"]:
                 filled_bits += sum(comp["bit_states"])
         return filled_bits
 
     def _are_all_unlocked_components_full(self):
-        """Check if all unlocked components are completely filled with 1s"""
-        for comp_name, comp in self.components.items():
+        for comp in self.components.values():
             if comp["unlocked"]:
-                if not all(comp["bit_states"]):  # If any bit is 0, not full
+                if not all(comp["bit_states"]):
                     return False
         return True
 
     def _update_bits_to_progress(self):
-        """Update bits to match current progress - only accumulates, never removes"""
-        # Don't accumulate if all unlocked components are full
         if self._are_all_unlocked_components_full():
             return
 
-        # Calculate fill percentage based on current progress
         total_capacity = self._get_total_capacity()
         if total_capacity == 0:
             return
 
         fill_percentage = min(1.0, self.last_rebirth_progress)
-
-        # Fill bits proportionally across all unlocked components
         target_filled_bits = int(total_capacity * fill_percentage)
         current_filled_bits = self._get_current_filled_bits()
 
-        # Only add bits, never remove them
         if target_filled_bits > current_filled_bits:
             bits_to_add = target_filled_bits - current_filled_bits
             self._distribute_bits(bits_to_add)
 
     def _distribute_bits(self, bits_to_add):
-        """Distribute bits across unlocked components"""
         if bits_to_add <= 0:
             return
 
         unlocked_components = [
-            (comp_name, comp)
-            for comp_name, comp in self.components.items()
-            if comp["unlocked"]
+            (name, comp) for name, comp in self.components.items() if comp["unlocked"]
         ]
-
         if not unlocked_components:
             return
 
-        # Distribute bits round-robin style with preference for less full components
         bits_added = 0
         while bits_added < bits_to_add:
-            # Find least full component
             best_comp = None
             best_ratio = 1.0
 
             for comp_name, comp in unlocked_components:
-                filled_bits = sum(comp["bit_states"])
-                total_bits = comp["bits"]
-                fill_ratio = filled_bits / total_bits if total_bits > 0 else 0
-
-                if fill_ratio < best_ratio:
-                    best_ratio = fill_ratio
+                filled = sum(comp["bit_states"])
+                total = comp["bits"]
+                ratio = filled / total if total > 0 else 0
+                if ratio < best_ratio:
+                    best_ratio = ratio
                     best_comp = (comp_name, comp)
 
             if best_comp:
-                comp_name, comp = best_comp
-                # Find first 0 bit and set to 1 instantly (binary on/off)
+                _, comp = best_comp
                 found_zero = False
-                for i, bit_value in enumerate(comp["bit_states"]):
-                    if bit_value == 0:
+                for i, val in enumerate(comp["bit_states"]):
+                    if val == 0:
                         comp["bit_states"][i] = 1
                         bits_added += 1
                         found_zero = True
                         break
-                # If no zero bit found in this component, skip to avoid infinite loop
                 if not found_zero:
                     break
 
     def draw(self, screen):
-        """Draw the motherboard with all components and connections"""
-        # Draw component connections first (background layer)
         self._draw_connections(screen)
-
-        # Draw each component
         for comp_name, comp in self.components.items():
             self._draw_component(screen, comp_name, comp)
 
     def _draw_connections(self, screen):
-        """Draw connection lines between components"""
-        # Get component centers
-        cpu = self.components["CPU"]
-        cpu_center = (
-            cpu["x"] + cpu["width"] // 2,
-            cpu["y"] + cpu["height"] // 2,
-        )
+        time_ms = pygame.time.get_ticks()
 
-        bus = self.components["BUS"]
-        bus_left = (
-            bus["x"],
-            bus["y"] + bus["height"] // 2,
-        )
-        bus_right = (
-            bus["x"] + bus["width"],
-            bus["y"] + bus["height"] // 2,
-        )
+        for src_name, dst_name in self._connections:
+            src = self.components[src_name]
+            dst = self.components[dst_name]
 
-        # Draw CPU to BUS connection
-        pygame.draw.line(screen, self.colors["connection"], cpu_center, bus_left, 2)
+            both_unlocked = src["unlocked"] and dst["unlocked"]
+            either_unlocked = src["unlocked"] or dst["unlocked"]
 
-        # BUS to RAM (if unlocked)
-        if self.components["RAM"]["unlocked"]:
-            ram = self.components["RAM"]
-            ram_center = (ram["x"] + ram["width"] // 2, ram["y"] + ram["height"] // 2)
-            pygame.draw.line(screen, self.colors["connection"], bus_left, ram_center, 2)
+            if not either_unlocked:
+                continue
 
-        # BUS to STORAGE (if unlocked)
-        if self.components["STORAGE"]["unlocked"]:
-            storage = self.components["STORAGE"]
-            storage_center = (
-                storage["x"] + storage["width"] // 2,
-                storage["y"] + storage["height"] // 2,
-            )
-            pygame.draw.line(
-                screen, self.colors["connection"], bus_right, storage_center, 2
-            )
+            src_cx = src["x"] + src["width"]
+            src_cy = src["y"] + src["height"] // 2
+            dst_cx = dst["x"]
+            dst_cy = dst["y"] + dst["height"] // 2
+
+            if both_unlocked:
+                base_color = (70, 80, 110)
+                pulse = abs(math.sin(time_ms * 0.003)) * 0.3 + 0.7
+                color = tuple(int(c * pulse) for c in base_color)
+                width = 2
+            else:
+                color = (35, 35, 50)
+                width = 1
+
+            mid_x = (src_cx + dst_cx) // 2
+            pygame.draw.line(screen, color, (src_cx, src_cy), (mid_x, src_cy), width)
+            pygame.draw.line(screen, color, (mid_x, src_cy), (mid_x, dst_cy), width)
+            pygame.draw.line(screen, color, (mid_x, dst_cy), (dst_cx, dst_cy), width)
+
+            if both_unlocked:
+                dot_offset = (time_ms // 8) % 40
+                total_dist = abs(mid_x - src_cx) + abs(dst_cy - src_cy) + abs(dst_cx - mid_x)
+                if total_dist > 0:
+                    t = (dot_offset / 40.0)
+                    seg1 = abs(mid_x - src_cx)
+                    seg2 = abs(dst_cy - src_cy)
+                    pos_along = t * total_dist
+                    if pos_along < seg1:
+                        dx = src_cx + (mid_x - src_cx) * (pos_along / seg1)
+                        dy = src_cy
+                    elif pos_along < seg1 + seg2:
+                        dx = mid_x
+                        dy = src_cy + (dst_cy - src_cy) * ((pos_along - seg1) / seg2) if seg2 > 0 else src_cy
+                    else:
+                        frac = (pos_along - seg1 - seg2) / (total_dist - seg1 - seg2) if (total_dist - seg1 - seg2) > 0 else 0
+                        dx = mid_x + (dst_cx - mid_x) * frac
+                        dy = dst_cy
+                    pygame.draw.circle(screen, COLORS.get("electric_cyan", (0, 200, 255)), (int(dx), int(dy)), 2)
 
     def _draw_component(self, screen, comp_name, comp):
-        """Draw a single component - simplified for clarity"""
-        # Draw component background
+        label_font, desc_font, lock_font = self._get_fonts()
+        x, y, w, h = comp["x"], comp["y"], comp["width"], comp["height"]
+        time_ms = pygame.time.get_ticks()
+
         if comp["unlocked"]:
-            bg_color = tuple(c // 4 for c in comp["color"])  # Darker version
+            bg_color = tuple(max(0, c // 6) for c in comp["color"])
             border_color = comp["color"]
-        else:
-            bg_color = self.colors["locked"]
-            border_color = (60, 60, 60)
 
-        pygame.draw.rect(
-            screen, bg_color, (comp["x"], comp["y"], comp["width"], comp["height"])
-        )
-        
-        # Thicker border for unlocked components
-        border_width = 3 if comp["unlocked"] else 1
-        pygame.draw.rect(
-            screen,
-            border_color,
-            (comp["x"], comp["y"], comp["width"], comp["height"]),
-            border_width,
-        )
+            pulse = abs(math.sin(time_ms * 0.002)) * 0.15 + 0.85
+            border_draw = tuple(int(c * pulse) for c in border_color)
 
-        if comp["unlocked"]:
-            # Draw component label - large and clear
-            font = pygame.font.Font(None, 24)
-            label = font.render(
-                f"{comp['name']} Lv.{comp['level']}", True, (255, 255, 255)
+            pygame.draw.rect(screen, bg_color, (x, y, w, h), border_radius=6)
+            pygame.draw.rect(screen, border_draw, (x, y, w, h), 2, border_radius=6)
+
+            label = label_font.render(
+                f"{comp['name']} Lv.{comp['level']}", True, (230, 230, 240)
             )
-            screen.blit(label, (comp["x"] + 8, comp["y"] + 8))
+            screen.blit(label, (x + 8, y + 6))
 
-            # Draw description 
-            desc_font = pygame.font.Font(None, 16)
-            desc_label = desc_font.render(comp["description"], True, (180, 180, 180))
-            screen.blit(desc_label, (comp["x"] + 8, comp["y"] + 30))
-            
-            # Draw simplified progress bar instead of individual bits
+            desc_label = desc_font.render(comp["description"], True, (140, 140, 160))
+            screen.blit(desc_label, (x + 8, y + 24))
+
             self._draw_component_progress(screen, comp)
         else:
-            # Draw locked indicator - subtle, not screaming
-            font = pygame.font.Font(None, 20)
-            label = font.render("LOCKED", True, (70, 70, 80))
-            text_rect = label.get_rect(
-                center=(comp["x"] + comp["width"] // 2, comp["y"] + comp["height"] // 2)
-            )
-            screen.blit(label, text_rect)
+            pygame.draw.rect(screen, (16, 16, 24), (x, y, w, h), border_radius=6)
+            pygame.draw.rect(screen, (40, 40, 55), (x, y, w, h), 1, border_radius=6)
+
+            lock_icon = lock_font.render("🔒", True, (50, 50, 65))
+            icon_rect = lock_icon.get_rect(center=(x + w // 2, y + h // 2 - 8))
+            screen.blit(lock_icon, icon_rect)
+
+            name_text = lock_font.render(comp["name"], True, (50, 50, 65))
+            name_rect = name_text.get_rect(center=(x + w // 2, y + h // 2 + 10))
+            screen.blit(name_text, name_rect)
 
     def _draw_component_progress(self, screen, comp):
-        """Draw simplified progress bar for component"""
-        # Progress based on component level (each level = 10%)
         progress = min(comp["level"] / 10.0, 1.0)
-        
+
         bar_x = comp["x"] + 8
-        bar_y = comp["y"] + comp["height"] - 20
+        bar_y = comp["y"] + comp["height"] - 14
         bar_width = comp["width"] - 16
-        bar_height = 10
-        
-        # Background
-        pygame.draw.rect(screen, (30, 30, 40), (bar_x, bar_y, bar_width, bar_height))
-        
-        # Progress fill
+        bar_height = 6
+
+        pygame.draw.rect(screen, (25, 25, 35), (bar_x, bar_y, bar_width, bar_height), border_radius=3)
+
         if progress > 0:
             fill_width = int(bar_width * progress)
-            pygame.draw.rect(screen, comp["color"], (bar_x, bar_y, fill_width, bar_height))
-        
-        # Border
-        pygame.draw.rect(screen, comp["color"], (bar_x, bar_y, bar_width, bar_height), 1)
+            pygame.draw.rect(screen, comp["color"], (bar_x, bar_y, fill_width, bar_height), border_radius=3)
 
     def _draw_component_bits(self, screen, comp):
-        """Draw the bits within a component as individual squares"""
         total_bits = comp["bits"]
 
         if comp["width"] <= 30 or comp["height"] <= 50:
             return
 
-        # Account for 3px border on each side plus internal padding
-        border_thickness = 6  # 3px border on left + 3px border on right
-        padding = 10  # Internal padding
+        border_thickness = 6
+        padding = 10
         available_width = comp["width"] - border_thickness - padding * 2
         available_height = comp["height"] - border_thickness - padding * 2
 
         min_bit_size = 3
         max_bit_size = 12
 
-        # Use total capacity for grid sizing (all bit slots visible)
         if total_bits == 0:
             total_bits = 1
         ideal_bit_size = min(
@@ -397,13 +399,11 @@ class MotherboardBitGrid:
             bit_size = max(min_bit_size, (available_height // grid_rows) - gap)
             total_bit_cell = bit_size + gap
 
-        # Position bits within border and padding
         border_thickness = 3
         padding = 10
         start_x = comp["x"] + border_thickness + padding
         start_y = comp["y"] + border_thickness + padding
 
-        # Use full capacity for grid - draw all bit slots
         total_bits_to_draw = min(total_bits, grid_cols * grid_rows)
 
         for bit_idx in range(total_bits_to_draw):
@@ -412,13 +412,11 @@ class MotherboardBitGrid:
 
             bit_x = start_x + col * total_bit_cell
             bit_y = start_y + row * total_bit_cell
-            
-            # Ensure bit stays within component height boundaries
+
             max_y = comp["y"] + comp["height"] - border_thickness - padding
             if bit_y + bit_size > max_y:
-                continue  # Skip this bit as it would overflow vertically
-            
-            # Binary on/off - no fade animation
+                continue
+
             if bit_idx < len(comp["bit_states"]):
                 bit_value = comp["bit_states"][bit_idx]
             else:
@@ -441,21 +439,15 @@ class MotherboardBitGrid:
                 )
 
     def reset_on_rebirth(self):
-        """Reset all bits to 0 when rebirth occurs"""
         for comp_name, comp in self.components.items():
             comp["bit_states"] = [0] * comp["bits"]
-            # Reset unlocked state to initial
-            if comp_name not in ["CPU", "BUS"]:  # Keep these always unlocked
+            if comp_name not in ["CPU", "BUS"]:
                 comp["unlocked"] = False
             comp["level"] = 1 if comp_name in ["CPU", "BUS"] else 0
 
     def upgrade_to_era(self, era_level):
-        """Upgrade hardware components to match a specific computing era"""
-        # Simple implementation for basic functionality
         if era_level <= 0:
-            return  # Already in mainframe era
-
-        # Unlock more components in later eras
+            return
         if era_level >= 1:
             self.components["RAM"]["unlocked"] = True
         if era_level >= 2:
@@ -464,45 +456,33 @@ class MotherboardBitGrid:
             self.components["GPU"]["unlocked"] = True
 
     def get_era_completion_percentage(self):
-        """Calculate percentage completion of current hardware era"""
         total_capacity = self._get_total_capacity()
         current_filled = self._get_current_filled_bits()
-
         if total_capacity == 0:
             return 0
         return (current_filled / total_capacity) * 100
 
     def get_bit_completeness_percentage(self):
-        """Calculate the percentage of bits that are 1 across unlocked components"""
         total_bits = 0
         total_ones = 0
-
-        for comp_name, comp in self.components.items():
+        for comp in self.components.values():
             if comp["unlocked"]:
                 total_bits += comp["bits"]
                 total_ones += sum(comp["bit_states"])
-
         if total_bits == 0:
             return 0
         return (total_ones / total_bits) * 100
 
     def add_click_effect(self):
-        """Add visual effect when accumulator is clicked"""
-        # Simple implementation - could be enhanced later
         pass
 
     def add_purchase_effect(self):
-        """Add visual effect when something is purchased"""
-        # Simple implementation - could be enhanced later
         pass
 
     def upgrade_component(self, comp_name):
-        """Handle component upgrade with visual effects"""
         if comp_name in self.components:
             comp = self.components[comp_name]
             comp["level"] += 1
-
-            # Double the bit capacity
             old_bits = comp["bits"]
             comp["bits"] *= 2
             comp["bit_states"].extend([0] * old_bits)

@@ -1,28 +1,28 @@
 {
   "version": "1.0.0",
-  "timestamp": 1470628,
+  "timestamp": 3593756,
   "state": {
-    "bits": 248052634,
-    "total_bits_earned": 248641972,
-    "total_clicks": 638,
-    "start_time": 152,
+    "bits": 32379,
+    "total_bits_earned": 32463,
+    "total_clicks": 1060,
+    "start_time": 125,
     "total_play_time": 0,
     "generators": {
       "rng": {
-        "count": 21,
-        "total_bought": 21
+        "count": 3,
+        "total_bought": 3
       },
       "biased_coin": {
-        "count": 10,
-        "total_bought": 10
-      },
-      "dice_roller": {
-        "count": 24,
-        "total_bought": 24
-      },
-      "cpu_core": {
         "count": 0,
         "total_bought": 0
+      },
+      "dice_roller": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "cpu_core": {
+        "count": 1,
+        "total_bought": 1
       },
       "cpu_cache": {
         "count": 0,
@@ -67,6 +67,26 @@
       "ai_accelerator": {
         "count": 0,
         "total_bought": 0
+      },
+      "quantum_processor": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "qubit_register": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "hyper_cluster": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "dimension_gate": {
+        "count": 0,
+        "total_bought": 0
+      },
+      "singularity_core": {
+        "count": 0,
+        "total_bought": 0
       }
     },
     "unlocked_generators": [
@@ -76,7 +96,7 @@
     ],
     "upgrades": {
       "entropy_amplification": {
-        "level": 3
+        "level": 0
       },
       "click_power": {
         "level": 0
@@ -101,6 +121,15 @@
       },
       "neural_network": {
         "level": 0
+      },
+      "quantum_entanglement": {
+        "level": 0
+      },
+      "hyper_parallelism": {
+        "level": 0
+      },
+      "transcendence": {
+        "level": 0
       }
     },
     "tutorial_step": 0,
@@ -109,6 +138,28 @@
       "crt_effects": false,
       "binary_rain": true,
       "particle_effects": true
-    }
+    },
+    "total_rebirths": 5,
+    "total_lifetime_bits": 1066829760547,
+    "hardware_generation": 5,
+    "unlocked_hardware_categories": [
+      "cpu",
+      "ram",
+      "storage",
+      "gpu",
+      "network",
+      "mobile"
+    ],
+    "era": "entropy",
+    "data_shards": 149,
+    "total_data_shards": 149,
+    "last_collect_bits": 36531,
+    "compressed_bits": 0,
+    "total_compressed_bits": 0,
+    "overhead_rate": 0,
+    "efficiency": 1.0,
+    "prestige_currency": 0,
+    "total_prestige_currency": 0,
+    "prestige_count": 0
   }
 }

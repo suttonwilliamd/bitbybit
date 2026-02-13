@@ -89,30 +89,37 @@ class BinaryRain:
         self.init_columns()
 
     def init_columns(self):
-        # Create columns of binary rain
         num_columns = self.width // 20
         for i in range(num_columns):
             self.columns.append(
                 {
                     "x": i * 20 + random.randint(0, 15),
                     "y": random.randint(-self.height, 0),
-                    "speed": random.uniform(30, 80),  # Very slow movement
+                    "speed": random.uniform(30, 80),
                     "chars": random.choices(["0", "1"], k=random.randint(5, 15)),
-                    # flicker_chance removed to prevent visual artifacts
+                    "mutations": [0.0] * random.randint(5, 15),
                 }
             )
 
     def update(self, dt):
         for column in self.columns:
+            if "mutations" not in column or len(column["mutations"]) != len(column["chars"]):
+                column["mutations"] = [0.0] * len(column["chars"])
+            
             column["y"] += column["speed"] * dt
 
-            # Reset column when it goes off screen
-            if column["y"] > self.height + len(column["chars"]) * 20:
-                column["y"] = -len(column["chars"]) * 20
-                column["chars"] = random.choices(["0", "1"], k=random.randint(5, 15))
-                column["speed"] = random.uniform(30, 80)
+            char_len = len(column["chars"])
+            for i in range(char_len):
+                column["mutations"][i] += dt
+                if column["mutations"][i] > random.uniform(0.3, 0.8):
+                    column["chars"][i] = random.choice(["0", "1"])
+                    column["mutations"][i] = 0.0
 
-            # Removed flicker effect to prevent visual artifacts
+            if column["y"] > self.height + char_len * 20:
+                column["y"] = -char_len * 20
+                column["chars"] = random.choices(["0", "1"], k=random.randint(5, 15))
+                column["mutations"] = [0.0] * len(column["chars"])
+                column["speed"] = random.uniform(30, 80)
 
     def draw(self, screen):
         font = pygame.font.Font(None, 16)
@@ -120,9 +127,13 @@ class BinaryRain:
             for i, char in enumerate(column["chars"]):
                 y_pos = column["y"] + i * 20
                 if 0 <= y_pos <= self.height:
-                    # Very faint green color
                     alpha = max(10, 30 - i * 2)
-                    color = (57, 255, 20) if char == "1" else (20, 100, 20)
+                    if char == "1":
+                        green = random.randint(200, 255)
+                        color = (random.randint(20, 50), green, random.randint(10, 30))
+                    else:
+                        green = random.randint(50, 120)
+                        color = (random.randint(5, 20), green, random.randint(5, 20))
 
                     text_surface = font.render(char, True, color)
                     text_surface.set_alpha(alpha)

@@ -19,7 +19,7 @@ ui_elements = {
     "upgrades_toggle_collapsed": pygame.Rect(700, 480, 450, 30),
     "generators_toggle_expanded": pygame.Rect(50, 470, 600, 40),
     "upgrades_toggle_expanded": pygame.Rect(700, 470, 450, 40),
-    "accumulator": pygame.Rect(400, 100, 400, 300),
+    "accumulator": pygame.Rect(300, 80, 500, 400),
     "generators_panel": pygame.Rect(50, 520, 600, 200),  # Moved below expanded toggle
     "upgrades_panel": pygame.Rect(700, 520, 450, 200),  # Moved below expanded toggle
     "rebirth_bar": pygame.Rect(0, 720, 1200, 80),

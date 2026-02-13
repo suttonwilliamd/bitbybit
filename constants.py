@@ -613,17 +613,23 @@ COMPONENT_BASE_COSTS = {
 
 
 def get_all_generators():
-    """Get merged dictionary of basic and hardware generators"""
+    """Get merged dictionary of basic and hardware generators, sorted by base_cost"""
     basic = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
     hardware = CONFIG.get("HARDWARE_GENERATORS", {})
-    return {**basic, **hardware}
+    all_gen = {**basic, **hardware}
+    
+    sorted_items = sorted(all_gen.items(), key=lambda x: x[1].get('base_cost', float('inf')))
+    return dict(sorted_items)
 
 
 def get_all_upgrades():
-    """Get merged dictionary of basic and hardware upgrades"""
+    """Get merged dictionary of basic and hardware upgrades, sorted by base_cost"""
     basic = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
     hardware = CONFIG.get("HARDWARE_UPGRADES", {})
-    return {**basic, **hardware}
+    all_upg = {**basic, **hardware}
+    
+    sorted_items = sorted(all_upg.items(), key=lambda x: x[1].get('base_cost', float('inf')))
+    return dict(sorted_items)
 
 # Initialize UPGRADES from CONFIG since TOON parsing has issues
 UPGRADES = {}
