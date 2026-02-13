@@ -78,8 +78,12 @@ def benchmark_game_state():
     state.generators["rng"]["count"] = 100
     state.generators["cpu_core"]["count"] = 50
     state.generators["memory_stick"]["count"] = 30
+    state.generators["cpu_cache"]["count"] = 20
+    state.generators["biased_coin"]["count"] = 10
     state.upgrades["click_power"]["level"] = 10
     state.upgrades["entropy_amplification"]["level"] = 5
+    state.bits = 1000000
+    state.total_bits_earned = 5000000
     
     # Benchmark get_production_rate
     with ProfilerTimer("get_production_rate"):
@@ -105,6 +109,111 @@ def benchmark_game_state():
     with ProfilerTimer("is_generator_unlocked"):
         for _ in range(1000):
             state.is_generator_unlocked("rng")
+    
+    # Benchmark get_upgrade_cost
+    with ProfilerTimer("get_upgrade_cost"):
+        for _ in range(1000):
+            state.get_upgrade_cost("click_power")
+    
+    # Benchmark get_category_multiplier
+    with ProfilerTimer("get_category_multiplier"):
+        for _ in range(1000):
+            state.get_category_multiplier("cpu")
+    
+    # Benchmark is_upgrade_unlocked
+    with ProfilerTimer("is_upgrade_unlocked"):
+        for _ in range(1000):
+            state.is_upgrade_unlocked("click_power")
+
+
+def benchmark_rebirth_system():
+    """Benchmark rebirth/prestige calculations"""
+    print("\n=== Rebirth System Benchmarks ===")
+    
+    state = GameState()
+    state.era = "entropy"
+    state.bits = 10000000
+    state.total_bits_earned = 100000000
+    state.data_shards = 500
+    state.total_data_shards = 1000
+    state.hardware_generation = 3
+    
+    # Benchmark get_rebirth_progress
+    with ProfilerTimer("get_rebirth_progress"):
+        for _ in range(1000):
+            state.get_rebirth_progress()
+    
+    # Benchmark get_rebirth_threshold
+    with ProfilerTimer("get_rebirth_threshold"):
+        for _ in range(1000):
+            state.get_rebirth_threshold()
+    
+    # Benchmark get_estimated_rebirth_tokens
+    with ProfilerTimer("get_estimated_rebirth_tokens"):
+        for _ in range(1000):
+            state.get_estimated_rebirth_tokens()
+    
+    # Benchmark get_hardware_generation_info
+    with ProfilerTimer("get_hardware_generation_info"):
+        for _ in range(1000):
+            state.get_hardware_generation_info()
+
+
+def benchmark_prestige_system():
+    """Benchmark prestige calculations"""
+    print("\n=== Prestige System Benchmarks ===")
+    
+    state = GameState()
+    state.era = "entropy"
+    state.total_bits_earned = 100000000
+    state.prestige_currency = 100
+    state.total_prestige_currency = 500
+    
+    # Benchmark get_prestige_bonus
+    with ProfilerTimer("get_prestige_bonus"):
+        for _ in range(1000):
+            state.get_prestige_bonus()
+    
+    # Benchmark get_click_prestige_bonus
+    with ProfilerTimer("get_click_prestige_bonus"):
+        for _ in range(1000):
+            state.get_click_prestige_bonus()
+    
+    # Benchmark get_prestige_currency_earned
+    with ProfilerTimer("get_prestige_currency_earned"):
+        for _ in range(1000):
+            state.get_prestige_currency_earned()
+
+
+def benchmark_compression_system():
+    """Benchmark compression/Data Shard system"""
+    print("\n=== Compression System Benchmarks ===")
+    
+    state = GameState()
+    state.era = "compression"
+    state.bits = 500000
+    state.compressed_bits = 100000
+    state.data_shards = 100
+    
+    # Benchmark get_data_shards_earned
+    with ProfilerTimer("get_data_shards_earned"):
+        for _ in range(1000):
+            state.get_data_shards_earned()
+    
+    # Benchmark get_collect_threshold
+    with ProfilerTimer("get_collect_threshold"):
+        for _ in range(1000):
+            state.get_collect_threshold()
+    
+    # Benchmark get_data_shard_upgrade_cost
+    with ProfilerTimer("get_data_shard_upgrade_cost"):
+        for _ in range(1000):
+            state.get_data_shard_upgrade_cost("compression_efficiency")
+    
+    # Benchmark get_rebirth_shard_bonus
+    with ProfilerTimer("get_rebirth_shard_bonus"):
+        for _ in range(1000):
+            state.get_rebirth_shard_bonus()
 
 
 def benchmark_visual_effects():
@@ -186,6 +295,18 @@ def benchmark_bit_grid():
     with ProfilerTimer("get_era_completion_percentage"):
         for _ in range(1000):
             grid.get_era_completion_percentage()
+    
+    # Benchmark get_bit_completeness_percentage
+    with ProfilerTimer("get_bit_completeness_percentage"):
+        for _ in range(1000):
+            grid.get_bit_completeness_percentage()
+    
+    # Test with different bit scales
+    for bits in [1000, 100000, 1000000, 10000000]:
+        grid.total_bits_earned = bits
+        with ProfilerTimer(f"get_bit_completeness_percentage ({bits:,} bits)"):
+            for _ in range(500):
+                grid.get_bit_completeness_percentage()
 
 
 def benchmark_ui_components():
@@ -222,6 +343,95 @@ def benchmark_ui_components():
     with ProfilerTimer("LayoutManager.update_size"):
         for _ in range(100):
             layout.update_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+    
+    # Benchmark LayoutManager get_* methods
+    with ProfilerTimer("LayoutManager.get_top_bar_rect"):
+        for _ in range(1000):
+            layout.get_top_bar_rect()
+    
+    with ProfilerTimer("LayoutManager.get_bottom_bar_rect"):
+        for _ in range(1000):
+            layout.get_bottom_bar_rect()
+    
+    with ProfilerTimer("LayoutManager.get_bit_grid_rect"):
+        for _ in range(1000):
+            layout.get_bit_grid_rect()
+    
+    with ProfilerTimer("LayoutManager.get_left_panel_rect"):
+        for _ in range(1000):
+            layout.get_left_panel_rect()
+
+
+def benchmark_save_load():
+    """Benchmark save/load operations"""
+    print("\n=== Save/Load Benchmarks ===")
+    
+    state = GameState()
+    state.era = "entropy"
+    state.bits = 1000000
+    state.total_bits_earned = 5000000
+    state.generators["rng"]["count"] = 100
+    state.generators["cpu_core"]["count"] = 50
+    state.upgrades["click_power"]["level"] = 10
+    
+    # Benchmark save operation (JSON serialization)
+    import json
+    import io
+    
+    save_data = {
+        "bits": state.bits,
+        "total_bits_earned": state.total_bits_earned,
+        "generators": state.generators,
+        "upgrades": state.upgrades,
+        "era": state.era,
+    }
+    
+    with ProfilerTimer("json.dumps (game state)"):
+        for _ in range(500):
+            json.dumps(save_data)
+    
+    # Benchmark load operation (JSON deserialization)
+    json_str = json.dumps(save_data)
+    
+    with ProfilerTimer("json.loads (game state)"):
+        for _ in range(500):
+            json.loads(json_str)
+
+
+def benchmark_generator_iteration():
+    """Benchmark iterating over generators with production calculations"""
+    print("\n=== Generator Iteration Benchmarks ===")
+    
+    state = GameState()
+    state.era = "entropy"
+    
+    # Set up generators with various counts
+    gen_counts = [10, 50, 100, 500, 1000]
+    
+    for count in gen_counts:
+        state.generators["rng"]["count"] = count
+        
+        with ProfilerTimer(f"get_production_rate (rng={count})"):
+            for _ in range(100):
+                state.get_production_rate()
+
+
+def benchmark_multiplier_calculations():
+    """Benchmark multiplier calculations across categories"""
+    print("\n=== Multiplier Calculation Benchmarks ===")
+    
+    state = GameState()
+    state.era = "entropy"
+    state.upgrades["overclock"]["level"] = 10
+    state.upgrades["memory_optimization"]["level"] = 5
+    state.upgrades["data_compression"]["level"] = 3
+    
+    categories = ["cpu", "ram", "storage", "network", "gpu"]
+    
+    for cat in categories:
+        with ProfilerTimer(f"get_category_multiplier ({cat})"):
+            for _ in range(1000):
+                state.get_category_multiplier(cat)
 
 
 def cprofile_game_loop():
@@ -347,9 +557,15 @@ def run_all_benchmarks():
     print("=" * 60)
     
     benchmark_game_state()
+    benchmark_rebirth_system()
+    benchmark_prestige_system()
+    benchmark_compression_system()
     benchmark_visual_effects()
     benchmark_bit_grid()
     benchmark_ui_components()
+    benchmark_save_load()
+    benchmark_generator_iteration()
+    benchmark_multiplier_calculations()
     cprofile_game_loop()
     benchmark_memory_usage()
     identify_bottlenecks()

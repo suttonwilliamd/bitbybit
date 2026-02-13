@@ -9,6 +9,26 @@ from constants import COLORS, WINDOW_WIDTH, WINDOW_HEIGHT
 
 
 class Particle:
+    _surfaces = {}
+    
+    @classmethod
+    def _get_surface(cls, size, color):
+        key = (size, color)
+        if key not in cls._surfaces:
+            surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+            pygame.draw.circle(surf, (*color, 255), (size * 2, size * 2), size)
+            cls._surfaces[key] = surf
+        return cls._surfaces[key]
+
+    @classmethod
+    def _get_glow_surface(cls, size, color):
+        key = ("glow", size, color)
+        if key not in cls._surfaces:
+            surf = pygame.Surface((size * 6, size * 6), pygame.SRCALPHA)
+            pygame.draw.circle(surf, (*color, 80), (size * 3, size * 3), size + 2)
+            cls._surfaces[key] = surf
+        return cls._surfaces[key]
+
     def __init__(self, x, y, color=COLORS["electric_cyan"], particle_type="burst"):
         self.x = x
         self.y = y
@@ -24,7 +44,6 @@ class Particle:
             self.vx = random.uniform(-80, 80)
             self.vy = random.uniform(-150, -50)
         elif particle_type == "purchase":
-            # Particles that fly toward accumulator
             target_x, target_y = WINDOW_WIDTH // 2, 200
             dx = target_x - x
             dy = target_y - y
@@ -37,10 +56,9 @@ class Particle:
                 self.vy = random.uniform(-100, 100)
 
         self.gravity = 200 if particle_type == "burst" else 100
-        self.trail = []  # Store previous positions for trail effect
+        self.trail = []
 
     def update(self, dt):
-        # Store current position in trail
         if len(self.trail) < 5:
             self.trail.append((self.x, self.y, self.lifetime))
         else:
@@ -51,34 +69,19 @@ class Particle:
         self.y += self.vy * dt
         self.vy += self.gravity * dt
         self.lifetime -= dt
-        self.vx *= 0.98  # friction
+        self.vx *= 0.98
 
     def draw(self, screen):
         if self.lifetime > 0:
-            # Draw trail
-            for i, (tx, ty, trail_lifetime) in enumerate(self.trail):
-                trail_alpha = int(
-                    255 * trail_lifetime * (i + 1) / len(self.trail) * 0.3
-                )
-                trail_size = max(1, self.size - 2)
-                trail_color = tuple(int(c * trail_lifetime) for c in self.color)
-                pygame.draw.circle(screen, trail_color, (int(tx), int(ty)), trail_size)
+            fade = self.lifetime
+            cx, cy = int(self.x), int(self.y)
+            size = self.size
 
-            # Draw main particle with glow
-            alpha = int(255 * self.lifetime)
+            glow_color = tuple(int(c * 0.3 * fade) for c in self.color)
+            pygame.draw.circle(screen, glow_color, (cx, cy), size + 2)
 
-            # Outer glow
-            glow_size = self.size + 2
-            glow_color = tuple(int(c * 0.3 * self.lifetime) for c in self.color)
-            pygame.draw.circle(
-                screen, glow_color, (int(self.x), int(self.y)), glow_size
-            )
-
-            # Main particle
-            main_color = tuple(int(c * self.lifetime) for c in self.color)
-            pygame.draw.circle(
-                screen, main_color, (int(self.x), int(self.y)), self.size
-            )
+            main_color = tuple(int(c * fade) for c in self.color)
+            pygame.draw.circle(screen, main_color, (cx, cy), size)
 
 
 class BinaryRain:
@@ -86,7 +89,24 @@ class BinaryRain:
         self.width = width
         self.height = height
         self.columns = []
+        self._font = None
+        self._char_surfaces = {}
+        self._init_font()
         self.init_columns()
+
+    def _init_font(self):
+        """Initialize font and pre-render character surfaces"""
+        self._font = pygame.font.Font(None, 16)
+        self._char_surfaces = {
+            "0": self._font.render("0", True, (30, 80, 30)),
+            "1": self._font.render("1", True, (40, 220, 40)),
+        }
+        self._alpha_surfaces = {}
+        for alpha in range(10, 31, 5):
+            for char in ["0", "1"]:
+                surf = self._char_surfaces[char].copy()
+                surf.set_alpha(alpha)
+                self._alpha_surfaces[(alpha, char)] = surf
 
     def init_columns(self):
         num_columns = self.width // 20
@@ -98,6 +118,7 @@ class BinaryRain:
                     "speed": random.uniform(30, 80),
                     "chars": random.choices(["0", "1"], k=random.randint(5, 15)),
                     "mutations": [0.0] * random.randint(5, 15),
+                    "mutation_thresholds": [random.uniform(0.3, 0.8) for _ in range(15)],
                 }
             )
 
@@ -109,9 +130,10 @@ class BinaryRain:
             column["y"] += column["speed"] * dt
 
             char_len = len(column["chars"])
+            thresholds = column.get("mutation_thresholds", [0.5] * 15)
             for i in range(char_len):
                 column["mutations"][i] += dt
-                if column["mutations"][i] > random.uniform(0.3, 0.8):
+                if column["mutations"][i] > thresholds[i]:
                     column["chars"][i] = random.choice(["0", "1"])
                     column["mutations"][i] = 0.0
 
@@ -122,22 +144,18 @@ class BinaryRain:
                 column["speed"] = random.uniform(30, 80)
 
     def draw(self, screen):
-        font = pygame.font.Font(None, 16)
         for column in self.columns:
             for i, char in enumerate(column["chars"]):
                 y_pos = column["y"] + i * 20
                 if 0 <= y_pos <= self.height:
                     alpha = max(10, 30 - i * 2)
-                    if char == "1":
-                        green = random.randint(200, 255)
-                        color = (random.randint(20, 50), green, random.randint(10, 30))
-                    else:
-                        green = random.randint(50, 120)
-                        color = (random.randint(5, 20), green, random.randint(5, 20))
-
-                    text_surface = font.render(char, True, color)
-                    text_surface.set_alpha(alpha)
-                    screen.blit(text_surface, (column["x"], y_pos))
+                    alpha_rounded = ((alpha + 4) // 5) * 5
+                    surface = self._alpha_surfaces.get((alpha_rounded, char))
+                    if surface is None:
+                        surface = self._char_surfaces[char].copy()
+                        surface.set_alpha(alpha)
+                        self._alpha_surfaces[(alpha_rounded, char)] = surface
+                    screen.blit(surface, (column["x"], y_pos))
 
 
 class BitDot:

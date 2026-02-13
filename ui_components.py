@@ -201,12 +201,12 @@ class LayoutManager:
     
     def get_compression_panel_rect(self):
         """Get compression panel rectangle"""
-        panel_width = int(min(600 * self.scale_x, self.center_area_w - 40))
+        panel_width = int(min(800 * self.scale_x, self.center_area_w - 40))
         return pygame.Rect(
             self.center_area_x + (self.center_area_w - panel_width) // 2,
             self.top_bar_height + int(30 * self.scale_y),
             panel_width,
-            int(120 * self.scale_y)
+            int(350 * self.scale_y)
         )
     
     def get_compression_meter_rect(self):
@@ -434,6 +434,7 @@ class FloatingText:
             self.font = pygame.font.SysFont("Consolas", 28, bold=True)
         except:
             self.font = pygame.font.Font(None, 32)
+        self._cached_surface = self.font.render(text, True, color)
 
     def update(self, dt):
         self.y += self.vy * dt
@@ -444,7 +445,7 @@ class FloatingText:
     def draw(self, screen):
         if self.lifetime > 0:
             alpha = min(255, int(255 * self.lifetime * 2))
-            text_surface = self.font.render(self.text, True, self.color)
+            text_surface = self._cached_surface.copy()
             text_surface.set_alpha(alpha)
             
             w, h = text_surface.get_size()

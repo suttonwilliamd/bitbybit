@@ -113,6 +113,9 @@ class MotherboardBitGrid:
         self._desc_font = None
         self._lock_font = None
 
+        self._text_cache = {}
+        self._cache_version = 0
+
     def _get_fonts(self):
         if self._label_font is None:
             scale = max(0.6, min(1.5, self.height / 300))
@@ -322,6 +325,8 @@ class MotherboardBitGrid:
         x, y, w, h = comp["x"], comp["y"], comp["width"], comp["height"]
         time_ms = pygame.time.get_ticks()
 
+        cache_key = (comp_name, comp.get("level"), comp.get("unlocked"), comp.get("bits", 0))
+
         if comp["unlocked"]:
             bg_color = tuple(max(0, c // 6) for c in comp["color"])
             border_color = comp["color"]
@@ -332,24 +337,34 @@ class MotherboardBitGrid:
             pygame.draw.rect(screen, bg_color, (x, y, w, h), border_radius=6)
             pygame.draw.rect(screen, border_draw, (x, y, w, h), 2, border_radius=6)
 
-            label = label_font.render(
-                f"{comp['name']} Lv.{comp['level']}", True, (230, 230, 240)
-            )
-            screen.blit(label, (x + 8, y + 6))
+            label_cache_key = ("label", cache_key)
+            if label_cache_key not in self._text_cache:
+                self._text_cache[label_cache_key] = label_font.render(
+                    f"{comp['name']} Lv.{comp['level']}", True, (230, 230, 240)
+                )
+            screen.blit(self._text_cache[label_cache_key], (x + 8, y + 6))
 
-            desc_label = desc_font.render(comp["description"], True, (140, 140, 160))
-            screen.blit(desc_label, (x + 8, y + 24))
+            desc_cache_key = ("desc", comp_name, comp["description"])
+            if desc_cache_key not in self._text_cache:
+                self._text_cache[desc_cache_key] = desc_font.render(comp["description"], True, (140, 140, 160))
+            screen.blit(self._text_cache[desc_cache_key], (x + 8, y + 24))
 
             self._draw_component_progress(screen, comp)
         else:
             pygame.draw.rect(screen, (16, 16, 24), (x, y, w, h), border_radius=6)
             pygame.draw.rect(screen, (40, 40, 55), (x, y, w, h), 1, border_radius=6)
 
-            lock_icon = lock_font.render("🔒", True, (50, 50, 65))
+            lock_icon_cache = ("lock_icon", comp_name)
+            if lock_icon_cache not in self._text_cache:
+                self._text_cache[lock_icon_cache] = lock_font.render("🔒", True, (50, 50, 65))
+            lock_icon = self._text_cache[lock_icon_cache]
             icon_rect = lock_icon.get_rect(center=(x + w // 2, y + h // 2 - 8))
             screen.blit(lock_icon, icon_rect)
 
-            name_text = lock_font.render(comp["name"], True, (50, 50, 65))
+            name_cache = ("lock_name", comp_name)
+            if name_cache not in self._text_cache:
+                self._text_cache[name_cache] = lock_font.render(comp["name"], True, (50, 50, 65))
+            name_text = self._text_cache[name_cache]
             name_rect = name_text.get_rect(center=(x + w // 2, y + h // 2 + 10))
             screen.blit(name_text, name_rect)
 
