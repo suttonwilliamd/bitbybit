@@ -604,6 +604,14 @@ class BitByBitGame:
                     if dist < core["radius"]:
                         clicked_core = True
                         self.handle_click()
+                
+                # Check for abacus click in Era 0
+                current_computing_era = getattr(self.state, 'current_era', 0)
+                if current_computing_era == 0:
+                    abacus_area = getattr(self.state, '_abacus_click_area', None)
+                    if abacus_area and abacus_area.collidepoint(mouse_pos):
+                        clicked_core = True
+                        self.handle_click()
             
             # Only click button if core wasn't clicked
             if not clicked_core and self.click_button.is_clicked(event):

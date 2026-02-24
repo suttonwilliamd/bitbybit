@@ -337,39 +337,58 @@ def draw_abacus_accumulator(screen, state, current_width, current_height,
     
     cx = acc_x + acc_width // 2
     
-    # Draw wooden frame background
+    # Draw wooden frame background with wood grain effect
     frame_color = (101, 67, 33)  # Dark wood
     pygame.draw.rect(screen, frame_color, (acc_x, acc_y, acc_width, acc_height), border_radius=8)
+    
+    # Wood grain lines
+    for i in range(0, acc_height, 8):
+        pygame.draw.line(screen, (90, 55, 25), (acc_x, acc_y + i), (acc_x + acc_width, acc_y + i), 1)
+    
     pygame.draw.rect(screen, (70, 45, 20), (acc_x, acc_y, acc_width, acc_height), 4, border_radius=8)
     
-    # Title - "ABACUS"
-    title_text = small_font.render("◈ ABACUS ◈", True, (210, 180, 140))
-    title_rect = title_text.get_rect(center=(cx, acc_y + int(25 * scale_y)))
-    screen.blit(title_text, title_rect)
+    # Title - "ABACUS" with nicer styling
+    title_surf = small_font.render("◈ ABACUS ◈", True, (210, 180, 140))
+    title_rect = title_surf.get_rect(center=(cx, acc_y + int(25 * scale_y)))
+    screen.blit(title_surf, title_rect)
     
-    # Draw the abacus frame (inner rectangle)
+    # Draw the abacus frame (inner rectangle) with shadow
     abacus_inner_x = acc_x + int(30 * scale_x)
     abacus_inner_y = acc_y + int(60 * scale_y)
     abacus_inner_w = acc_width - int(60 * scale_x)
     abacus_inner_h = acc_height - int(120 * scale_y)
     
     # Inner background (cream/parchment color)
-    pygame.draw.rect(screen, (245, 222, 179), (abacus_inner_x, abacus_inner_y, abacus_inner_w, abacus_inner_h))
-    pygame.draw.rect(screen, (101, 67, 33), (abacus_inner_x, abacus_inner_y, abacus_inner_w, abacus_inner_h), 3)
+    pygame.draw.rect(screen, (240, 225, 195), (abacus_inner_x, abacus_inner_y, abacus_inner_w, abacus_inner_h))
+    pygame.draw.rect(screen, (80, 55, 25), (abacus_inner_x, abacus_inner_y, abacus_inner_w, abacus_inner_h), 4)
     
-    # Draw 4 horizontal rods
+    # Draw vertical frame pieces (left and right)
+    pygame.draw.rect(screen, (90, 60, 30), (abacus_inner_x - 8, abacus_inner_y, 12, abacus_inner_h))
+    pygame.draw.rect(screen, (90, 60, 30), (abacus_inner_x + abacus_inner_w - 4, abacus_inner_y, 12, abacus_inner_h))
+    
+    # Draw horizontal frame pieces (top and bottom)
+    pygame.draw.rect(screen, (90, 60, 30), (abacus_inner_x - 8, abacus_inner_y - 8, abacus_inner_w + 20, 12))
+    pygame.draw.rect(screen, (90, 60, 30), (abacus_inner_x - 8, abacus_inner_y + abacus_inner_h - 4, abacus_inner_w + 20, 12))
+    
+    # Draw 4 horizontal rods (metallic look)
     rod_spacing = abacus_inner_h / 5
-    rod_color = (180, 150, 100)
     for i in range(1, 5):
         rod_y = abacus_inner_y + i * rod_spacing
-        pygame.draw.line(screen, rod_color, (abacus_inner_x + 20, rod_y), 
-                       (abacus_inner_x + abacus_inner_w - 20, rod_y), 3)
+        # Rod shadow
+        pygame.draw.line(screen, (100, 90, 70), (abacus_inner_x + 25, rod_y + 2), 
+                       (abacus_inner_x + abacus_inner_w - 25, rod_y + 2), 5)
+        # Rod
+        pygame.draw.line(screen, (180, 160, 120), (abacus_inner_x + 25, rod_y), 
+                       (abacus_inner_x + abacus_inner_w - 25, rod_y), 3)
+        # Rod highlight
+        pygame.draw.line(screen, (210, 190, 150), (abacus_inner_x + 25, rod_y - 1), 
+                       (abacus_inner_x + abacus_inner_w - 25, rod_y - 1), 1)
     
-    # Calculate beads based on bits (simplified: 10 beads per rod)
+    # Calculate beads based on bits
     max_beads = 40  # 4 rods * 10 beads
-    beads_filled = min(max_beads, int(state.bits / 100))  # 1 bead per 100 bits
+    beads_filled = min(max_beads, int(state.bits / 100))
     
-    bead_radius = int(min(rod_spacing, abacus_inner_w / 25) / 2) - 2
+    bead_radius = int(min(rod_spacing, abacus_inner_w / 25) / 2) - 3
     
     # Draw beads on each rod
     for bead_idx in range(max_beads):
@@ -377,8 +396,8 @@ def draw_abacus_accumulator(screen, state, current_width, current_height,
         bead = bead_idx % 10
         rod_y = abacus_inner_y + (rod + 1) * rod_spacing
         
-        left_x = abacus_inner_x + 30
-        right_x = abacus_inner_x + abacus_inner_w - 30 - bead_radius * 2
+        left_x = abacus_inner_x + 35
+        right_x = abacus_inner_x + abacus_inner_w - 35 - bead_radius * 2
         bead_spacing = (right_x - left_x) / 9
         
         # Position: left side if not filled, right side if filled
@@ -389,32 +408,59 @@ def draw_abacus_accumulator(screen, state, current_width, current_height,
         
         by = rod_y - bead_radius
         
-        # Draw bead
+        # Draw bead shadow
+        pygame.draw.ellipse(screen, (80, 60, 30), (bx + 2, by + 2, bead_radius * 2, bead_radius * 2))
+        
+        # Draw bead with gradient effect
         bead_rect = (bx, by, bead_radius * 2, bead_radius * 2)
         
         if bead_idx < beads_filled:
-            pygame.draw.ellipse(screen, (160, 100, 50), bead_rect)  # Darker = moved
+            # Darker wood for moved beads
+            pygame.draw.ellipse(screen, (140, 90, 40), bead_rect)
         else:
-            pygame.draw.ellipse(screen, (205, 155, 95), bead_rect)  # Lighter = not moved
+            # Lighter wood for unmoved beads
+            pygame.draw.ellipse(screen, (205, 165, 105), bead_rect)
         
-        pygame.draw.ellipse(screen, (80, 50, 20), bead_rect, 1)
+        # Bead highlight
+        pygame.draw.ellipse(screen, (230, 200, 140), (bx + 3, by + 2, bead_radius, bead_radius))
+        
+        # Bead outline
+        pygame.draw.ellipse(screen, (60, 40, 20), bead_rect, 2)
     
-    # Click instruction
-    click_text = small_font.render("[ CLICK TO ADD BEADS ]", True, (150, 120, 70))
+    # Click instruction with pulsing effect
+    pulse = (math.sin(pygame.time.get_ticks() / 300.0) + 1) / 2  # 0 to 1
+    click_color = (150 + int(pulse * 50), 120 + int(pulse * 30), 70)
+    click_text = small_font.render("[ CLICK ABACUS TO ADD PEBBLES ]", True, click_color)
     click_rect = click_text.get_rect(center=(cx, acc_y + acc_height - int(25 * scale_y)))
     screen.blit(click_text, click_rect)
     
-    # Show pebbles count
+    # Show pebbles count with nice formatting
     pebble_count = getattr(state, 'pebbles', state.bits)
-    currency_text = monospace_font.render(f"{format_number(pebble_count)} pebbles", True, (80, 50, 20))
-    currency_rect = currency_text.get_rect(center=(cx, acc_y + int(45 * scale_y)))
+    currency_text = monospace_font.render(f"{format_number(pebble_count)}", True, (60, 40, 15))
+    currency_rect = currency_text.get_rect(center=(cx, acc_y + int(42 * scale_y)))
+    
+    # Currency background
+    curr_bg_w = currency_rect.width + 40
+    curr_bg_h = currency_rect.height + 16
+    curr_bg_x = cx - curr_bg_w // 2
+    curr_bg_y = currency_rect.y - 8
+    pygame.draw.rect(screen, (220, 200, 160), (curr_bg_x, curr_bg_y, curr_bg_w, curr_bg_h), border_radius=6)
+    pygame.draw.rect(screen, (80, 55, 25), (curr_bg_x, curr_bg_y, curr_bg_w, curr_bg_h), 2, border_radius=6)
     screen.blit(currency_text, currency_rect)
+    
+    # Currency label
+    label_text = small_font.render("pebbles", True, (100, 80, 50))
+    label_rect = label_text.get_rect(center=(cx, currency_rect.y + currency_rect.height + 12))
+    screen.blit(label_text, label_rect)
     
     # Show production rate
     rate = state.get_production_rate()
-    rate_text = small_font.render(f"+{format_number(int(rate))} / sec", True, (100, 80, 50))
-    rate_rect = rate_text.get_rect(center=(cx, acc_y + acc_height - int(55 * scale_y)))
+    rate_text = small_font.render(f"+{format_number(int(rate))} / sec", True, (120, 100, 60))
+    rate_rect = rate_text.get_rect(center=(cx, acc_y + acc_height - int(50 * scale_y)))
     screen.blit(rate_text, rate_rect)
+    
+    # Store clickable area for interactivity
+    state._abacus_click_area = pygame.Rect(abacus_inner_x, abacus_inner_y, abacus_inner_w, abacus_inner_h)
 
 
 def draw_mechanical_accumulator(screen, state, current_width, current_height,
@@ -436,60 +482,127 @@ def draw_mechanical_accumulator(screen, state, current_width, current_height,
     
     cx = acc_x + acc_width // 2
     
-    # Draw metallic frame
-    frame_color = (60, 55, 50)
+    # Draw metallic frame with rivets
+    frame_color = (50, 48, 45)
     pygame.draw.rect(screen, frame_color, (acc_x, acc_y, acc_width, acc_height), border_radius=8)
-    pygame.draw.rect(screen, (120, 110, 90), (acc_x, acc_y, acc_width, acc_height), 4, border_radius=8)
+    
+    # Draw rivets
+    rivet_color = (100, 95, 85)
+    for rx in [acc_x + 15, acc_x + acc_width - 15]:
+        for ry in [acc_y + 15, acc_y + acc_height - 15]:
+            pygame.draw.circle(screen, rivet_color, (rx, ry), 5)
+            pygame.draw.circle(screen, (70, 68, 60), (rx, ry), 5, 1)
+    
+    pygame.draw.rect(screen, (140, 130, 100), (acc_x, acc_y, acc_width, acc_height), 4, border_radius=8)
     
     # Title
     title_text = small_font.render("◈ MECHANICAL COMPUTER ◈", True, (218, 165, 32))
     title_rect = title_text.get_rect(center=(cx, acc_y + int(25 * scale_y)))
     screen.blit(title_text, title_rect)
     
-    # Draw gears
+    # Draw inner panel with bolts
+    inner_x = acc_x + int(20 * scale_x)
+    inner_y = acc_y + int(50 * scale_y)
+    inner_w = acc_width - int(40 * scale_x)
+    inner_h = acc_height - int(100 * scale_y)
+    pygame.draw.rect(screen, (35, 33, 30), (inner_x, inner_y, inner_w, inner_h), border_radius=4)
+    
+    # Bolts on inner panel
+    for bx in [inner_x + 10, inner_x + inner_w - 10]:
+        for by in [inner_y + 10, inner_y + inner_h - 10]:
+            pygame.draw.circle(screen, (80, 78, 70), (bx, by), 4)
+    
+    # Draw gears with better visuals
     gears = [
-        {"x": 0.3, "y": 0.35, "radius": 0.15, "teeth": 12, "speed": 1.0},
-        {"x": 0.7, "y": 0.35, "radius": 0.12, "teeth": 10, "speed": -1.3},
-        {"x": 0.5, "y": 0.65, "radius": 0.18, "teeth": 15, "speed": 0.7},
+        {"x": 0.3, "y": 0.38, "radius": 0.15, "teeth": 12, "speed": 1.0, "color": (200, 160, 60)},
+        {"x": 0.7, "y": 0.38, "radius": 0.12, "teeth": 10, "speed": -1.3, "color": (180, 140, 50)},
+        {"x": 0.5, "y": 0.68, "radius": 0.18, "teeth": 15, "speed": 0.7, "color": (160, 120, 40)},
     ]
     
     production = state.get_production_rate()
-    rotation_offset = (pygame.time.get_ticks() / 1000.0) * (1 + production / 1000)
+    rotation_offset = (pygame.time.get_ticks() / 1000.0) * (1 + production / 500)
     
     for gear in gears:
-        gx = acc_x + gear["x"] * acc_width
-        gy = acc_y + gear["y"] * acc_height
-        radius = gear["radius"] * min(acc_width, acc_height)
+        gx = inner_x + gear["x"] * inner_w
+        gy = inner_y + gear["y"] * inner_h
+        radius = gear["radius"] * min(inner_w, inner_h)
         
-        pygame.draw.circle(screen, (184, 134, 11), (int(gx), int(gy)), int(radius))
-        pygame.draw.circle(screen, (120, 90, 20), (int(gx), int(gy)), int(radius), 3)
+        # Gear shadow
+        pygame.draw.circle(screen, (20, 18, 15), (int(gx + 3), int(gy + 3)), int(radius + 5))
         
+        # Gear body
+        pygame.draw.circle(screen, gear["color"], (int(gx), int(gy)), int(radius))
+        pygame.draw.circle(screen, (100, 80, 30), (int(gx), int(gy)), int(radius), 3)
+        
+        # Draw teeth
         teeth = gear["teeth"]
         rotation = rotation_offset * gear["speed"]
         for t in range(teeth):
             angle = rotation + (t / teeth) * 2 * 3.14159
-            tx = gx + math.cos(angle) * (radius + 5)
-            ty = gy + math.sin(angle) * (radius + 5)
-            pygame.draw.circle(screen, (184, 134, 11), (int(tx), int(ty)), 4)
+            tx = gx + math.cos(angle) * (radius + 6)
+            ty = gy + math.sin(angle) * (radius + 6)
+            pygame.draw.circle(screen, gear["color"], (int(tx), int(ty)), 5)
+            pygame.draw.circle(screen, (80, 60, 20), (int(tx), int(ty)), 5, 1)
         
-        pygame.draw.circle(screen, (80, 60, 30), (int(gx), int(gy)), int(radius * 0.25))
+        # Center axle
+        pygame.draw.circle(screen, (60, 55, 45), (int(gx), int(gy)), int(radius * 0.3))
+        pygame.draw.circle(screen, (30, 28, 25), (int(gx), int(gy)), int(radius * 0.15))
     
-    # Lever
+    # Lever/handle area (clickable)
     lever_x = cx
-    lever_y = acc_y + acc_height - int(60 * scale_y)
-    pygame.draw.rect(screen, (100, 90, 80), (lever_x - 20, lever_y, 40, 30))
-    pygame.draw.rect(screen, (150, 140, 120), (lever_x - 20, lever_y, 40, 30), 2)
+    lever_y = acc_y + acc_height - int(55 * scale_y)
     
-    lever_offset = math.sin(pygame.time.get_ticks() / 200.0) * 3
-    pygame.draw.line(screen, (200, 180, 150), (lever_x, lever_y + 5), 
-                    (lever_x + lever_offset, lever_y - 20), 5)
-    pygame.draw.circle(screen, (184, 134, 11), (int(lever_x + lever_offset), int(lever_y - 20)), 8)
+    # Lever base
+    lever_base_w = 80
+    lever_base_h = 40
+    pygame.draw.rect(screen, (40, 38, 35), (lever_x - lever_base_w//2, lever_y, lever_base_w, lever_base_h), border_radius=4)
+    pygame.draw.rect(screen, (120, 110, 80), (lever_x - lever_base_w//2, lever_y, lever_base_w, lever_base_h), 2, border_radius=4)
     
-    # Show ticks
+    # Lever arm (animated)
+    lever_offset = math.sin(pygame.time.get_ticks() / 150.0) * 8
+    pygame.draw.line(screen, (100, 95, 70), (lever_x, lever_y + 10), 
+                    (lever_x + lever_offset, lever_y - 15), 8)
+    pygame.draw.line(screen, (150, 140, 100), (lever_x, lever_y + 10), 
+                    (lever_x + lever_offset, lever_y - 15), 4)
+    
+    # Lever handle
+    pygame.draw.circle(screen, (200, 160, 60), (int(lever_x + lever_offset), int(lever_y - 15)), 12)
+    pygame.draw.circle(screen, (120, 100, 40), (int(lever_x + lever_offset), int(lever_y - 15)), 12, 2)
+    
+    # Show ticks with better styling
     ticks_count = getattr(state, 'ticks', state.bits)
-    currency_text = monospace_font.render(f"{format_number(ticks_count)} ticks", True, (218, 165, 32))
-    currency_rect = currency_text.get_rect(center=(cx, acc_y + int(50 * scale_y)))
+    
+    # Currency background
+    curr_bg_w = 200
+    curr_bg_h = 50
+    curr_bg_x = cx - curr_bg_w // 2
+    curr_bg_y = acc_y + int(48 * scale_y)
+    pygame.draw.rect(screen, (30, 28, 25), (curr_bg_x, curr_bg_y, curr_bg_w, curr_bg_h), border_radius=6)
+    pygame.draw.rect(screen, (218, 165, 32), (curr_bg_x, curr_bg_y, curr_bg_w, curr_bg_h), 2, border_radius=6)
+    
+    currency_text = monospace_font.render(f"{format_number(ticks_count)}", True, (218, 165, 32))
+    currency_rect = currency_text.get_rect(center=(cx, curr_bg_y + curr_bg_h // 2))
     screen.blit(currency_text, currency_rect)
+    
+    # Label
+    label_text = small_font.render("ticks", True, (150, 130, 80))
+    label_rect = label_text.get_rect(center=(cx, curr_bg_y + curr_bg_h + 12))
+    screen.blit(label_text, label_rect)
+    
+    # Production rate
+    rate_text = small_font.render(f"+{format_number(int(production))} ticks/sec", True, (140, 120, 70))
+    rate_rect = rate_text.get_rect(center=(cx, acc_y + acc_height - int(25 * scale_y)))
+    screen.blit(rate_text, rate_rect)
+    
+    # Click instruction
+    pulse = (math.sin(pygame.time.get_ticks() / 300.0) + 1) / 2
+    click_color = (180 + int(pulse * 40), 150 + int(pulse * 30), 80)
+    click_text = small_font.render("[ CLICK TO CRANK THE MACHINE ]", True, click_color)
+    click_rect = click_text.get_rect(center=(cx, acc_y + acc_height - int(45 * scale_y)))
+    screen.blit(click_text, click_rect)
+    
+    # Store clickable area
+    state._abacus_click_area = pygame.Rect(inner_x, inner_y, inner_w, inner_h)
     
     rate_text = small_font.render(f"+{format_number(int(production))} ticks/sec", True, (180, 150, 100))
     rate_rect = rate_text.get_rect(center=(cx, acc_y + acc_height - int(25 * scale_y)))
