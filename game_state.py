@@ -5,30 +5,52 @@ Game state management for Bit by Bit Game
 import pygame
 import math
 import json
-from constants import CONFIG, GENERATORS, UPGRADES, HARDWARE_GENERATIONS, COST_MULT_BY_ERA
+from constants import (
+    CONFIG, GENERATORS, UPGRADES, HARDWARE_GENERATIONS, COST_MULT_BY_ERA,
+    ERAS, ABACUS_GENERATORS, MECHANICAL_GENERATORS, ELECTROMECHANICAL_GENERATORS,
+    VACUUM_TUBE_GENERATORS, ERA_UPGRADES, PRESTIGE_UPGRADES
+)
 
 
 class GameState:
     def __init__(self):
-        self.bits: int = 0
+        # Start with Era 0 (Abacus) - pebbles as currency
+        self.current_era = 0  # 0=Abacus, 1=Mechanical, 2=Electromechanical, etc.
+        
+        # Currency (pebbles in Era 0, converts to bits when binary is invented)
+        self.pebbles = 0  # Era 0 currency
+        self.bits = 0  # Modern currency (available after "Define Bit")
+        self.total_pebbles_earned = 0
         self.total_bits_earned = 0
+        
         self.total_clicks = 0
         self.start_time = pygame.time.get_ticks()
         self.total_play_time = 0
         self.last_save_time = pygame.time.get_ticks()
 
-        # Generators
+        # Generators - organized by era
         self.generators = {}
-        self.unlocked_generators = ["rng"]
+        self.unlocked_generators = ["pebble"]  # Start with pebble counter
 
         # Upgrades
         self.upgrades = {}
+        
+        # Era-specific upgrades
+        self.era_upgrades = {}
+        
+        # Prestige upgrades (Binary invention system)
+        self.prestige_upgrades = {}
+        self.binary_invented = False  # Has "Define Bit" been done?
+        self.boolean_algebra_invented = False  # Has Boolean Algebra been done?
+        
+        # Binary efficiency multiplier (from prestige)
+        self.binary_efficiency = 1.0
 
         # Tutorial state
         self.tutorial_step = 0
-        self.has_seen_tutorial = False
+        self.has_seen_tutorial = True  # Disabled
 
-        # Era: entropy, compression
+        # Era: entropy, compression (for compatibility with existing systems)
         self.era = "entropy"
 
         # Visual settings - CRT effects OFF by default
@@ -66,7 +88,20 @@ class GameState:
         self.initialize_structures()
 
     def initialize_structures(self):
-        # Initialize basic generators
+        # Initialize era-specific generators (Abacus Era - Era 0)
+        for gen_id in ABACUS_GENERATORS:
+            self.generators[gen_id] = {"count": 0, "total_bought": 0}
+        
+        for gen_id in MECHANICAL_GENERATORS:
+            self.generators[gen_id] = {"count": 0, "total_bought": 0}
+            
+        for gen_id in ELECTROMECHANICAL_GENERATORS:
+            self.generators[gen_id] = {"count": 0, "total_bought": 0}
+            
+        for gen_id in VACUUM_TUBE_GENERATORS:
+            self.generators[gen_id] = {"count": 0, "total_bought": 0}
+
+        # Initialize basic generators (for compatibility)
         for gen_id in CONFIG["GENERATORS"]:
             self.generators[gen_id] = {"count": 0, "total_bought": 0}
 
@@ -78,6 +113,14 @@ class GameState:
         # Initialize basic upgrades
         for upgrade_id in CONFIG["UPGRADES"]:
             self.upgrades[upgrade_id] = {"level": 0}
+        
+        # Initialize era-specific upgrades
+        for upgrade_id in ERA_UPGRADES:
+            self.era_upgrades[upgrade_id] = {"level": 0}
+            
+        # Initialize prestige upgrades
+        for upgrade_id in PRESTIGE_UPGRADES:
+            self.prestige_upgrades[upgrade_id] = {"purchased": False}
 
         # Initialize hardware-specific upgrades
         if "HARDWARE_UPGRADES" in CONFIG:
@@ -107,123 +150,409 @@ class GameState:
             self.data_shard_upgrades[upgrade_id] = {"level": 0}
 
     def get_production_rate(self):
-        if self.era == "entropy":
-            base_production = 0
+        # Use the new era progression system
+        return self.get_era_production_rate()
 
-            # Calculate from basic generators
+    # =========================================================================
+    # ERA PROGRESSION SYSTEM
+    # =========================================================================
+    
+    def get_current_currency(self):
+        """Get the name of the current era's currency"""
+        if self.current_era == 0:
+            return "pebbles" if not self.binary_invented else "bits"
+        elif self.current_era >= 4:
+            return "bits"
+        else:
+            era_info = ERAS.get(self.current_era, {})
+            return era_info.get("currency_name", "units")
+    
+    def get_current_currency_value(self):
+        """Get the current era's currency amount (pebbles or bits)"""
+        if self.current_era == 0 and not self.binary_invented:
+            return self.pebbles
+        return self.bits
+    
+    def get_total_currency_earned(self):
+        """Get total currency earned in current era"""
+        if self.current_era == 0 and not self.binary_invented:
+            return self.total_pebbles_earned
+        return self.total_bits_earned
+    
+    def get_era_production_rate(self):
+        """Calculate production rate based on current era"""
+        base_production = 0
+        
+        # Era 0: Abacus generators
+        if self.current_era == 0:
             for gen_id, gen_data in self.generators.items():
-                if gen_data["count"] > 0 and gen_id in CONFIG["GENERATORS"]:
-                    generator = CONFIG["GENERATORS"][gen_id]
-                    gen_production = gen_data["count"] * generator["base_production"]
-                    base_production += gen_production
+                if gen_data["count"] > 0 and gen_id in ABACUS_GENERATORS:
+                    generator = ABACUS_GENERATORS[gen_id]
+                    # Check if generator is unlocked
+                    if self.is_era_generator_unlocked(gen_id):
+                        gen_production = gen_data["count"] * generator["base_production"]
+                        base_production += gen_production
+            
+            # Apply era-specific upgrades
+            era_multiplier = self.get_era_upgrade_multiplier("abacus")
+            base_production *= era_multiplier
+            
+        # Era 1: Mechanical generators
+        elif self.current_era == 1:
+            for gen_id, gen_data in self.generators.items():
+                if gen_data["count"] > 0 and gen_id in MECHANICAL_GENERATORS:
+                    generator = MECHANICAL_GENERATORS[gen_id]
+                    if self.is_era_generator_unlocked(gen_id):
+                        gen_production = gen_data["count"] * generator["base_production"]
+                        base_production += gen_production
+            
+            era_multiplier = self.get_era_upgrade_multiplier("mechanical")
+            base_production *= era_multiplier
+            
+        # Era 2: Electromechanical generators
+        elif self.current_era == 2:
+            for gen_id, gen_data in self.generators.items():
+                if gen_data["count"] > 0 and gen_id in ELECTROMECHANICAL_GENERATORS:
+                    generator = ELECTROMECHANICAL_GENERATORS[gen_id]
+                    if self.is_era_generator_unlocked(gen_id):
+                        gen_production = gen_data["count"] * generator["base_production"]
+                        base_production += gen_production
+            
+            era_multiplier = self.get_era_upgrade_multiplier("electromechanical")
+            base_production *= era_multiplier
+            
+        # Era 3: Vacuum Tube generators
+        elif self.current_era == 3:
+            for gen_id, gen_data in self.generators.items():
+                if gen_data["count"] > 0 and gen_id in VACUUM_TUBE_GENERATORS:
+                    generator = VACUUM_TUBE_GENERATORS[gen_id]
+                    if self.is_era_generator_unlocked(gen_id):
+                        gen_production = gen_data["count"] * generator["base_production"]
+                        base_production += gen_production
+            
+            era_multiplier = self.get_era_upgrade_multiplier("vacuum_tubes")
+            base_production *= era_multiplier
+            
+        # Era 4+: Transistors (modern hardware generators)
+        elif self.current_era >= 4:
+            # Use existing hardware generator logic
+            for gen_id, gen_data in self.generators.items():
+                if (gen_data["count"] > 0 and gen_id in CONFIG.get("HARDWARE_GENERATORS", {})):
+                    generator = CONFIG["HARDWARE_GENERATORS"][gen_id]
+                    category = generator["category"]
+                    if self.is_hardware_category_unlocked(category):
+                        category_multiplier = self.get_category_multiplier(category)
+                        production = gen_data["count"] * generator["base_production"] * category_multiplier
+                        base_production += production
+        
+        # Apply binary efficiency multiplier (from prestige upgrades)
+        base_production *= self.binary_efficiency
+        
+        # Apply prestige bonus
+        prestige_bonus = self.get_prestige_bonus()
+        base_production *= prestige_bonus
+        
+        return base_production
+    
+    def is_era_generator_unlocked(self, generator_id):
+        """Check if an era-specific generator is unlocked"""
+        # Check which generator dictionary it belongs to
+        if generator_id in ABACUS_GENERATORS:
+            generator = ABACUS_GENERATORS[generator_id]
+        elif generator_id in MECHANICAL_GENERATORS:
+            generator = MECHANICAL_GENERATORS[generator_id]
+        elif generator_id in ELECTROMECHANICAL_GENERATORS:
+            generator = ELECTROMECHANICAL_GENERATORS[generator_id]
+        elif generator_id in VACUUM_TUBE_GENERATORS:
+            generator = VACUUM_TUBE_GENERATORS[generator_id]
+        else:
+            return False
+        
+        # Check if there's an unlock threshold
+        if "unlock_threshold" not in generator:
+            return True
+        
+        # Check based on current era's total currency
+        total_currency = self.get_total_currency_earned()
+        return total_currency >= generator["unlock_threshold"]
+    
+    def get_era_upgrade_multiplier(self, category):
+        """Get the upgrade multiplier for an era category"""
+        multiplier = 1.0
+        
+        # Find upgrades for this category
+        for upgrade_id, upgrade_data in ERA_UPGRADES.items():
+            if upgrade_data.get("category") == category:
+                level = self.era_upgrades.get(upgrade_id, {}).get("level", 0)
+                effect = upgrade_data.get("effect", 1)
+                multiplier *= math.pow(effect, level)
+        
+        return multiplier
+    
+    def get_era_click_power(self):
+        """Calculate click power based on current era"""
+        base_click = 1
+        
+        # Era-specific click bonuses
+        if self.current_era == 0:
+            level = self.era_upgrades.get("clay_inscriptions", {}).get("level", 0)
+            base_click += level * ERA_UPGRADES["clay_inscriptions"]["effect"]
+        elif self.current_era == 1:
+            level = self.era_upgrades.get("precision_crafting", {}).get("level", 0)
+            base_click += level * ERA_UPGRADES["precision_crafting"]["effect"]
+        elif self.current_era == 2:
+            level = self.era_upgrades.get("card_punching", {}).get("level", 0)
+            base_click += level * ERA_UPGRADES["card_punching"]["effect"]
+        elif self.current_era == 3:
+            level = self.era_upgrades.get("tube_replacement", {}).get("level", 0)
+            base_click += level * ERA_UPGRADES["tube_replacement"]["effect"]
+        
+        # Add basic click upgrade bonus
+        click_upgrade_level = self.upgrades.get("click_power", {}).get("level", 0)
+        click_upgrade_bonus = click_upgrade_level * CONFIG["UPGRADES"]["click_power"]["effect"]
+        
+        # Add prestige click bonus
+        prestige_click_bonus = self.get_click_prestige_bonus()
+        
+        # Apply binary efficiency to click as well
+        return (base_click + click_upgrade_bonus + prestige_click_bonus) * self.binary_efficiency
+    
+    def get_era_generator_cost(self, generator_id, quantity=1):
+        """Get the cost for an era-specific generator"""
+        # Determine which generator dict to use
+        if generator_id in ABACUS_GENERATORS:
+            generator = ABACUS_GENERATORS[generator_id]
+        elif generator_id in MECHANICAL_GENERATORS:
+            generator = MECHANICAL_GENERATORS[generator_id]
+        elif generator_id in ELECTROMECHANICAL_GENERATORS:
+            generator = ELECTROMECHANICAL_GENERATORS[generator_id]
+        elif generator_id in VACUUM_TUBE_GENERATORS:
+            generator = VACUUM_TUBE_GENERATORS[generator_id]
+        elif generator_id in CONFIG["GENERATORS"]:
+            generator = CONFIG["GENERATORS"][generator_id]
+        elif generator_id in CONFIG.get("HARDWARE_GENERATORS", {}):
+            generator = CONFIG["HARDWARE_GENERATORS"][generator_id]
+        else:
+            return float('inf')
+        
+        current_count = self.generators[generator_id]["count"]
+        
+        # Get era-specific cost multiplier
+        era_cost_mult = COST_MULT_BY_ERA.get(self.current_era, 1.15)
+        cost_multiplier = generator.get("cost_multiplier", era_cost_mult)
 
-            # Calculate from hardware-specific generators
-            if "HARDWARE_GENERATORS" in CONFIG:
-                for gen_id, gen_data in self.generators.items():
-                    if (
-                        gen_data["count"] > 0
-                        and gen_id in CONFIG["HARDWARE_GENERATORS"]
-                    ):
-                        generator = CONFIG["HARDWARE_GENERATORS"][gen_id]
-                        category = generator["category"]
-
-                        # Only count if this hardware category is unlocked
-                        if self.is_hardware_category_unlocked(category):
-                            # Apply category-specific multiplier
-                            category_multiplier = self.get_category_multiplier(category)
-                            production = (
-                                gen_data["count"]
-                                * generator["base_production"]
-                                * category_multiplier
-                            )
-                            base_production += production
-
-            # Apply entropy amplification multiplier
-            entropy_multiplier = math.pow(
-                2, self.upgrades["entropy_amplification"]["level"]
+        if quantity == 1:
+            return int(
+                generator["base_cost"]
+                * math.pow(cost_multiplier, current_count)
             )
 
-            # Apply era multiplier (+25% per era as per design doc)
-            era_multiplier = CONFIG.get("ERA_MULTIPLIER", 1.25)
+        # Bulk purchase cost calculation
+        first_cost = generator["base_cost"] * math.pow(
+            cost_multiplier, current_count
+        )
+        ratio = math.pow(cost_multiplier, quantity) - 1
+        denominator = cost_multiplier - 1
 
-            # Apply prestige bonus
-            prestige_bonus = self.get_prestige_bonus()
-
-            return base_production * entropy_multiplier * prestige_bonus * era_multiplier
-
-        elif self.era == "compression":
-            compressed_production = 0
-            overhead_production = 0
-
-            # Calculate from compression generators
-            for gen_id, gen_data in self.compression_generators.items():
-                if gen_data["count"] > 0:
-                    generator = self.compression_generators[gen_id]
-                    compressed_production += (
-                        gen_data["count"] * generator["base_production"]
-                    )
-                    overhead_production += gen_data["count"] * generator.get(
-                        "overhead_production", 0
-                    )
-
-            # Apply data shard upgrade bonuses
-            mastery_bonus = self.get_data_shard_upgrade_effect("compression_mastery") / 100.0
-            parallel_bonus = self.get_data_shard_upgrade_effect("parallel_streams") / 100.0
-            
-            # Apply compression mastery bonus to production
-            compressed_production *= (1 + mastery_bonus)
-            
-            # Apply parallel streams bonus per generator type
-            if parallel_bonus > 0:
-                gen_count = sum(gen_data["count"] for gen_data in self.compression_generators.values())
-                compressed_production *= (1 + parallel_bonus * gen_count / 10)
-            
-            # Calculate efficiency floor from upgrades
-            efficiency_floor = self.get_data_shard_upgrade_effect("efficiency_shield") / 100.0
-            
-            # Calculate penalty threshold reduction from entropy barrier
-            penalty_threshold_reduction = self.get_data_shard_upgrade_effect("entropy_barrier") / 100.0
-            
-            # Calculate net production and efficiency
-            net_overhead = overhead_production
-            efficiency = (
-                compressed_production / (compressed_production + net_overhead)
-                if (compressed_production + net_overhead) > 0
-                else 1.0
-            )
-            
-            # Apply efficiency floor
-            efficiency = max(efficiency, efficiency_floor)
-
-            self.efficiency = efficiency
-            self.overhead_rate = net_overhead
-
-            # Apply efficiency penalties with threshold reduction
-            penalty_50 = 0.5 - penalty_threshold_reduction
-            penalty_70 = 0.7 - penalty_threshold_reduction
-            penalty_90 = 0.9 - penalty_threshold_reduction
-            
-            if efficiency < penalty_50:
-                penalty = 0.5
-            elif efficiency < penalty_70:
-                penalty = 0.75
-            elif efficiency < penalty_90:
-                penalty = 0.9
-            else:
-                penalty = 1.0
-
-            return compressed_production * penalty
-
-        return 0
+        return int(first_cost * ratio / denominator)
+    
+    def get_era_upgrade_cost(self, upgrade_id):
+        """Get the cost for an era-specific upgrade"""
+        if upgrade_id not in ERA_UPGRADES:
+            return float('inf')
+        
+        upgrade = ERA_UPGRADES[upgrade_id]
+        current_level = self.era_upgrades.get(upgrade_id, {}).get("level", 0)
+        
+        return int(
+            upgrade["base_cost"]
+            * math.pow(upgrade["cost_multiplier"], current_level)
+        )
+    
+    def can_afford_era_upgrade(self, upgrade_id):
+        """Check if player can afford an era upgrade"""
+        cost = self.get_era_upgrade_cost(upgrade_id)
+        if self.current_era == 0 and not self.binary_invented:
+            return self.pebbles >= cost
+        return self.bits >= cost
+    
+    def purchase_era_upgrade(self, upgrade_id):
+        """Purchase an era-specific upgrade"""
+        if not self.can_afford_era_upgrade(upgrade_id):
+            return False
+        
+        cost = self.get_era_upgrade_cost(upgrade_id)
+        
+        if self.current_era == 0 and not self.binary_invented:
+            self.pebbles -= cost
+        else:
+            self.bits -= cost
+        
+        if upgrade_id not in self.era_upgrades:
+            self.era_upgrades[upgrade_id] = {"level": 0}
+        self.era_upgrades[upgrade_id]["level"] += 1
+        return True
+    
+    def can_advance_era(self):
+        """Check if player can advance to the next era"""
+        if self.current_era >= len(ERAS) - 1:
+            return False
+        
+        next_era_info = ERAS[self.current_era + 1]
+        unlock_bits = next_era_info.get("unlock_bits", 0)
+        
+        total_currency = self.get_total_currency_earned()
+        return total_currency >= unlock_bits
+    
+    def advance_era(self):
+        """Advance to the next era"""
+        if not self.can_advance_era():
+            return False
+        
+        self.current_era += 1
+        
+        # Update unlocked categories for new era
+        if self.current_era in ERAS:
+            era_info = ERAS[self.current_era]
+            # For transistor era and beyond, unlock hardware categories
+            if self.current_era >= 4:
+                self.unlocked_hardware_categories = era_info.get("generator_categories", ["cpu"])
+        
+        return True
+    
+    def get_era_info(self):
+        """Get information about the current era"""
+        return ERAS.get(self.current_era, {})
+    
+    def get_next_era_info(self):
+        """Get information about the next era"""
+        return ERAS.get(self.current_era + 1, None)
+    
+    def get_era_progress(self):
+        """Get progress towards next era (0.0 - 1.0)"""
+        next_era = self.get_next_era_info()
+        if not next_era:
+            return 1.0
+        
+        unlock_bits = next_era.get("unlock_bits", 0)
+        if unlock_bits == 0:
+            return 1.0 if self.current_era > 0 else 0.0
+        
+        total_currency = self.get_total_currency_earned()
+        return min(total_currency / unlock_bits, 1.0)
+    
+    # =========================================================================
+    # BINARY INVENTION / PRESTIGE SYSTEM
+    # =========================================================================
+    
+    def can_define_bit(self):
+        """Check if Define Bit prestige is available"""
+        if self.binary_invented:
+            return False
+        # Requires 500 pebbles in Abacus era
+        return self.total_pebbles_earned >= PRESTIGE_UPGRADES["define_bit"]["unlock_threshold"]
+    
+    def perform_define_bit(self):
+        """Perform Define Bit prestige - converts pebbles to bits"""
+        if not self.can_define_bit():
+            return False
+        
+        # Convert pebbles to bits (100:1 ratio)
+        conversion_ratio = 100
+        converted_bits = self.pebbles // conversion_ratio
+        
+        # Set up binary mode
+        self.binary_invented = True
+        self.bits = converted_bits
+        self.total_bits_earned = converted_bits
+        self.total_pebbles_earned = self.pebbles  # Keep track
+        
+        # Apply binary efficiency multiplier
+        self.binary_efficiency = PRESTIGE_UPGRADES["define_bit"]["effect"]
+        
+        # Mark prestige upgrade as purchased
+        self.prestige_upgrades["define_bit"]["purchased"] = True
+        
+        # Update currency tracking
+        self.pebbles = 0
+        
+        return True
+    
+    def can_invent_boolean_algebra(self):
+        """Check if Boolean Algebra prestige is available"""
+        if self.boolean_algebra_invented or not self.binary_invented:
+            return False
+        
+        # Requires Define Bit first
+        if not self.prestige_upgrades.get("define_bit", {}).get("purchased", False):
+            return False
+        
+        # Requires 50,000 pebbles earned in Abacus era
+        return self.total_pebbles_earned >= PRESTIGE_UPGRADES["boolean_algebra"]["unlock_threshold"]
+    
+    def perform_boolean_algebra(self):
+        """Perform Boolean Algebra prestige - doubles production"""
+        if not self.can_invent_boolean_algebra():
+            return False
+        
+        # Apply additional binary efficiency
+        self.boolean_algebra_invented = True
+        self.binary_efficiency *= PRESTIGE_UPGRADES["boolean_algebra"]["effect"]
+        
+        # Mark prestige upgrade as purchased
+        self.prestige_upgrades["boolean_algebra"]["purchased"] = True
+        
+        return True
+    
+    def can_invent_logic_gates(self):
+        """Check if Logic Gates prestige is available"""
+        if self.prestige_upgrades.get("logic_gates", {}).get("purchased", False):
+            return False
+        
+        # Requires Boolean Algebra first
+        if not self.boolean_algebra_invented:
+            return False
+        
+        # Requires significant progress in Electromechanical era
+        return self.current_era >= 2 and self.total_bits_earned >= PRESTIGE_UPGRADES["logic_gates"]["unlock_threshold"]
+    
+    def perform_logic_gates(self):
+        """Perform Logic Gates prestige - another 2x multiplier"""
+        if not self.can_invent_logic_gates():
+            return False
+        
+        # Apply additional binary efficiency
+        self.binary_efficiency *= PRESTIGE_UPGRADES["logic_gates"]["effect"]
+        
+        # Mark prestige upgrade as purchased
+        self.prestige_upgrades["logic_gates"]["purchased"] = True
+        
+        return True
+    
+    def get_binary_invention_progress(self):
+        """Get progress towards next binary invention"""
+        if self.boolean_algebra_invented and self.prestige_upgrades.get("logic_gates", {}).get("purchased", False):
+            return 1.0
+        
+        if not self.binary_invented:
+            threshold = PRESTIGE_UPGRADES["define_bit"]["unlock_threshold"]
+            return min(self.total_pebbles_earned / threshold, 1.0)
+        
+        if not self.boolean_algebra_invented:
+            threshold = PRESTIGE_UPGRADES["boolean_algebra"]["unlock_threshold"]
+            return min(self.total_pebbles_earned / threshold, 1.0)
+        
+        # Logic gates
+        threshold = PRESTIGE_UPGRADES["logic_gates"]["unlock_threshold"]
+        return min(self.total_bits_earned / threshold, 1.0)
+    
+    # =========================================================================
+    # END ERA METHODS
+    # =========================================================================
 
     def get_click_power(self):
-        base_click = 1
-        click_upgrade_bonus = (
-            self.upgrades["click_power"]["level"]
-            * CONFIG["UPGRADES"]["click_power"]["effect"]
-        )
-        prestige_click_bonus = self.get_click_prestige_bonus()
-        return base_click + click_upgrade_bonus + prestige_click_bonus
+        # Use the new era progression system
+        return self.get_era_click_power()
 
     def get_generator_cost(self, generator_id, quantity=1):
         # Check both basic and hardware generators

@@ -233,14 +233,14 @@ class MotherboardBitGrid:
             "BUS": {
                 "col": 1,
                 "row": 0,
-                "row_span": 2,
-                "bits": 16,
-                "exact_bits": 512,
+                "row_span": 1,
+                "bits": 8,
+                "exact_bits": 64,
                 "unlocked": True,
                 "level": 1,
                 "color": (100, 120, 180),
                 "name": "BUS",
-                "description": "16-bit Address Bus",
+                "description": "8-bit Data Bus",
             },
             "RAM": {
                 "col": 2,
@@ -383,39 +383,91 @@ class MotherboardBitGrid:
         return get_exact_bits(category, gen)
 
     def _render_led_grid(self, screen, comp):
-        """Render component using LEDGrid"""
-        comp_name = comp["name"]
+        """Render component bits as a grid of LEDs filling the main area"""
+        x = comp["x"]
+        y = comp["y"]
+        w = comp["width"]
+        h = comp["height"]
         
-        if comp_name not in self.led_grids:
+        # Safety check - don't draw if component is too small
+        if w < 50 or h < 50:
             return
-            
-        led_grid = self.led_grids[comp_name]
         
-        if comp["unlocked"]:
-            exact_bits = max(1, self._get_exact_bits(comp_name))
-            if led_grid.exact_bits != exact_bits:
-                x = comp["x"]
-                y = comp["y"]
-                w = comp["width"]
-                h = comp["height"]
-                border_thickness = 6
-                padding = 10
-                led_w = w - border_thickness * 2 - padding * 2
-                led_h = h - border_thickness * 2 - padding * 2
-                if led_w > 10 and led_h > 10:
-                    rect = pygame.Rect(x + border_thickness + padding, 
-                                      y + border_thickness + padding,
-                                      led_w, led_h)
-                    self.led_grids[comp_name] = LEDGrid(rect, exact_bits)
-                    led_grid = self.led_grids[comp_name]
+        # Get bit states
+        bit_states = comp.get("bit_states", [])
+        total_bits = comp.get("bits", 0)
+        
+        if total_bits == 0 or len(bit_states) == 0:
+            return
+        
+        # Calculate LED grid (fill the main component area)
+        padding = 8
+        led_area_x = x + padding
+        led_area_y = y + padding
+        led_area_w = w - padding * 2
+        led_area_h = h - padding * 2 - 20  # Leave room for text at bottom
+        
+        # Safety check for negative dimensions
+        if led_area_w < 10 or led_area_h < 10:
+            return
+        
+        # Number of LEDs (limit for performance)
+        num_leds = min(64, total_bits)
+        bits_per_led = max(1, total_bits // num_leds)
+        
+        # Calculate grid dimensions
+        cols = int(math.sqrt(num_leds * led_area_w / led_area_h)) if led_area_h > 0 else 1
+        cols = max(1, cols)
+        rows = (num_leds + cols - 1) // cols
+        
+        led_w = led_area_w / cols if cols > 0 else 1
+        led_h = led_area_h / rows if rows > 0 else 1
+        
+        for i in range(num_leds):
+            row = i // cols
+            col = i % cols
             
-            fill_frac = 0.0
-            if comp["bits"] > 0:
-                filled = sum(comp["bit_states"])
-                fill_frac = filled / comp["bits"]
-            led_grid.update_fill(fill_frac)
-            led_grid.animate_passive(self.bits_per_sec, self.dt)
-            led_grid.render(screen)
+            led_x = led_area_x + col * led_w
+            led_y = led_area_y + row * led_h
+            
+            # Calculate how many bits this LED represents
+            start_bit = i * bits_per_led
+            end_bit = min(start_bit + bits_per_led, len(bit_states))
+            bits_in_range = sum(bit_states[start_bit:end_bit])
+            filled_ratio = bits_in_range / bits_per_led if bits_per_led > 0 else 0
+            
+            # LED rect
+            led_rect = pygame.Rect(int(led_x) + 1, int(led_y) + 1, max(1, int(led_w) - 2), max(1, int(led_h) - 2))
+            
+            # Color based on fill
+            if filled_ratio >= 1.0:
+                # Fully lit - bright green
+                led_color = (50, 255, 50)
+                # Glow
+                glow_rect = led_rect.inflate(4, 4)
+                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, ((50, 255, 50, 60)), glow_surf.get_rect(), border_radius=2)
+                screen.blit(glow_surf, glow_rect.topleft)
+            elif filled_ratio > 0:
+                # Partially lit - dimmer
+                led_color = (50, 180, 50)
+            else:
+                # Empty - dark
+                led_color = (25, 30, 45)
+            
+            pygame.draw.rect(screen, led_color, led_rect, border_radius=2)
+        
+        # Show bits count at bottom
+        if pygame.font.get_init():
+            try:
+                label_font = pygame.font.SysFont("Consolas", 11)
+            except:
+                label_font = pygame.font.Font(None, 16)
+            
+            filled = sum(bit_states)
+            bits_text = f"{filled}/{total_bits}"
+            bits_surface = label_font.render(bits_text, True, (100, 180, 200))
+            screen.blit(bits_surface, (x + w // 2 - 20, y + h - 16))
 
     def _get_fonts(self):
         if self._label_font is None:
@@ -568,6 +620,8 @@ class MotherboardBitGrid:
                     if val == 0:
                         comp["bit_states"][i] = 1
                         bits_added += 1
+                        # Track for LED pop effect
+                        self.pop_bit(comp_name, i)
                         found_zero = True
                         break
                 if not found_zero:
@@ -575,13 +629,31 @@ class MotherboardBitGrid:
         
         if bits_added > 0:
             self._invalidate_filled_bits_cache()
+            # Track newly filled bits for visual effects
+            if not hasattr(self, '_newly_filled'):
+                self._newly_filled = []
+            # Store positions of newly filled bits (will be cleared after GUI reads them)
+    
+    def get_newly_filled_bits(self):
+        """Return list of (comp_name, bit_index) for newly filled bits, then clear"""
+        if not hasattr(self, '_newly_filled'):
+            self._newly_filled = []
+        result = self._newly_filled
+        self._newly_filled = []
+        return result
+    
+    def pop_bit(self, comp_name, bit_index):
+        """Mark a bit as newly filled for visual effect tracking"""
+        if not hasattr(self, '_newly_filled'):
+            self._newly_filled = []
+        self._newly_filled.append((comp_name, bit_index))
 
-    def draw(self, screen):
-        self._draw_connections(screen)
+    def draw(self, screen, production_rate=0):
+        self._draw_connections(screen, production_rate)
         for comp_name, comp in self.components.items():
             self._draw_component(screen, comp_name, comp)
 
-    def _draw_connections(self, screen):
+    def _draw_connections(self, screen, production_rate=0):
         time_ms = pygame.time.get_ticks()
 
         for src_name, dst_name in self._connections:
@@ -601,7 +673,9 @@ class MotherboardBitGrid:
 
             if both_unlocked:
                 base_color = (70, 80, 110)
-                pulse = abs(math.sin(time_ms * 0.003)) * 0.3 + 0.7
+                # Subtle speedup when producing - keep it minimal
+                pulse_speed = 0.003 + (0.002 * min(production_rate / 5000, 1.0))
+                pulse = abs(math.sin(time_ms * pulse_speed)) * 0.3 + 0.7
                 color = tuple(int(c * pulse) for c in base_color)
                 width = 2
             else:
@@ -614,7 +688,9 @@ class MotherboardBitGrid:
             pygame.draw.line(screen, color, (mid_x, dst_cy), (dst_cx, dst_cy), width)
 
             if both_unlocked:
-                dot_offset = (time_ms // 8) % 40
+                # Subtle speedup for dots
+                dot_speed = 8 - (2 * min(production_rate / 5000, 0.5))
+                dot_offset = (time_ms // int(dot_speed)) % 40
                 total_dist = abs(mid_x - src_cx) + abs(dst_cy - src_cy) + abs(dst_cx - mid_x)
                 if total_dist > 0:
                     t = (dot_offset / 40.0)
@@ -650,8 +726,8 @@ class MotherboardBitGrid:
             pygame.draw.rect(screen, bg_color, (x, y, w, h), border_radius=6)
             pygame.draw.rect(screen, border_draw, (x, y, w, h), 2, border_radius=6)
 
-            # Draw individual bits inside the component
-            self._draw_component_bits(screen, comp)
+            # Draw individual bits inside the component (LED grid)
+            self._render_led_grid(screen, comp)
 
             # Draw text on top of bits
             label_cache_key = ("label", cache_key)
@@ -665,8 +741,6 @@ class MotherboardBitGrid:
             if desc_cache_key not in self._text_cache:
                 self._text_cache[desc_cache_key] = desc_font.render(comp["description"], True, (140, 140, 160))
             screen.blit(self._text_cache[desc_cache_key], (x + 8, y + 24))
-
-            self._draw_component_progress(screen, comp)
         else:
             pygame.draw.rect(screen, (16, 16, 24), (x, y, w, h), border_radius=6)
             pygame.draw.rect(screen, (40, 40, 55), (x, y, w, h), 1, border_radius=6)
@@ -686,18 +760,91 @@ class MotherboardBitGrid:
             screen.blit(name_text, name_rect)
 
     def _draw_component_progress(self, screen, comp):
-        progress = min(comp["level"] / 10.0, 1.0)
-
-        bar_x = comp["x"] + 8
-        bar_y = comp["y"] + comp["height"] - 14
-        bar_width = comp["width"] - 16
-        bar_height = 6
-
-        pygame.draw.rect(screen, (25, 25, 35), (bar_x, bar_y, bar_width, bar_height), border_radius=3)
-
-        if progress > 0:
-            fill_width = int(bar_width * progress)
-            pygame.draw.rect(screen, comp["color"], (bar_x, bar_y, fill_width, bar_height), border_radius=3)
+        """Draw component bits as a grid of LEDs filling the main area"""
+        x = comp["x"]
+        y = comp["y"]
+        w = comp["width"]
+        h = comp["height"]
+        
+        # Safety check - don't draw if component is too small
+        if w < 50 or h < 50:
+            return
+        
+        # Get bit states
+        bit_states = comp.get("bit_states", [])
+        total_bits = comp.get("bits", 0)
+        
+        if total_bits == 0 or len(bit_states) == 0:
+            return
+        
+        # Calculate LED grid (fill the main component area)
+        padding = 8
+        led_area_x = x + padding
+        led_area_y = y + padding
+        led_area_w = w - padding * 2
+        led_area_h = h - padding * 2 - 20  # Leave room for text at bottom
+        
+        # Safety check for negative dimensions
+        if led_area_w < 10 or led_area_h < 10:
+            return
+        
+        # Number of LEDs (limit for performance)
+        num_leds = min(64, total_bits)
+        bits_per_led = max(1, total_bits // num_leds)
+        
+        # Calculate grid dimensions
+        cols = int(math.sqrt(num_leds * led_area_w / led_area_h)) if led_area_h > 0 else 1
+        cols = max(1, cols)
+        rows = (num_leds + cols - 1) // cols
+        
+        led_w = led_area_w / cols if cols > 0 else 1
+        led_h = led_area_h / rows if rows > 0 else 1
+        
+        for i in range(num_leds):
+            row = i // cols
+            col = i % cols
+            
+            led_x = led_area_x + col * led_w
+            led_y = led_area_y + row * led_h
+            
+            # Calculate how many bits this LED represents
+            start_bit = i * bits_per_led
+            end_bit = min(start_bit + bits_per_led, len(bit_states))
+            bits_in_range = sum(bit_states[start_bit:end_bit])
+            filled_ratio = bits_in_range / bits_per_led if bits_per_led > 0 else 0
+            
+            # LED rect
+            led_rect = pygame.Rect(int(led_x) + 1, int(led_y) + 1, max(1, int(led_w) - 2), max(1, int(led_h) - 2))
+            
+            # Color based on fill
+            if filled_ratio >= 1.0:
+                # Fully lit - bright green
+                led_color = (50, 255, 50)
+                # Glow
+                glow_rect = led_rect.inflate(4, 4)
+                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, ((50, 255, 50, 60)), glow_surf.get_rect(), border_radius=2)
+                screen.blit(glow_surf, glow_rect.topleft)
+            elif filled_ratio > 0:
+                # Partially lit - dimmer
+                led_color = (50, 180, 50)
+            else:
+                # Empty - dark
+                led_color = (25, 30, 45)
+            
+            pygame.draw.rect(screen, led_color, led_rect, border_radius=2)
+        
+        # Show bits count at bottom
+        if pygame.font.get_init():
+            try:
+                label_font = pygame.font.SysFont("Consolas", 11)
+            except:
+                label_font = pygame.font.Font(None, 16)
+            
+            filled = sum(bit_states)
+            bits_text = f"{filled}/{total_bits}"
+            bits_surface = label_font.render(bits_text, True, (100, 180, 200))
+            screen.blit(bits_surface, (x + w // 2 - 20, y + h - 16))
 
     def _draw_component_bits(self, screen, comp):
         """Draw component bits using LEDGrid"""

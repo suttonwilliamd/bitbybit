@@ -11,6 +11,40 @@ from toon_parser import load_toon_file
 # Initialize Pygame
 pygame.init()
 
+# Setup icon font for emoji rendering (works on Windows)
+ICON_FONT = None
+ICON_FONT_FALLBACK = None
+
+def get_icon_font(size=36):
+    """Get a font that can render emoji/icons"""
+    global ICON_FONT
+    
+    if ICON_FONT is None:
+        # Try emoji-capable fonts in order of preference
+        font_names = [
+            "Segoe UI Emoji",      # Windows 10+
+            "Segoe UI Symbol",     # Windows 7+
+            "Apple Color Emoji",    # macOS
+            "Noto Color Emoji",    # Linux
+            "Symbola",             # Fallback
+            "Arial Unicode MS",    # Fallback
+        ]
+        
+        for font_name in font_names:
+            try:
+                test_font = pygame.font.SysFont(font_name, size)
+                # Test if it can render a common emoji
+                test_surface = test_font.render("🔲", True, (255, 255, 255))
+                if test_surface.get_width() > 0:
+                    ICON_FONT = font_name
+                    break
+            except:
+                continue
+    
+    # Return font at requested size
+    return pygame.font.SysFont(ICON_FONT, size) if ICON_FONT else pygame.font.Font(None, size)
+
+
 try:
     GAME_CONFIG = load_toon_file("config/game.toon")
     GENERATORS_CONFIG = load_toon_file("config/generators.toon")
@@ -540,6 +574,527 @@ HARDWARE_GENERATIONS = {
     },
 }
 
+# ============================================================================
+# ERA PROGRESSION SYSTEM
+# Starting from Abacus (Era 0) through Transistors (Era 4), then Quantum/Cosmic
+# ============================================================================
+
+ERAS = {
+    0: {
+        "id": "abacus",
+        "name": "Abacus Era",
+        "description": "Counting with pebbles and marks",
+        "currency_name": "Pebbles",
+        "currency_icon": "🪨",
+        "primary_color": (139, 90, 43),  # Brown/sandy
+        "secondary_color": (210, 180, 140),  # Tan
+        "unlock_bits": 0,
+        "generator_categories": ["abacus"],
+        "visual_theme": "ancient",
+        "icon": "🔢",
+        "prestige_unlock": "define_bit",
+        "prestige_name": "Define Bit",
+        "prestige_description": "Invent Boolean Algebra to unlock binary efficiency",
+    },
+    1: {
+        "id": "mechanical",
+        "name": "Mechanical Era",
+        "description": "Gears, levers, and early calculating machines",
+        "currency_name": "Ticks",
+        "currency_icon": "⚙️",
+        "primary_color": (184, 134, 11),  # Dark goldenrod
+        "secondary_color": (218, 165, 32),  # Goldenrod
+        "unlock_bits": 1000,
+        "generator_categories": ["mechanical"],
+        "visual_theme": "steampunk",
+        "icon": "🦯",
+        "prestige_unlock": "boolean_algebra",
+        "prestige_name": "Boolean Algebra",
+        "prestige_description": "Formalize logic to double all production",
+    },
+    2: {
+        "id": "electromechanical",
+        "name": "Electromechanical Era",
+        "description": "Relays and punch cards",
+        "currency_name": "Pulses",
+        "currency_icon": "🔌",
+        "primary_color": (70, 70, 70),  # Dark gray
+        "secondary_color": (169, 169, 169),  # Dark gray
+        "unlock_bits": 50000,
+        "generator_categories": ["electromechanical"],
+        "visual_theme": "industrial",
+        "icon": "📠",
+    },
+    3: {
+        "id": "vacuum_tubes",
+        "name": "Vacuum Tubes Era",
+        "description": "ENIAC and early computers",
+        "currency_name": "Volts",
+        "currency_icon": "💡",
+        "primary_color": (180, 60, 60),  # Dark red (heat)
+        "secondary_color": (255, 140, 0),  # Dark orange (glow)
+        "unlock_bits": 500000,
+        "generator_categories": ["vacuum_tubes"],
+        "visual_theme": "retro_computer",
+        "icon": "🕰️",
+    },
+    4: {
+        "id": "transistors",
+        "name": "Transistors Era",
+        "description": "Modern computing - CPUs, RAM, GPUs",
+        "currency_name": "Bits",
+        "currency_icon": "💻",
+        "primary_color": (0, 170, 220),  # Electric cyan
+        "secondary_color": (160, 90, 230),  # Neon purple
+        "unlock_bits": 10000000,
+        "generator_categories": ["cpu", "ram", "storage", "gpu", "network", "mobile", "ai", "quantum", "hyper", "singularity"],
+        "visual_theme": "modern",
+        "icon": "🧠",
+    },
+    5: {
+        "id": "quantum",
+        "name": "Quantum Era",
+        "description": "Qubits and quantum computing",
+        "currency_name": "Qubits",
+        "currency_icon": "⚛️",
+        "primary_color": (138, 43, 226),  # Purple
+        "secondary_color": (0, 255, 255),  # Cyan
+        "unlock_bits": 1000000000,
+        "generator_categories": ["quantum"],
+        "visual_theme": "quantum",
+        "icon": "🔮",
+    },
+    6: {
+        "id": "cosmic",
+        "name": "Cosmic Era",
+        "description": "Interdimensional computation",
+        "currency_name": "Cosmic Units",
+        "currency_icon": "🌌",
+        "primary_color": (75, 0, 130),  # Indigo
+        "secondary_color": (255, 215, 0),  # Gold
+        "unlock_bits": 100000000000,
+        "generator_categories": ["cosmic"],
+        "visual_theme": "cosmic",
+        "icon": "🌀",
+    },
+}
+
+# Era-specific generator definitions
+ABACUS_GENERATORS = {
+    "pebble": {
+        "id": "pebble",
+        "name": "Pebble Counter",
+        "category": "abacus",
+        "era": 0,
+        "base_cost": 10,
+        "base_production": 1,
+        "cost_multiplier": 1.15,
+        "icon": "🪨",
+        "flavor": "One pebble, one count.",
+    },
+    "tally_stick": {
+        "id": "tally_stick",
+        "name": "Tally Stick",
+        "category": "abacus",
+        "era": 0,
+        "base_cost": 100,
+        "base_production": 8,
+        "cost_multiplier": 1.15,
+        "icon": "📏",
+        "flavor": "Notches in wood mark the way.",
+        "unlock_threshold": 50,
+    },
+    "abacus": {
+        "id": "abacus",
+        "name": "Abacus",
+        "category": "abacus",
+        "era": 0,
+        "base_cost": 500,
+        "base_production": 50,
+        "cost_multiplier": 1.15,
+        "icon": "🔢",
+        "flavor": "The ancient calculating marvel.",
+        "unlock_threshold": 200,
+    },
+    "clay_tablet": {
+        "id": "clay_tablet",
+        "name": "Clay Tablet",
+        "category": "abacus",
+        "era": 0,
+        "base_cost": 2000,
+        "base_production": 250,
+        "cost_multiplier": 1.15,
+        "icon": "📜",
+        "flavor": "Cuneiform records of numbers.",
+        "unlock_threshold": 1000,
+    },
+}
+
+MECHANICAL_GENERATORS = {
+    "lever": {
+        "id": "lever",
+        "name": "Calculating Lever",
+        "category": "mechanical",
+        "era": 1,
+        "base_cost": 2000,
+        "base_production": 100,
+        "cost_multiplier": 1.15,
+        "icon": "�杠杆",
+        "flavor": "Leverage in motion.",
+        "unlock_threshold": 1000,
+    },
+    "gear_train": {
+        "id": "gear_train",
+        "name": "Gear Train",
+        "category": "mechanical",
+        "era": 1,
+        "base_cost": 10000,
+        "base_production": 500,
+        "cost_multiplier": 1.15,
+        "icon": "⚙️",
+        "flavor": "Turning gears, computing numbers.",
+        "unlock_threshold": 5000,
+    },
+    "antikythera": {
+        "id": "antikythera",
+        "name": "Antikythera Mechanism",
+        "category": "mechanical",
+        "era": 1,
+        "base_cost": 50000,
+        "base_production": 2500,
+        "cost_multiplier": 1.15,
+        "icon": "🔮",
+        "flavor": "Ancient analog computer from the deep.",
+        "unlock_threshold": 15000,
+    },
+    "pascaline": {
+        "id": "pascaline",
+        "name": "Pascaline",
+        "category": "mechanical",
+        "era": 1,
+        "base_cost": 150000,
+        "base_production": 10000,
+        "cost_multiplier": 1.15,
+        "icon": "➕",
+        "flavor": "Blaise Pascal's arithmetic machine.",
+        "unlock_threshold": 40000,
+    },
+    "difference_engine": {
+        "id": "difference_engine",
+        "name": "Difference Engine",
+        "category": "mechanical",
+        "era": 1,
+        "base_cost": 500000,
+        "base_production": 40000,
+        "cost_multiplier": 1.15,
+        "icon": "🔧",
+        "flavor": "Babbage's dream of mechanical computation.",
+        "unlock_threshold": 100000,
+    },
+}
+
+ELECTROMECHANICAL_GENERATORS = {
+    "relay": {
+        "id": "relay",
+        "name": "Electromagnetic Relay",
+        "category": "electromechanical",
+        "era": 2,
+        "base_cost": 100000,
+        "base_production": 5000,
+        "cost_multiplier": 1.15,
+        "icon": "🔗",
+        "flavor": "Click-clack computing.",
+        "unlock_threshold": 50000,
+    },
+    "stepping_switch": {
+        "id": "stepping_switch",
+        "name": "Stepping Switch",
+        "category": "electromechanical",
+        "era": 2,
+        "base_cost": 500000,
+        "base_production": 25000,
+        "cost_multiplier": 1.15,
+        "icon": "🔀",
+        "flavor": "Rotary telephone switches compute.",
+        "unlock_threshold": 150000,
+    },
+    "punch_card": {
+        "id": "punch_card",
+        "name": "Punch Card Reader",
+        "category": "electromechanical",
+        "era": 2,
+        "base_cost": 2000000,
+        "base_production": 100000,
+        "cost_multiplier": 1.15,
+        "icon": "🗃️",
+        "flavor": "Holes in cards store data.",
+        "unlock_threshold": 500000,
+    },
+    "teletype": {
+        "id": "teletype",
+        "name": "Teletype Machine",
+        "category": "electromechanical",
+        "era": 2,
+        "base_cost": 8000000,
+        "base_production": 400000,
+        "cost_multiplier": 1.15,
+        "icon": "📟",
+        "flavor": "Typewriter meets telegraph.",
+        "unlock_threshold": 2000000,
+    },
+}
+
+VACUUM_TUBE_GENERATORS = {
+    "triode": {
+        "id": "triode",
+        "name": "Triode Tube",
+        "category": "vacuum_tubes",
+        "era": 3,
+        "base_cost": 10000000,
+        "base_production": 500000,
+        "cost_multiplier": 1.15,
+        "icon": "💡",
+        "flavor": "Vacuum amplifies signals.",
+        "unlock_threshold": 5000000,
+    },
+    "eniac": {
+        "id": "eniac",
+        "name": "ENIAC Unit",
+        "category": "vacuum_tubes",
+        "era": 3,
+        "base_cost": 50000000,
+        "base_production": 2500000,
+        "cost_multiplier": 1.15,
+        "icon": "🖥️",
+        "flavor": "18,000 vacuum tubes compute.",
+        "unlock_threshold": 20000000,
+    },
+    "cooling_system": {
+        "id": "cooling_system",
+        "name": "Cooling System",
+        "category": "vacuum_tubes",
+        "era": 3,
+        "base_cost": 200000000,
+        "base_production": 10000000,
+        "cost_multiplier": 1.15,
+        "icon": "❄️",
+        "flavor": "Keep those tubes from melting.",
+        "unlock_threshold": 80000000,
+    },
+    "transputer": {
+        "id": "transputer",
+        "name": "Transputer Array",
+        "category": "vacuum_tubes",
+        "era": 3,
+        "base_cost": 800000000,
+        "base_production": 40000000,
+        "cost_multiplier": 1.15,
+        "icon": "🌡️",
+        "flavor": "Early parallel computing.",
+        "unlock_threshold": 300000000,
+    },
+}
+
+# Era-specific upgrades
+ERA_UPGRADES = {
+    # Abacus Era Upgrades
+    "abacus_mastery": {
+        "id": "abacus_mastery",
+        "name": "Abacus Mastery",
+        "icon": "🔢",
+        "era": 0,
+        "category": "abacus",
+        "base_cost": 1000,
+        "cost_multiplier": 5,
+        "effect": 2,  # 2x multiplier
+        "max_level": 5,
+        "description": "Double all Abacus-era production",
+    },
+    "clay_inscriptions": {
+        "id": "clay_inscriptions",
+        "name": "Clay Inscriptions",
+        "icon": "📜",
+        "era": 0,
+        "category": "abacus",
+        "base_cost": 500,
+        "cost_multiplier": 3,
+        "effect": 1,  # +1 per click
+        "max_level": 10,
+        "description": "Increase click power by +1",
+    },
+    # Mechanical Era Upgrades
+    "gear_lubrication": {
+        "id": "gear_lubrication",
+        "name": "Gear Lubrication",
+        "icon": "🛢️",
+        "era": 1,
+        "category": "mechanical",
+        "base_cost": 50000,
+        "cost_multiplier": 5,
+        "effect": 2,
+        "max_level": 5,
+        "description": "Double all Mechanical-era production",
+    },
+    "precision_crafting": {
+        "id": "precision_crafting",
+        "name": "Precision Crafting",
+        "icon": "🎯",
+        "era": 1,
+        "category": "mechanical",
+        "base_cost": 25000,
+        "cost_multiplier": 3,
+        "effect": 1,
+        "max_level": 10,
+        "description": "Increase click power by +5",
+    },
+    # Electromechanical Era Upgrades
+    "relay_optimization": {
+        "id": "relay_optimization",
+        "name": "Relay Optimization",
+        "icon": "⚡",
+        "era": 2,
+        "category": "electromechanical",
+        "base_cost": 2000000,
+        "cost_multiplier": 5,
+        "effect": 2,
+        "max_level": 5,
+        "description": "Double all Electromechanical-era production",
+    },
+    "card_punching": {
+        "id": "card_punching",
+        "name": "Efficient Card Punching",
+        "icon": "🗂️",
+        "era": 2,
+        "category": "electromechanical",
+        "base_cost": 1000000,
+        "cost_multiplier": 3,
+        "effect": 5,
+        "max_level": 10,
+        "description": "Increase click power by +25",
+    },
+    # Vacuum Tubes Era Upgrades
+    "heat_management": {
+        "id": "heat_management",
+        "name": "Heat Management",
+        "icon": "🔥",
+        "era": 3,
+        "category": "vacuum_tubes",
+        "base_cost": 50000000,
+        "cost_multiplier": 5,
+        "effect": 2,
+        "max_level": 5,
+        "description": "Double all Vacuum Tube-era production",
+    },
+    "tube_replacement": {
+        "id": "tube_replacement",
+        "name": "Quick Tube Replacement",
+        "icon": "🔌",
+        "era": 3,
+        "category": "vacuum_tubes",
+        "base_cost": 25000000,
+        "cost_multiplier": 3,
+        "effect": 50,
+        "max_level": 10,
+        "description": "Increase click power by +250",
+    },
+}
+
+# Binary/Invention Prestige System
+PRESTIGE_UPGRADES = {
+    "define_bit": {
+        "id": "define_bit",
+        "name": "Define Bit",
+        "icon": "🔲",
+        "era": 0,
+        "description": "Invent the concept of a binary digit",
+        "base_cost": 0,  # Free - first prestige
+        "effect": 2,  # 2x production multiplier
+        "max_level": 1,
+        "unlock_threshold": 500,  # pebbles
+    },
+    "boolean_algebra": {
+        "id": "boolean_algebra",
+        "name": "Boolean Algebra",
+        "icon": "🔣",
+        "era": 1,
+        "description": "Formalize logical operations",
+        "base_cost": 1000,  # Costs pebbles after define_bit
+        "effect": 2,  # Additional 2x multiplier
+        "max_level": 1,
+        "unlock_threshold": 50000,  # ticks
+        "prerequisite": "define_bit",
+    },
+    "logic_gates": {
+        "id": "logic_gates",
+        "name": "Logic Gates",
+        "icon": "🔀",
+        "era": 2,
+        "description": "Build AND, OR, NOT gates",
+        "base_cost": 100000,
+        "effect": 2,
+        "max_level": 1,
+        "unlock_threshold": 5000000,  # pulses
+        "prerequisite": "boolean_algebra",
+    },
+}
+
+# Cost multipliers by era (for later eras)
+COST_MULT_BY_ERA = {
+    0: 1.20,  # Abacus - slower scaling
+    1: 1.18,  # Mechanical
+    2: 1.15,  # Electromechanical
+    3: 1.12,  # Vacuum Tubes
+    4: 1.10,  # Transistors
+    5: 1.08,  # Quantum
+    6: 1.05,  # Cosmic
+}
+
+# Era-specific visual themes
+ERA_VISUAL_THEMES = {
+    "ancient": {
+        "background": (60, 40, 20),
+        "primary": (139, 90, 43),
+        "accent": (210, 180, 140),
+        "glow": (255, 200, 100),
+    },
+    "steampunk": {
+        "background": (40, 30, 20),
+        "primary": (184, 134, 11),
+        "accent": (218, 165, 32),
+        "glow": (255, 180, 50),
+    },
+    "industrial": {
+        "background": (30, 30, 35),
+        "primary": (100, 100, 100),
+        "accent": (169, 169, 169),
+        "glow": (200, 200, 200),
+    },
+    "retro_computer": {
+        "background": (20, 15, 25),
+        "primary": (180, 60, 60),
+        "accent": (255, 140, 0),
+        "glow": (255, 200, 100),
+    },
+    "modern": {
+        "background": (15, 18, 28),
+        "primary": (0, 170, 220),
+        "accent": (160, 90, 230),
+        "glow": (0, 255, 255),
+    },
+    "quantum": {
+        "background": (10, 5, 20),
+        "primary": (138, 43, 226),
+        "accent": (0, 255, 255),
+        "glow": (200, 100, 255),
+    },
+    "cosmic": {
+        "background": (5, 0, 15),
+        "primary": (75, 0, 130),
+        "accent": (255, 215, 0),
+        "glow": (255, 255, 200),
+    },
+}
+
 # Hardware Categories
 HARDWARE_CATEGORIES = {
     "cpu": {
@@ -614,20 +1169,30 @@ COMPONENT_BASE_COSTS = {
 
 
 def get_all_generators():
-    """Get merged dictionary of basic and hardware generators, sorted by base_cost"""
+    """Get merged dictionary of all generators, sorted by base_cost"""
+    # Include era-specific generators
+    era_gens = {}
+    era_gens.update(ABACUS_GENERATORS)
+    era_gens.update(MECHANICAL_GENERATORS)
+    era_gens.update(ELECTROMECHANICAL_GENERATORS)
+    era_gens.update(VACUUM_TUBE_GENERATORS)
+    
     basic = GENERATORS if GENERATORS else CONFIG["GENERATORS"]
     hardware = CONFIG.get("HARDWARE_GENERATORS", {})
-    all_gen = {**basic, **hardware}
+    all_gen = {**era_gens, **basic, **hardware}
     
     sorted_items = sorted(all_gen.items(), key=lambda x: x[1].get('base_cost', float('inf')))
     return dict(sorted_items)
 
 
 def get_all_upgrades():
-    """Get merged dictionary of basic and hardware upgrades, sorted by base_cost"""
+    """Get merged dictionary of all upgrades, sorted by base_cost"""
+    # Include era-specific upgrades
+    era_upgrades = ERA_UPGRADES.copy()
+    
     basic = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
     hardware = CONFIG.get("HARDWARE_UPGRADES", {})
-    all_upg = {**basic, **hardware}
+    all_upg = {**era_upgrades, **basic, **hardware}
     
     sorted_items = sorted(all_upg.items(), key=lambda x: x[1].get('base_cost', float('inf')))
     return dict(sorted_items)
@@ -663,3 +1228,47 @@ def format_number(num):
         return f"{num / 1000000000:.1f}B"
     else:
         return f"{num / 1000000000000:.1f}T"
+
+
+def get_exact_bits(category, generation):
+    """
+    Get exact bit capacity for a component based on category and generation.
+    Used by the LED grid visualization system.
+    """
+    # Base capacities by category (in bits)
+    base_capacities = {
+        "cpu": 1024,           # 1 KB
+        "ram": 2048,           # 2 KB  
+        "storage": 4096,       # 4 KB
+        "gpu": 1024,           # 1 KB
+        "network": 512,        # 512 B
+        "mobile": 1024,        # 1 KB
+        "ai": 4096,            # 4 KB
+        "quantum": 8192,       # 8 KB
+        "hyper": 16384,        # 16 KB
+        "singularity": 32768,   # 32 KB
+    }
+    
+    base = base_capacities.get(category, 1024)
+    
+    # Multiply by generation (each gen doubles)
+    return base * (2 ** generation)
+
+
+def get_generators_for_era(era):
+    """Get all generators available in a specific era"""
+    era_gens = {}
+    
+    if era == 0:
+        era_gens = ABACUS_GENERATORS.copy()
+    elif era == 1:
+        era_gens = {**ABACUS_GENERATORS, **MECHANICAL_GENERATORS}
+    elif era == 2:
+        era_gens = {**MECHANICAL_GENERATORS, **ELECTROMECHANICAL_GENERATORS}
+    elif era == 3:
+        era_gens = {**ELECTROMECHANICAL_GENERATORS, **VACUUM_TUBE_GENERATORS}
+    elif era >= 4:
+        # Transistor era includes all hardware generators
+        era_gens = {**VACUUM_TUBE_GENERATORS, **CONFIG.get("HARDWARE_GENERATORS", {})}
+    
+    return era_gens

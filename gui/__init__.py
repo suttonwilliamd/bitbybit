@@ -226,6 +226,9 @@ class BitByBitGame:
         self.stats_button = Button(
             WINDOW_WIDTH - 280, 20, 120, 40, "📊 STATUS", (50, 50, 70)
         )
+        self.delete_save_button = Button(
+            WINDOW_WIDTH - 430, 20, 140, 40, "🗑️ DELETE SAVE", (80, 30, 30)
+        )
 
     def _setup_layout(self):
         top_bar_height = 70
@@ -386,6 +389,9 @@ class BitByBitGame:
         self.settings_button.rect.y = settings_rect.y
         self.stats_button.rect.x = stats_rect.x
         self.stats_button.rect.y = stats_rect.y
+        # Delete save button - to the left of stats
+        self.delete_save_button.rect.x = stats_rect.x - 150
+        self.delete_save_button.rect.y = stats_rect.y
         
         left_panel = self.layout.get_left_panel_rect()
         right_panel = self.layout.get_right_panel_rect()
@@ -590,14 +596,17 @@ class BitByBitGame:
                     self.tutorial_text = ""
                 continue
 
+            clicked_core = False
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if hasattr(self, 'information_core') and self.information_core:
                     core = self.information_core
                     dist = math.sqrt((mouse_pos[0] - core["x"]) ** 2 + (mouse_pos[1] - core["y"]) ** 2)
                     if dist < core["radius"]:
+                        clicked_core = True
                         self.handle_click()
             
-            if self.click_button.is_clicked(event):
+            # Only click button if core wasn't clicked
+            if not clicked_core and self.click_button.is_clicked(event):
                 self.handle_click()
 
             if (
@@ -618,6 +627,21 @@ class BitByBitGame:
                 self.showing_settings = True
             elif self.stats_button.is_clicked(event):
                 self.show_statistics()
+            elif self.cheat_mode and self.delete_save_button.is_clicked(event):
+                # Delete the save file and reset game state
+                import os
+                save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bitbybit_save.json")
+                if os.path.exists(save_path):
+                    os.remove(save_path)
+                # Also remove backup
+                backup_path = save_path + ".backup"
+                if os.path.exists(backup_path):
+                    os.remove(backup_path)
+                # Reset game
+                self.state = GameState()
+                self.bit_grid = MotherboardBitGrid(
+                    WINDOW_WIDTH // 2 - 300, 120, 600, 240
+                )
 
             if self.hardware_toggle.is_clicked(event):
                 self.hardware_panel_open = not self.hardware_panel_open
@@ -834,7 +858,7 @@ class BitByBitGame:
                     if not self.state.is_hardware_category_unlocked(upgrade.get("category", "")):
                         is_locked = True
 
-            level = self.state.upgrades[upgrade_id]["level"]
+            level = self.state.upgrades.get(upgrade_id, {}).get("level", 0)
             cost = self.state.get_upgrade_cost(upgrade_id)
             can_afford = self.can_afford(cost) and level < upgrade["max_level"]
 
@@ -1047,6 +1071,13 @@ class BitByBitGame:
 
             self.settings_button.draw(self.screen)
             self.stats_button.draw(self.screen)
+            
+            # Delete save button - only visible in cheat mode (CTRL held)
+            if self.cheat_mode:
+                # Draw red border
+                pygame.draw.rect(self.screen, (200, 50, 50), 
+                    self.delete_save_button.rect.inflate(4, 4), 2, border_radius=4)
+                self.delete_save_button.draw(self.screen)
 
             # Draw save/load feedback messages
             self._draw_save_feedback()
@@ -1130,14 +1161,11 @@ class BitByBitGame:
 
         for gen_id, generator in all_generators.items():
             if not self.cheat_mode:
-                if gen_id in basic_generators:
-                    if not self.state.is_generator_unlocked(gen_id):
-                        continue
-                elif gen_id in hardware_generators:
-                    if not self.state.is_hardware_category_unlocked(generator["category"]):
-                        continue
+                # Filter by era - only show generators for current era
+                if not self.state.is_era_generator_unlocked(gen_id):
+                    continue
 
-            count = self.state.generators[gen_id]["count"]
+            count = self.state.generators.get(gen_id, {}).get("count", 0)
             cost = self.state.get_generator_cost(gen_id)
             if gen_id in CONFIG["GENERATORS"]:
                 gen_cfg = CONFIG["GENERATORS"][gen_id]
@@ -1207,7 +1235,7 @@ class BitByBitGame:
                     if not self.state.is_hardware_category_unlocked(upgrade["category"]):
                         continue
 
-            level = self.state.upgrades[upgrade_id]["level"]
+            level = self.state.upgrades.get(upgrade_id, {}).get("level", 0)
             cost = self.state.get_upgrade_cost(upgrade_id)
             can_afford = self.can_afford(cost) and level < upgrade["max_level"]
 
@@ -1640,6 +1668,29 @@ class BitByBitGame:
                 else:
                     # Migration: compression_upgrades -> data_shard_upgrades
                     save_data["state"]["data_shard_upgrades"] = save_data["state"].pop("compression_upgrades", {})
+                
+                # Era system migration - add pebble generators
+                new_generators = {
+                    "pebble": {"count": 0, "total_bought": 0},
+                    "tally_stick": {"count": 0, "total_bought": 0},
+                    "abacus": {"count": 0, "total_bought": 0},
+                    "clay_tablet": {"count": 0, "total_bought": 0},
+                    "lever": {"count": 0, "total_bought": 0},
+                    "gear_train": {"count": 0, "total_bought": 0},
+                    "antikythera": {"count": 0, "total_bought": 0},
+                    "pascaline": {"count": 0, "total_bought": 0},
+                    "difference_engine": {"count": 0, "total_bought": 0},
+                    "relay": {"count": 0, "total_bought": 0},
+                    "stepping_switch": {"count": 0, "total_bought": 0},
+                    "punch_card": {"count": 0, "total_bought": 0},
+                    "teletype": {"count": 0, "total_bought": 0},
+                    "triode": {"count": 0, "total_bought": 0},
+                    "eniac": {"count": 0, "total_bought": 0},
+                    "cooling_system": {"count": 0, "total_bought": 0},
+                }
+                for gen_id, gen_data in new_generators.items():
+                    if gen_id not in save_data["state"].get("generators", {}):
+                        save_data["state"].setdefault("generators", {})[gen_id] = gen_data
         
         # Future migrations can be added here
         # if version < "1.2.0":
