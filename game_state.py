@@ -559,6 +559,90 @@ class GameState:
     # END ERA METHODS
     # =========================================================================
 
+    def get_active_currency_key(self):
+        """Return the spendable currency field for the current progression state."""
+        if self.current_era == 0 and not self.binary_invented:
+            return "pebbles"
+        return "bits"
+
+    def get_active_total_key(self):
+        """Return the lifetime-earned field paired with the active currency."""
+        if self.current_era == 0 and not self.binary_invented:
+            return "total_pebbles_earned"
+        return "total_bits_earned"
+
+    def add_manual_currency(self):
+        """Apply one manual click using the current era's currency."""
+        amount = self.get_click_power()
+        currency_key = self.get_active_currency_key()
+        total_key = self.get_active_total_key()
+        setattr(self, currency_key, getattr(self, currency_key) + amount)
+        setattr(self, total_key, getattr(self, total_key) + amount)
+        self.total_clicks += 1
+        return amount
+
+    def get_active_currency_value(self):
+        """Return the current spendable currency amount."""
+        return getattr(self, self.get_active_currency_key())
+
+    def spend_active_currency(self, amount):
+        """Spend active currency atomically, returning whether it succeeded."""
+        if amount < 0 or self.get_active_currency_value() < amount:
+            return False
+        currency_key = self.get_active_currency_key()
+        setattr(self, currency_key, getattr(self, currency_key) - amount)
+        return True
+
+    def _get_generator_definition(self, generator_id):
+        """Resolve an era, basic, or hardware generator definition."""
+        for definitions in (
+            ABACUS_GENERATORS,
+            MECHANICAL_GENERATORS,
+            ELECTROMECHANICAL_GENERATORS,
+            VACUUM_TUBE_GENERATORS,
+            CONFIG.get("GENERATORS", {}),
+            CONFIG.get("HARDWARE_GENERATORS", {}),
+        ):
+            if generator_id in definitions:
+                return definitions[generator_id]
+        return None
+
+    def purchase_generator(self, generator_id, quantity=1):
+        """Purchase an unlocked generator using the active currency."""
+        if quantity < 1 or generator_id not in self.generators:
+            return False
+        definition = self._get_generator_definition(generator_id)
+        if definition is None:
+            return False
+        if generator_id in ABACUS_GENERATORS or generator_id in MECHANICAL_GENERATORS \
+                or generator_id in ELECTROMECHANICAL_GENERATORS or generator_id in VACUUM_TUBE_GENERATORS:
+            unlocked = self.is_era_generator_unlocked(generator_id)
+        else:
+            unlocked = self.is_generator_unlocked(generator_id)
+        if not unlocked:
+            return False
+        cost = self.get_era_generator_cost(generator_id, quantity)
+        if not self.spend_active_currency(cost):
+            return False
+        self.generators[generator_id]["count"] += quantity
+        self.generators[generator_id]["total_bought"] += quantity
+        return True
+
+    def purchase_upgrade(self, upgrade_id):
+        """Purchase a basic or hardware upgrade using active currency."""
+        definitions = {**CONFIG.get("UPGRADES", {}), **CONFIG.get("HARDWARE_UPGRADES", {})}
+        if upgrade_id not in definitions or upgrade_id not in self.upgrades:
+            return False
+        upgrade = definitions[upgrade_id]
+        level = self.upgrades[upgrade_id].get("level", 0)
+        if level >= upgrade.get("max_level", 1) or not self.is_upgrade_unlocked(upgrade_id):
+            return False
+        cost = self.get_upgrade_cost(upgrade_id)
+        if not self.spend_active_currency(cost):
+            return False
+        self.upgrades[upgrade_id]["level"] = level + 1
+        return True
+
     def get_click_power(self):
         # Use the new era progression system
         return self.get_era_click_power()
@@ -690,7 +774,7 @@ class GameState:
         base_tokens = int(math.log2(self.total_bits_earned) - 20)
         era_bonus = self.hardware_generation * 5  # Bonus tokens for higher eras
         shard_bonus = self.get_rebirth_shard_bonus()
-        return int((base_tokens + era_bonus) * (1 + shard_bonus))
+        return max(1, int((base_tokens + era_bonus) * (1 + shard_bonus)))
 
     def can_rebirth(self, bit_grid=None):
         """Check if rebirth is available - requires 100% era completion"""

@@ -703,10 +703,7 @@ class BitByBitGame:
                     card.hovered = card.contains(mouse_pos)
 
     def handle_click(self):
-        click_power = self.state.get_click_power()
-        self.state.bits += click_power
-        self.state.total_bits_earned += click_power
-        self.state.total_clicks += 1
+        click_power = self.state.add_manual_currency()
 
         self.last_click_time = pygame.time.get_ticks()
 
@@ -727,20 +724,20 @@ class BitByBitGame:
     def can_afford(self, cost):
         if self.cheat_mode:
             return True
-        return self.state.can_afford(cost)
+        return self.state.get_active_currency_value() >= cost
 
     def buy_generator(self, generator_id, quantity):
-        if not self.cheat_mode and not self.state.is_generator_unlocked(generator_id):
-            return
+        if self.cheat_mode:
+            if generator_id in self.state.generators:
+                self.state.generators[generator_id]["count"] += quantity
+                self.state.generators[generator_id]["total_bought"] += quantity
+                purchased = True
+            else:
+                purchased = False
+        else:
+            purchased = self.state.purchase_generator(generator_id, quantity)
 
-        cost = self.state.get_generator_cost(generator_id, quantity)
-
-        if self.can_afford(cost):
-            if not self.cheat_mode:
-                self.state.bits -= cost
-            self.state.generators[generator_id]["count"] += quantity
-            self.state.generators[generator_id]["total_bought"] += quantity
-
+        if purchased:
             self.bit_grid.add_purchase_effect()
 
             if self.state.visual_settings["particle_effects"]:
@@ -758,40 +755,23 @@ class BitByBitGame:
                 self._add_particles(particles_to_add)
 
     def buy_upgrade(self, upgrade_id):
-        if not self.cheat_mode and not self.state.is_upgrade_unlocked(upgrade_id):
-            return
-
-        basic_upgrades = UPGRADES if UPGRADES else CONFIG["UPGRADES"]
-        hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
-        all_upgrades = {**basic_upgrades, **hardware_upgrades}
-
-        upgrade = all_upgrades[upgrade_id]
-        cost = self.state.get_upgrade_cost(upgrade_id)
-
-        if (
-            self.can_afford(cost)
-            and self.state.upgrades[upgrade_id]["level"] < upgrade["max_level"]
-        ):
-            if not self.cheat_mode:
-                self.state.bits -= cost
+        if self.cheat_mode:
+            if upgrade_id not in self.state.upgrades:
+                return
+            upgrade = {**CONFIG.get("UPGRADES", {}), **CONFIG.get("HARDWARE_UPGRADES", {})}.get(upgrade_id)
+            if not upgrade:
+                return
+            if self.state.upgrades[upgrade_id]["level"] >= upgrade.get("max_level", 1):
+                return
             self.state.upgrades[upgrade_id]["level"] += 1
+            purchased = True
+        else:
+            purchased = self.state.purchase_upgrade(upgrade_id)
+            if not purchased:
+                return
 
+        if purchased:
             self.bit_grid.add_purchase_effect()
-
-            if self.state.visual_settings["particle_effects"]:
-                button_rect = self.upgrade_buttons[upgrade_id].rect
-                button_center_x = button_rect.centerx
-                button_center_y = button_rect.centery
-
-                for _ in range(4):
-                    self.particles.append(
-                        Particle(
-                            button_center_x,
-                            button_center_y,
-                            COLORS["neon_purple"],
-                            "purchase",
-                        )
-                    )
 
     def handle_generator_card_clicks(self, mouse_pos):
         panel = self.hardware_scroll_panel
