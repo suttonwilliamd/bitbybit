@@ -10,6 +10,8 @@ from constants import COLORS, WINDOW_WIDTH, WINDOW_HEIGHT
 
 class Particle:
     _surfaces = {}
+    _glow_surfaces = {}
+    _initialized_sizes = set()
     
     @classmethod
     def _get_surface(cls, size, color):
@@ -23,11 +25,11 @@ class Particle:
     @classmethod
     def _get_glow_surface(cls, size, color):
         key = ("glow", size, color)
-        if key not in cls._surfaces:
+        if key not in cls._glow_surfaces:
             surf = pygame.Surface((size * 6, size * 6), pygame.SRCALPHA)
             pygame.draw.circle(surf, (*color, 80), (size * 3, size * 3), size + 2)
-            cls._surfaces[key] = surf
-        return cls._surfaces[key]
+            cls._glow_surfaces[key] = surf
+        return cls._glow_surfaces[key]
 
     def __init__(self, x, y, color=COLORS["electric_cyan"], particle_type="burst"):
         self.x = x

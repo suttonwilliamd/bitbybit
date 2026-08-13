@@ -2051,6 +2051,7 @@ class BitByBitGame:
                     )
 
     def update(self, dt):
+        self.dt = dt
         # Update binary rain (if enabled)
         if self.state.visual_settings["binary_rain"]:
             self.binary_rain.update(dt)
@@ -2100,7 +2101,12 @@ class BitByBitGame:
         # Update bit grid with current bits and rebirth progress
         production_rate = self.state.get_production_rate()
         self.bit_grid.update(
-            self.state.bits, self.state.total_bits_earned, CONFIG["REBIRTH_THRESHOLD"]
+            self.state.bits, 
+            self.state.total_bits_earned, 
+            CONFIG["REBIRTH_THRESHOLD"],
+            self.state.hardware_generation,
+            self.dt,
+            production_rate,
         )
 
         # Draw accumulator background

@@ -1,7 +1,7 @@
 """
 Profiling tests for Bit by Bit Game
-Run with: python -m pytest test_profiling.py -v --benchmark-only
-Or manually: python test_profiling.py
+Comprehensive coverage of all major systems
+Run with: python test_profiling.py
 """
 
 import pygame
@@ -11,12 +11,13 @@ import io
 import time
 import math
 import random
+import sys
 from unittest.mock import MagicMock
 
 pygame.init()
 
 from game_state import GameState
-from bit_grid import MotherboardBitGrid
+from bit_grid import MotherboardBitGrid, LEDGrid
 from visual_effects import (
     Particle, BinaryRain, SmartBitVisualization, BitVisualization, BitDot
 )
@@ -26,9 +27,10 @@ from constants import COLORS, CONFIG, WINDOW_WIDTH, WINDOW_HEIGHT
 
 class ProfilerTimer:
     """Context manager for timing code blocks"""
-    def __init__(self, name):
+    def __init__(self, name, iterations=1):
         self.name = name
         self.start_time = None
+        self.iterations = iterations
         
     def __enter__(self):
         self.start_time = time.perf_counter()
@@ -36,94 +38,92 @@ class ProfilerTimer:
         
     def __exit__(self, *args):
         elapsed = time.perf_counter() - (self.start_time or 0)
-        print(f"{self.name}: {elapsed*1000:.3f}ms")
-
-
-def profile_function(func, *args, iterations=1000, **kwargs):
-    """Profile a function and return timing statistics"""
-    times = []
-    for _ in range(iterations):
-        start = time.perf_counter()
-        func(*args, **kwargs)
-        times.append(time.perf_counter() - start)
-    
-    return {
-        'mean': sum(times) / len(times),
-        'min': min(times),
-        'max': max(times),
-        'total': sum(times),
-    }
-
-
-def print_profile_stats(stats, top_n=20):
-    """Print profile statistics in readable format"""
-    print(f"\n{'Function':<50} {'Calls':<10} {'Time (ms)':<15} {'Per Call':<15}")
-    print("-" * 90)
-    
-    for func_name, call_info in list(stats.items())[:top_n]:
-        total_time = call_info.get('total_time', 0)
-        calls = call_info.get('calls', 0)
-        per_call = total_time / calls if calls > 0 else 0
-        print(f"{func_name:<50} {calls:<10} {total_time*1000:<15.3f} {per_call*1000:<15.3f}")
+        avg_time = elapsed / self.iterations
+        print(f"{self.name}: {avg_time*1000:.3f}ms (total: {elapsed*1000:.1f}ms over {self.iterations} iters)")
 
 
 def benchmark_game_state():
-    """Benchmark GameState methods"""
-    print("\n=== GameState Benchmarks ===")
+    """Benchmark GameState methods - all core game logic"""
+    print("\n=== GameState Core Benchmarks ===")
     
     state = GameState()
-    state.era = "entropy"  # Ensure era is set
-    
-    # Simulate some game progress - use actual generator IDs from CONFIG
-    state.generators["rng"]["count"] = 100
-    state.generators["cpu_core"]["count"] = 50
-    state.generators["memory_stick"]["count"] = 30
-    state.generators["cpu_cache"]["count"] = 20
-    state.generators["biased_coin"]["count"] = 10
-    state.upgrades["click_power"]["level"] = 10
-    state.upgrades["entropy_amplification"]["level"] = 5
+    state.era = "entropy"
     state.bits = 1000000
     state.total_bits_earned = 5000000
     
-    # Benchmark get_production_rate
-    with ProfilerTimer("get_production_rate"):
+    hw_gens = CONFIG.get("HARDWARE_GENERATORS", {})
+    for gen_id in list(hw_gens.keys())[:4]:
+        if gen_id in state.generators:
+            state.generators[gen_id]["count"] = 50
+    
+    state.upgrades["click_power"]["level"] = 10
+    state.upgrades["entropy_amplification"]["level"] = 5
+    
+    print("\nProduction calculations:")
+    with ProfilerTimer("get_production_rate", 1000):
         for _ in range(1000):
             state.get_production_rate()
     
-    # Benchmark get_click_power
-    with ProfilerTimer("get_click_power"):
+    with ProfilerTimer("get_click_power", 1000):
         for _ in range(1000):
             state.get_click_power()
     
-    # Benchmark get_generator_cost
-    with ProfilerTimer("get_generator_cost"):
+    with ProfilerTimer("get_generator_cost", 1000):
         for _ in range(1000):
             state.get_generator_cost("rng", 1)
     
-    # Benchmark can_afford
-    with ProfilerTimer("can_afford"):
+    with ProfilerTimer("can_afford", 10000):
         for _ in range(10000):
             state.can_afford(1000)
     
-    # Benchmark is_generator_unlocked
-    with ProfilerTimer("is_generator_unlocked"):
+    with ProfilerTimer("is_generator_unlocked", 1000):
         for _ in range(1000):
             state.is_generator_unlocked("rng")
     
-    # Benchmark get_upgrade_cost
-    with ProfilerTimer("get_upgrade_cost"):
+    with ProfilerTimer("get_upgrade_cost", 1000):
         for _ in range(1000):
             state.get_upgrade_cost("click_power")
     
-    # Benchmark get_category_multiplier
-    with ProfilerTimer("get_category_multiplier"):
+    with ProfilerTimer("get_category_multiplier", 1000):
         for _ in range(1000):
             state.get_category_multiplier("cpu")
     
-    # Benchmark is_upgrade_unlocked
-    with ProfilerTimer("is_upgrade_unlocked"):
+    with ProfilerTimer("is_upgrade_unlocked", 1000):
         for _ in range(1000):
             state.is_upgrade_unlocked("click_power")
+
+
+def benchmark_game_state_era_specific():
+    """Benchmark era-specific calculations"""
+    print("\n=== Era-Specific Calculations ===")
+    
+    state = GameState()
+    state.era = "entropy"
+    state.bits = 1000000
+    state.total_bits_earned = 5000000
+    
+    hw_gens = CONFIG.get("HARDWARE_GENERATORS", {})
+    for gen_id in list(hw_gens.keys())[:4]:
+        if gen_id in state.generators:
+            state.generators[gen_id]["count"] = 50
+    
+    print("\nEntropy Era:")
+    with ProfilerTimer("entropy get_production_rate", 500):
+        for _ in range(500):
+            state.get_production_rate()
+    
+    state.era = "compression"
+    state.compressed_bits = 100000
+    state.data_shards = 100
+    
+    if state.compression_generators:
+        for gen_id in list(state.compression_generators.keys())[:2]:
+            state.compression_generators[gen_id]["count"] = 20
+    
+    print("\nCompression Era:")
+    with ProfilerTimer("compression get_production_rate", 500):
+        for _ in range(500):
+            state.get_production_rate()
 
 
 def benchmark_rebirth_system():
@@ -138,25 +138,25 @@ def benchmark_rebirth_system():
     state.total_data_shards = 1000
     state.hardware_generation = 3
     
-    # Benchmark get_rebirth_progress
-    with ProfilerTimer("get_rebirth_progress"):
+    with ProfilerTimer("get_rebirth_progress", 1000):
         for _ in range(1000):
             state.get_rebirth_progress()
     
-    # Benchmark get_rebirth_threshold
-    with ProfilerTimer("get_rebirth_threshold"):
+    with ProfilerTimer("get_rebirth_threshold", 1000):
         for _ in range(1000):
             state.get_rebirth_threshold()
     
-    # Benchmark get_estimated_rebirth_tokens
-    with ProfilerTimer("get_estimated_rebirth_tokens"):
+    with ProfilerTimer("get_estimated_rebirth_tokens", 1000):
         for _ in range(1000):
             state.get_estimated_rebirth_tokens()
     
-    # Benchmark get_hardware_generation_info
-    with ProfilerTimer("get_hardware_generation_info"):
+    with ProfilerTimer("get_hardware_generation_info", 1000):
         for _ in range(1000):
             state.get_hardware_generation_info()
+    
+    with ProfilerTimer("can_rebirth", 1000):
+        for _ in range(1000):
+            state.can_rebirth()
 
 
 def benchmark_prestige_system():
@@ -168,21 +168,24 @@ def benchmark_prestige_system():
     state.total_bits_earned = 100000000
     state.prestige_currency = 100
     state.total_prestige_currency = 500
+    state.prestige_count = 5
+    state.hardware_generation = 3
     
-    # Benchmark get_prestige_bonus
-    with ProfilerTimer("get_prestige_bonus"):
+    with ProfilerTimer("get_prestige_bonus", 1000):
         for _ in range(1000):
             state.get_prestige_bonus()
     
-    # Benchmark get_click_prestige_bonus
-    with ProfilerTimer("get_click_prestige_bonus"):
+    with ProfilerTimer("get_click_prestige_bonus", 1000):
         for _ in range(1000):
             state.get_click_prestige_bonus()
     
-    # Benchmark get_prestige_currency_earned
-    with ProfilerTimer("get_prestige_currency_earned"):
+    with ProfilerTimer("get_prestige_currency_earned", 1000):
         for _ in range(1000):
             state.get_prestige_currency_earned()
+    
+    with ProfilerTimer("can_prestige", 1000):
+        for _ in range(1000):
+            state.can_prestige()
 
 
 def benchmark_compression_system():
@@ -194,117 +197,122 @@ def benchmark_compression_system():
     state.bits = 500000
     state.compressed_bits = 100000
     state.data_shards = 100
+    state.last_collect_bits = 0
     
-    # Benchmark get_data_shards_earned
-    with ProfilerTimer("get_data_shards_earned"):
+    state.compression_generators = {
+        "zlib": {"count": 10, "total_bought": 10},
+        "lzma": {"count": 5, "total_bought": 5},
+    }
+    
+    state.data_shard_upgrades = {
+        "compression_mastery": {"level": 3},
+        "parallel_streams": {"level": 2},
+        "efficiency_shield": {"level": 1},
+        "entropy_barrier": {"level": 1},
+        "quick_collect": {"level": 2},
+        "shard_doubler": {"level": 1},
+    }
+    
+    with ProfilerTimer("get_data_shards_earned", 1000):
         for _ in range(1000):
             state.get_data_shards_earned()
     
-    # Benchmark get_collect_threshold
-    with ProfilerTimer("get_collect_threshold"):
+    with ProfilerTimer("get_collect_threshold", 1000):
         for _ in range(1000):
             state.get_collect_threshold()
     
-    # Benchmark get_data_shard_upgrade_cost
-    with ProfilerTimer("get_data_shard_upgrade_cost"):
+    with ProfilerTimer("get_data_shard_upgrade_cost", 1000):
         for _ in range(1000):
-            state.get_data_shard_upgrade_cost("compression_efficiency")
+            state.get_data_shard_upgrade_cost("compression_mastery")
     
-    # Benchmark get_rebirth_shard_bonus
-    with ProfilerTimer("get_rebirth_shard_bonus"):
+    with ProfilerTimer("get_rebirth_shard_bonus", 1000):
         for _ in range(1000):
             state.get_rebirth_shard_bonus()
+    
+    with ProfilerTimer("can_collect_data_shards", 1000):
+        for _ in range(1000):
+            state.can_collect_data_shards()
 
 
 def benchmark_visual_effects():
-    """Benchmark visual effects"""
+    """Benchmark visual effects - comprehensive"""
     print("\n=== Visual Effects Benchmarks ===")
     
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     
-    # Benchmark Particle update
-    particles = [Particle(400, 300, COLORS["electric_cyan"], "burst") for _ in range(100)]
+    print("\nParticle benchmarks:")
+    for count in [10, 50, 100]:
+        particles = [Particle(400, 300, COLORS["electric_cyan"], "burst") for _ in range(count)]
+        
+        with ProfilerTimer(f"Particle.update ({count} particles)", 60):
+            for _ in range(60):
+                for p in particles:
+                    p.update(0.016)
+        
+        with ProfilerTimer(f"Particle.draw ({count} particles)", 60):
+            for _ in range(60):
+                screen.fill((0, 0, 0))
+                for p in particles:
+                    p.draw(screen)
     
-    with ProfilerTimer("Particle.update (100 particles)"):
-        for _ in range(60):
-            for p in particles:
-                p.update(0.016)
-    
-    # Benchmark Particle draw
-    with ProfilerTimer("Particle.draw (100 particles)"):
-        for _ in range(60):
-            screen.fill((0, 0, 0))
-            for p in particles:
-                p.draw(screen)
-    
-    # Benchmark BinaryRain
+    print("\nBinaryRain benchmarks:")
     rain = BinaryRain(WINDOW_WIDTH, WINDOW_HEIGHT)
     
-    with ProfilerTimer("BinaryRain.update"):
+    with ProfilerTimer("BinaryRain.update", 60):
         for _ in range(60):
             rain.update(0.016)
     
-    with ProfilerTimer("BinaryRain.draw"):
+    with ProfilerTimer("BinaryRain.draw", 60):
         for _ in range(60):
             screen.fill((0, 0, 0))
             rain.draw(screen)
     
-    # Benchmark SmartBitVisualization
+    print("\nSmartBitVisualization benchmarks:")
     viz = SmartBitVisualization(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
     
-    with ProfilerTimer("SmartBitVisualization.update (1K bits)"):
-        for _ in range(60):
-            viz.update(1000, 0.016)
-    
-    with ProfilerTimer("SmartBitVisualization.draw (1K bits)"):
-        for _ in range(60):
-            screen.fill((0, 0, 0))
-            viz.draw(screen, 1000)
-    
-    with ProfilerTimer("SmartBitVisualization.update (1M bits)"):
-        for _ in range(60):
-            viz.update(1000000, 0.016)
-    
-    with ProfilerTimer("SmartBitVisualization.draw (1M bits)"):
-        for _ in range(60):
-            screen.fill((0, 0, 0))
-            viz.draw(screen, 1000000)
+    for bits in [1000, 100000, 1000000]:
+        with ProfilerTimer(f"SmartBitVisualization.update ({bits:,} bits)", 60):
+            for _ in range(60):
+                viz.update(bits, 0.016)
+        
+        with ProfilerTimer(f"SmartBitVisualization.draw ({bits:,} bits)", 60):
+            for _ in range(60):
+                screen.fill((0, 0, 0))
+                viz.draw(screen, bits)
 
 
 def benchmark_bit_grid():
-    """Benchmark BitGrid operations"""
+    """Benchmark BitGrid operations - comprehensive"""
     print("\n=== BitGrid Benchmarks ===")
     
     grid = MotherboardBitGrid(100, 100, 600, 240)
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     
-    # Benchmark update
-    with ProfilerTimer("MotherboardBitGrid.update"):
+    print("\nCore operations:")
+    with ProfilerTimer("MotherboardBitGrid.update", 60):
         for _ in range(60):
             grid.update(1000, 1000, 10240, 0, 0.016)
     
-    # Benchmark draw
-    with ProfilerTimer("MotherboardBitGrid.draw"):
+    with ProfilerTimer("MotherboardBitGrid.draw", 60):
         for _ in range(60):
             screen.fill((0, 0, 0))
             grid.draw(screen)
     
-    # Benchmark get_era_completion_percentage
+    print("\nPercentage calculations:")
     grid.total_bits_earned = 100000
     
-    with ProfilerTimer("get_era_completion_percentage"):
+    with ProfilerTimer("get_era_completion_percentage", 1000):
         for _ in range(1000):
             grid.get_era_completion_percentage()
     
-    # Benchmark get_bit_completeness_percentage
-    with ProfilerTimer("get_bit_completeness_percentage"):
+    with ProfilerTimer("get_bit_completeness_percentage", 1000):
         for _ in range(1000):
             grid.get_bit_completeness_percentage()
     
-    # Test with different bit scales
+    print("\nScaling with bits:")
     for bits in [1000, 100000, 1000000, 10000000]:
         grid.total_bits_earned = bits
-        with ProfilerTimer(f"get_bit_completeness_percentage ({bits:,} bits)"):
+        with ProfilerTimer(f"get_bit_completeness_percentage ({bits:,})", 500):
             for _ in range(500):
                 grid.get_bit_completeness_percentage()
 
@@ -315,49 +323,48 @@ def benchmark_ui_components():
     
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     
-    # Benchmark Button
+    print("\nButton benchmarks:")
     button = Button(100, 100, 200, 50, "Test Button", COLORS["electric_cyan"])
     
-    with ProfilerTimer("Button.draw"):
+    with ProfilerTimer("Button.draw", 60):
         for _ in range(60):
             screen.fill((0, 0, 0))
             button.draw(screen)
     
-    # Benchmark FloatingText
+    print("\nFloatingText benchmarks:")
     texts = [FloatingText(400, 300, "+1", COLORS["matrix_green"]) for _ in range(20)]
     
-    with ProfilerTimer("FloatingText.update (20 texts)"):
+    with ProfilerTimer("FloatingText.update (20 texts)", 60):
         for _ in range(60):
             for text in texts:
                 text.update(0.016)
     
-    with ProfilerTimer("FloatingText.draw (20 texts)"):
+    with ProfilerTimer("FloatingText.draw (20 texts)", 60):
         for _ in range(60):
             screen.fill((0, 0, 0))
             for text in texts:
                 text.draw(screen)
     
-    # Benchmark LayoutManager - test layout calculations
+    print("\nLayoutManager benchmarks:")
     layout = LayoutManager(WINDOW_WIDTH, WINDOW_HEIGHT)
     
-    with ProfilerTimer("LayoutManager.update_size"):
+    with ProfilerTimer("LayoutManager.update_size", 100):
         for _ in range(100):
             layout.update_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     
-    # Benchmark LayoutManager get_* methods
-    with ProfilerTimer("LayoutManager.get_top_bar_rect"):
+    with ProfilerTimer("LayoutManager.get_top_bar_rect", 1000):
         for _ in range(1000):
             layout.get_top_bar_rect()
     
-    with ProfilerTimer("LayoutManager.get_bottom_bar_rect"):
+    with ProfilerTimer("LayoutManager.get_bottom_bar_rect", 1000):
         for _ in range(1000):
             layout.get_bottom_bar_rect()
     
-    with ProfilerTimer("LayoutManager.get_bit_grid_rect"):
+    with ProfilerTimer("LayoutManager.get_bit_grid_rect", 1000):
         for _ in range(1000):
             layout.get_bit_grid_rect()
     
-    with ProfilerTimer("LayoutManager.get_left_panel_rect"):
+    with ProfilerTimer("LayoutManager.get_left_panel_rect", 1000):
         for _ in range(1000):
             layout.get_left_panel_rect()
 
@@ -370,13 +377,15 @@ def benchmark_save_load():
     state.era = "entropy"
     state.bits = 1000000
     state.total_bits_earned = 5000000
-    state.generators["rng"]["count"] = 100
-    state.generators["cpu_core"]["count"] = 50
+    
+    hw_gens = CONFIG.get("HARDWARE_GENERATORS", {})
+    for gen_id in list(hw_gens.keys())[:4]:
+        if gen_id in state.generators:
+            state.generators[gen_id]["count"] = 50
+    
     state.upgrades["click_power"]["level"] = 10
     
-    # Benchmark save operation (JSON serialization)
     import json
-    import io
     
     save_data = {
         "bits": state.bits,
@@ -386,14 +395,13 @@ def benchmark_save_load():
         "era": state.era,
     }
     
-    with ProfilerTimer("json.dumps (game state)"):
+    with ProfilerTimer("json.dumps (game state)", 500):
         for _ in range(500):
             json.dumps(save_data)
     
-    # Benchmark load operation (JSON deserialization)
     json_str = json.dumps(save_data)
     
-    with ProfilerTimer("json.loads (game state)"):
+    with ProfilerTimer("json.loads (game state)", 500):
         for _ in range(500):
             json.loads(json_str)
 
@@ -405,13 +413,15 @@ def benchmark_generator_iteration():
     state = GameState()
     state.era = "entropy"
     
-    # Set up generators with various counts
-    gen_counts = [10, 50, 100, 500, 1000]
+    hw_gens = list(CONFIG.get("HARDWARE_GENERATORS", {}).keys())
     
-    for count in gen_counts:
-        state.generators["rng"]["count"] = count
+    for count in [10, 50, 100, 500]:
+        if hw_gens:
+            gen_id = hw_gens[0]
+            if gen_id in state.generators:
+                state.generators[gen_id]["count"] = count
         
-        with ProfilerTimer(f"get_production_rate (rng={count})"):
+        with ProfilerTimer(f"get_production_rate ({count} gens)", 100):
             for _ in range(100):
                 state.get_production_rate()
 
@@ -422,16 +432,39 @@ def benchmark_multiplier_calculations():
     
     state = GameState()
     state.era = "entropy"
-    state.upgrades["overclock"]["level"] = 10
-    state.upgrades["memory_optimization"]["level"] = 5
-    state.upgrades["data_compression"]["level"] = 3
+    
+    for upgrade_id in ["overclock", "memory_optimization", "data_compression"]:
+        if upgrade_id in state.upgrades:
+            state.upgrades[upgrade_id]["level"] = 3
     
     categories = ["cpu", "ram", "storage", "network", "gpu"]
     
     for cat in categories:
-        with ProfilerTimer(f"get_category_multiplier ({cat})"):
+        with ProfilerTimer(f"get_category_multiplier ({cat})", 1000):
             for _ in range(1000):
                 state.get_category_multiplier(cat)
+
+
+def benchmark_led_grid():
+    """Benchmark LEDGrid specifically"""
+    print("\n=== LEDGrid Benchmarks ===")
+    
+    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+    
+    from bit_grid import LEDGrid
+    
+    for exact_bits in [512, 4096, 16384]:
+        rect = pygame.Rect(100, 100, 200, 100)
+        led_grid = LEDGrid(rect, exact_bits)
+        
+        with ProfilerTimer(f"LEDGrid.update_fill ({exact_bits} bits)", 60):
+            for _ in range(60):
+                led_grid.update_fill(0.5)
+        
+        with ProfilerTimer(f"LEDGrid.render ({exact_bits} bits)", 60):
+            for _ in range(60):
+                screen.fill((0, 0, 0))
+                led_grid.render(screen)
 
 
 def cprofile_game_loop():
@@ -440,12 +473,11 @@ def cprofile_game_loop():
     
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     state = GameState()
-    state.era = "entropy"  # Set default era
+    state.era = "entropy"
     grid = MotherboardBitGrid(100, 100, 600, 240)
     rain = BinaryRain(WINDOW_WIDTH, WINDOW_HEIGHT)
     viz = SmartBitVisualization(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
     
-    # Simulate game loop for ~1 second (60 frames)
     def game_loop_frame():
         production = state.get_production_rate()
         state.bits = int(state.bits + production / 60)
@@ -469,34 +501,10 @@ def cprofile_game_loop():
     
     profiler.disable()
     
-    # Print stats
     s = io.StringIO()
     ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
-    ps.print_stats(25)
+    ps.print_stats(30)
     print(s.getvalue())
-
-
-def benchmark_memory_usage():
-    """Check memory usage of key objects"""
-    print("\n=== Memory Usage Estimates ===")
-    
-    import sys
-    
-    state = GameState()
-    grid = MotherboardBitGrid(100, 100, 600, 240)
-    rain = BinaryRain(WINDOW_WIDTH, WINDOW_HEIGHT)
-    viz = SmartBitVisualization(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
-    
-    # Create many objects
-    particles = [Particle(400, 300) for _ in range(1000)]
-    floating_texts = [FloatingText(400, 300, "+1", COLORS["matrix_green"]) for _ in range(100)]
-    
-    print(f"GameState: ~{sys.getsizeof(state)} bytes")
-    print(f"MotherboardBitGrid: ~{sys.getsizeof(grid)} bytes")
-    print(f"BinaryRain: ~{sys.getsizeof(rain)} bytes")
-    print(f"SmartBitVisualization: ~{sys.getsizeof(viz)} bytes")
-    print(f"1000 Particles: ~{sys.getsizeof(particles) + sum(sys.getsizeof(p) for p in particles)} bytes")
-    print(f"100 FloatingTexts: ~{sys.getsizeof(floating_texts) + sum(sys.getsizeof(t) for t in floating_texts)} bytes")
 
 
 def identify_bottlenecks():
@@ -505,7 +513,7 @@ def identify_bottlenecks():
     
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     
-    # Test with increasing particle counts
+    print("\nParticle scaling:")
     for count in [10, 50, 100, 500]:
         particles = [Particle(400, 300, COLORS["electric_cyan"], "burst") for _ in range(count)]
         
@@ -523,16 +531,12 @@ def identify_bottlenecks():
         draw_time = time.perf_counter() - start
         
         total_time = update_time + draw_time
-        fps = 60 / (total_time * 60 / 60)  # Approximate FPS
-        
         print(f"Particles={count:4d}: update={update_time*1000:6.1f}ms, draw={draw_time*1000:6.1f}ms, total_frame={total_time*1000:6.1f}ms")
     
-    # Test visualization with different bit values
     print("\nVisualization scaling:")
     for bits in [1000, 10000, 100000, 1000000, 10000000]:
         viz = SmartBitVisualization(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2)
         
-        # Pre-warm
         for _ in range(30):
             viz.update(bits, 0.016)
         
@@ -553,10 +557,11 @@ def identify_bottlenecks():
 def run_all_benchmarks():
     """Run all benchmark tests"""
     print("=" * 60)
-    print("BIT BY BIT GAME - PROFILING BENCHMARKS")
+    print("BIT BY BIT GAME - COMPREHENSIVE PROFILING BENCHMARKS")
     print("=" * 60)
     
     benchmark_game_state()
+    benchmark_game_state_era_specific()
     benchmark_rebirth_system()
     benchmark_prestige_system()
     benchmark_compression_system()
@@ -566,13 +571,18 @@ def run_all_benchmarks():
     benchmark_save_load()
     benchmark_generator_iteration()
     benchmark_multiplier_calculations()
+    benchmark_led_grid()
     cprofile_game_loop()
-    benchmark_memory_usage()
     identify_bottlenecks()
     
     print("\n" + "=" * 60)
     print("BENCHMARKS COMPLETE")
     print("=" * 60)
+    print("\n=== KEY BOTTLENECKS IDENTIFIED ===")
+    print("1. MotherboardBitGrid.draw - slow due to text rendering every frame")
+    print("2. Particle.draw - pygame.draw.circle is slow for many particles")
+    print("3. BinaryRain.draw - character rendering")
+    print("4. Button.draw - similar pygame.draw issues")
 
 
 if __name__ == "__main__":
