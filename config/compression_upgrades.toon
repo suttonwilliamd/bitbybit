@@ -1,65 +1,75 @@
-# Bit by Bit Game Configuration - Compression Token Upgrades
+# Bit by Bit Game Configuration - Data Shard Upgrades
 # TOON format configuration for compression era meta-upgrades
+# Spent Data Shards to gain permanent bonuses
 
-compression_token_upgrades[6]:
-  - id: compression_ratio
-    name: Compression Ratio
-    icon: 📈
-    token_cost: 2
+data_shard_upgrades[6]:
+  - id: compression_mastery
+    name: Compression Mastery
+    icon: 💎
+    base_cost: 2
+    cost_scale: 2
     max_level: 10
-    effect: -5
-    description: Reduces overhead generation by 5% per level
-    type: overhead_reduction
+    effect_per_level: 10
+    description: +10% compressed bits production per level
+    effect_type: production_percent
+    
   - id: parallel_streams
     name: Parallel Streams
     icon: 🔄
-    token_cost: 3
-    max_level: 4
-    effect: 1
-    description: Unlock additional compression algorithm streams
-    type: stream_unlock
-    costs: [3, 4, 5, 6]
-  - id: adaptive_learning
-    name: Adaptive Learning
-    icon: 🎓
-    token_cost: 5
-    max_level: 1
-    effect: 1
-    description: Generators gain +1% production per minute owned (caps at +100%)
-    type: passive_bonus
-  - id: lossless_guarantee
-    name: Lossless Guarantee
-    icon: 🛡️
-    token_cost: 8
-    max_level: 1
-    requirement: 5
-    effect: 10
-    description: Unlocks ability to convert overhead to compressed bits (10:1 ratio)
-    type: conversion_unlock
-  - id: efficiency_expert
-    name: Efficiency Expert
-    icon: ⚙️
-    token_cost: 4
+    base_cost: 3
+    cost_scale: 3
     max_level: 5
-    effect: 2
-    description: +2% efficiency floor per level (prevents dropping below threshold)
-    type: efficiency_floor
-  - id: token_multiplier
-    name: Token Multiplier
+    effect_per_level: 25
+    description: +25% production per compression generator per level
+    effect_type: generator_percent
+    
+  - id: efficiency_shield
+    name: Efficiency Shield
+    icon: 🛡️
+    base_cost: 2
+    cost_scale: 2
+    max_level: 10
+    effect_per_level: 5
+    description: +5% minimum efficiency floor per level
+    effect_type: efficiency_floor
+    
+  - id: entropy_barrier
+    name: Entropy Barrier
+    icon: 🌊
+    base_cost: 4
+    cost_scale: 4
+    max_level: 5
+    effect_per_level: 5
+    description: Reduces efficiency penalty thresholds by 5% per level
+    effect_type: penalty_threshold
+    
+  - id: shard_doubler
+    name: Shard Doubler
     icon: ⭐
-    token_cost: 15
+    base_cost: 10
+    cost_scale: 10
+    max_level: 4
+    effect_per_level: 25
+    description: +25% Data Shards earned on rebirth per level
+    effect_type: shard_bonus
+    
+  - id: quick_collect
+    name: Quick Collect
+    icon: ⚡
+    base_cost: 5
+    cost_scale: 5
     max_level: 3
-    requirement: 50
-    effect: 20
-    description: All future rebirths give +20% more tokens
-    type: token_boost
+    effect_per_level: 10
+    description: -10% bits threshold for shard collection per level
+    effect_type: collect_threshold
 
-# Token upgrade balance
-token_balance:
-  early_focus: compression_ratio
-  mid_focus: parallel_streams
-  late_focus: token_multiplier
+# Upgrade balance recommendations
+upgrade_balance:
+  early_focus: efficiency_shield
+  mid_focus: compression_mastery
+  late_focus: shard_doubler
   recommended_levels:
-    compression_ratio: 5
-    parallel_streams: 2
-    efficiency_expert: 3
+    efficiency_shield: 5
+    compression_mastery: 5
+    parallel_streams: 3
+    entropy_barrier: 3

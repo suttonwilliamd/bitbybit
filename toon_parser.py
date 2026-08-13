@@ -158,15 +158,30 @@ class ToonParser:
                     next_indent = len(next_line) - len(next_line.lstrip())
 
                     if next_indent > indent:
-                        # Nested object
-                        nested_obj = self._parse_nested_object(i, indent)
-                        stack[-1][key] = nested_obj["data"]
-                        i = nested_obj["next_index"]
-                    elif next_line.strip().startswith("["):
-                        # Array
-                        nested_array = self._parse_nested_array(i, indent)
-                        stack[-1][key] = nested_array["data"]
-                        i = nested_array["next_index"]
+                        # Check if this is a list of objects (starts with "- ")
+                        if next_line.strip().startswith("- "):
+                            # Parse as list of objects
+                            stack[-1][key] = self._parse_object_list(i, indent)
+                            i += 1
+                            while i < len(self.lines):
+                                line = self.lines[i]
+                                if not line.strip():
+                                    i += 1
+                                    continue
+                                curr_indent = len(line) - len(line.lstrip())
+                                if curr_indent <= indent:
+                                    break
+                                i += 1
+                        elif next_line.strip().startswith("["):
+                            # Array
+                            nested_array = self._parse_nested_array(i, indent)
+                            stack[-1][key] = nested_array["data"]
+                            i = nested_array["next_index"]
+                        else:
+                            # Nested object
+                            nested_obj = self._parse_nested_object(i, indent)
+                            stack[-1][key] = nested_obj["data"]
+                            i = nested_obj["next_index"]
                     else:
                         # Empty object
                         stack[-1][key] = {}
@@ -225,6 +240,55 @@ class ToonParser:
 
         return {"data": result, "next_index": i}
 
+    def _parse_object_list(self, start_index: int, parent_indent: int) -> List[Dict]:
+        """Parse a list of objects starting at start_index"""
+        result = []
+        i = start_index
+        current_obj = {}
+        obj_start_indent = None
+        
+        while i < len(self.lines):
+            line = self.lines[i]
+            if not line.strip():
+                i += 1
+                continue
+            
+            current_indent = len(line) - len(line.lstrip())
+            
+            # If we hit a line at or below parent indent, we're done
+            if current_indent <= parent_indent:
+                if current_obj:
+                    result.append(current_obj)
+                break
+            
+            stripped = line.strip()
+            
+            # Check if this starts a new list item
+            if stripped.startswith("- "):
+                # Save previous object if any
+                if current_obj:
+                    result.append(current_obj)
+                current_obj = {}
+                obj_start_indent = current_indent
+                # Parse the rest of the line as key: value
+                item_str = stripped[2:].strip()
+                if ":" in item_str:
+                    k, v = item_str.split(":", 1)
+                    current_obj[k.strip()] = self._parse_primitive(v.strip())
+            elif ":" in stripped and obj_start_indent is not None:
+                # Continuation of current object
+                k, v = stripped.split(":", 1)
+                current_obj[k.strip()] = self._parse_primitive(v.strip())
+            
+            i += 1
+        
+        # Don't forget the last object
+        if current_obj:
+            result.append(current_obj)
+        
+        return result
+
+
     def _parse_nested_array(
         self, start_index: int, parent_indent: int
     ) -> Dict[str, Any]:
@@ -262,9 +326,16 @@ class ToonParser:
                 break
 
             if line.strip().startswith("- "):
-                item_value = line.strip()[2:].strip()
-                if item_value:
-                    result.append(self._parse_primitive(item_value))
+                item_str = line.strip()[2:].strip()
+                # Check if this is an object (contains key: value pairs)
+                if ":" in item_str:
+                    # This is an object, parse it as a nested object starting from this line
+                    obj_result = self._parse_nested_object(i, current_indent - 2)
+                    result.append(obj_result["data"])
+                    i = obj_result["next_index"]
+                    continue
+                elif item_str:
+                    result.append(self._parse_primitive(item_str))
                 else:
                     result.append({})
             i += 1

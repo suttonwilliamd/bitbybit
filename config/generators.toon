@@ -4,7 +4,7 @@
 generators[6]:
   - id: rng
     name: Random Number Generator
-    base_cost: 10
+    base_cost: 5
     base_production: 1
     cost_multiplier: 1.15
     icon: 🎲

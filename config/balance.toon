@@ -1,0 +1,145 @@
+# Game Balance Configuration for Bit by Bit
+# All magic numbers and balancing values are here
+
+# Production balancing
+production:
+  # Base click value
+  base_click_power: 1
+  
+  # Generator cost scaling (1.15 = 15% increase per purchase)
+  generator_cost_multiplier: 1.15
+  
+  # Upgrade cost scaling (varies by upgrade)
+  upgrade_cost_multiplier: 3.0
+  
+  # Maximum cost cap (prevents overflow)
+  max_cost: 1000000000000000
+
+# Rebirth balancing
+rebirth:
+  # Base threshold for first rebirth (in bits)
+  base_threshold: 1048576  # 1 MB
+  
+  # Threshold scaling per hardware generation
+  generation_threshold_multiplier: 15.5
+  
+  # Data shard rewards
+  base_shards: 1
+  shards_per_log10: 1
+  generation_bonus: 5
+  
+  # Compression era penalties
+  efficiency_penalty_threshold: 0.5
+  penalty_50: 0.5
+  penalty_70: 0.75
+  penalty_90: 0.9
+
+# Prestige balancing  
+prestige:
+  # Minimum requirements
+  min_generation: 3
+  min_bits: 1000000
+  
+  # Currency calculation
+  base_formula: sqrt(total_bits) / 100
+  generation_bonus: 0.5  # +50% per generation
+  
+  # Bonuses
+  production_bonus_per_prestige: 0.1  # 10% per prestige
+  click_bonus_per_prestige: 1  # +1 per click per prestige
+
+# Hardware generations
+hardware_generations:
+  - name: Mainframe Era
+    unlock_categories: [cpu]
+    threshold: 9728
+  - name: Apple II Era
+    unlock_categories: [cpu, ram]
+    threshold: 150016
+  - name: IBM PC Era
+    unlock_categories: [cpu, ram, storage]
+    threshold: 1114112
+  - name: Multimedia Era
+    unlock_categories: [cpu, ram, storage, gpu]
+    threshold: 46137344
+  - name: Internet Era
+    unlock_categories: [cpu, ram, storage, gpu, network]
+    threshold: 10884218880
+  - name: Mobile Era
+    unlock_categories: [cpu, ram, storage, gpu, network, mobile]
+    threshold: 1832519377920
+  - name: AI Era
+    unlock_categories: [cpu, ram, storage, gpu, network, mobile, ai]
+    threshold: 111669149696
+  - name: Quantum Era
+    unlock_categories: [cpu, ram, storage, gpu, network, mobile, ai, quantum]
+    threshold: 43980465111040
+  - name: Hyper Era
+    unlock_categories: [cpu, ram, storage, gpu, network, mobile, ai, quantum, hyper]
+    threshold: 175921860444160
+  - name: Singularity Era
+    unlock_categories: [cpu, ram, storage, gpu, network, mobile, ai, quantum, hyper, singularity]
+    threshold: 703687441776640
+
+# Component balancing
+components:
+  cpu:
+    base_bits: 64
+    base_cost: 100
+    cost_multiplier: 2.0
+    max_level: 10
+  bus:
+    base_bits: 16
+    base_cost: 50
+    cost_multiplier: 2.0
+    max_level: 10
+  ram:
+    base_bits: 1024
+    base_cost: 500
+    cost_multiplier: 2.5
+    max_level: 10
+  gpu:
+    base_bits: 512
+    base_cost: 1000
+    cost_multiplier: 2.5
+    max_level: 10
+  storage:
+    base_bits: 8192
+    base_cost: 2000
+    cost_multiplier: 2.5
+    max_level: 10
+
+# Visual settings defaults
+visuals:
+  crt_effects: true
+  binary_rain: true
+  particle_effects: true
+  target_fps: 60
+  max_particles: 100
+
+# Save/load settings
+saving:
+  auto_save_interval: 30000  # milliseconds
+  max_offline_time: 86400000  # 24 hours in ms
+  offline_efficiency: 0.75
+  backup_count: 3
+
+# Number formatting
+formatting:
+  small_threshold: 1000
+  medium_threshold: 1000000
+  large_threshold: 1000000000
+  huge_threshold: 1000000000000
+  
+  small_format: "{:.1f}K"
+  medium_format: "{:.1f}M"
+  large_format: "{:.1f}B"
+  huge_format: "{:.1f}T"
+
+# Unlock thresholds
+unlocks:
+  upgrades: 1000
+  second_generator: 100
+  third_generator: 1000
+  compression_generators: 10000
+  prestige: 1000000
