@@ -87,6 +87,15 @@ class GameState:
         # Initialize structures
         self.initialize_structures()
 
+    @property
+    def current_era(self):
+        """Compatibility alias for the visual era-specific accumulator UI."""
+        return self.hardware_generation
+
+    @current_era.setter
+    def current_era(self, value):
+        self.hardware_generation = int(value)
+
     def initialize_structures(self):
         # Initialize era-specific generators (Abacus Era - Era 0)
         for gen_id in ABACUS_GENERATORS:
