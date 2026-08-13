@@ -1,0 +1,285 @@
+# Achievements Configuration for Bit by Bit
+# Each achievement has trigger conditions and rewards
+
+achievements[40]:
+  - id: first_click
+    name: Hello World
+    description: Click for the first time
+    category: clicking
+    icon: 👆
+    trigger_type: clicks
+    trigger_value: 1
+    hidden: false
+    rewards:
+      - type: bits
+        value: 10
+        description: 10 bits
+
+  - id: click_100
+    name: Button Masher
+    description: Click 100 times
+    category: clicking
+    icon: 🖱️
+    trigger_type: clicks
+    trigger_value: 100
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.05
+        description: +5% production
+
+  - id: click_1000
+    name: Repetitive Strain
+    description: Click 1,000 times
+    category: clicking
+    icon: 💪
+    trigger_type: clicks
+    trigger_value: 1000
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.1
+        description: +10% production
+
+  - id: click_10000
+    name: Carpal Tunnel
+    description: Click 10,000 times
+    category: clicking
+    icon: 🤕
+    trigger_type: clicks
+    trigger_value: 10000
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.15
+        description: +15% production
+
+  - id: first_generator
+    name: RNG Enthusiast
+    description: Buy your first generator
+    category: generators
+    icon: 🎲
+    trigger_type: generators
+    trigger_value: rng
+    hidden: false
+    rewards:
+      - type: bits
+        value: 100
+        description: 100 bits
+
+  - id: generator_collector
+    name: Complete Collection
+    description: Own at least one of each basic generator
+    category: generators
+    icon: 📦
+    trigger_type: manual
+    hidden: false
+    rewards:
+      - type: bits
+        value: 1000
+        description: 1,000 bits
+
+  - id: production_king
+    name: Production King
+    description: Have 100 total generators
+    category: generators
+    icon: 👑
+    trigger_type: manual
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.1
+        description: +10% production
+
+  - id: 1k_bits
+    name: Kilobit
+    description: Earn 1,000 total bits
+    category: progression
+    icon: 1k
+    trigger_type: bits
+    trigger_value: 1000
+    hidden: false
+
+  - id: 10k_bits
+    name: Ten Thousand
+    description: Earn 10,000 total bits
+    category: progression
+    icon: 10k
+    trigger_type: bits
+    trigger_value: 10000
+    hidden: false
+    rewards:
+      - type: bits
+        value: 500
+        description: 500 bits
+
+  - id: 100k_bits
+    name: Hectobit
+    description: Earn 100,000 total bits
+    category: progression
+    icon: 100k
+    trigger_type: bits
+    trigger_value: 100000
+    hidden: false
+    rewards:
+      - type: bits
+        value: 5000
+        description: 5,000 bits
+
+  - id: 1m_bits
+    name: Megabit
+    description: Earn 1,000,000 total bits
+    category: progression
+    icon: 1M
+    trigger_type: bits
+    trigger_value: 1000000
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.1
+        description: +10% production
+
+  - id: 10m_bits
+    name: Decamegabit
+    description: Earn 10,000,000 total bits
+    category: progression
+    icon: 10M
+    trigger_type: bits
+    trigger_value: 10000000
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.15
+        description: +15% production
+
+  - id: 100m_bits
+    name: Gigabyte
+    description: Earn 100,000,000 total bits
+    category: progression
+    icon: 100M
+    trigger_type: bits
+    trigger_value: 100000000
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.2
+        description: +20% production
+
+  - id: 1b_bits
+    name: Terabit
+    description: Earn 1,000,000,000 total bits
+    category: progression
+    icon: 1T
+    trigger_type: bits
+    trigger_value: 1000000000
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.25
+        description: +25% production
+
+  - id: first_compression
+    name: Data Compression
+    description: Complete your first rebirth
+    category: compression
+    icon: 🌀
+    trigger_type: rebirths
+    trigger_value: 1
+    hidden: false
+    rewards:
+      - type: bits
+        value: 10000
+        description: 10K bits
+
+  - id: compression_5
+    name: Compression Expert
+    description: Complete 5 rebirths
+    category: compression
+    icon: 📦
+    trigger_type: rebirths
+    trigger_value: 5
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.25
+        description: +25% production
+
+  - id: compression_master
+    name: Lossless
+    description: Complete 10 rebirths
+    category: compression
+    icon: 💎
+    trigger_type: rebirths
+    trigger_value: 10
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.5
+        description: +50% production
+
+  - id: first_prestige
+    name: Quantum Leap
+    description: Perform your first prestige
+    category: prestige
+    icon: 🔧
+    trigger_type: manual
+    hidden: false
+    rewards:
+      - type: bits
+        value: 100000
+        description: 100K bits
+
+  - id: prestige_5
+    name: Hardware Overclock
+    description: Perform 5 prestiges
+    category: prestige
+    icon: ⚡
+    trigger_type: manual
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 1.5
+        description: +50% production
+
+  - id: prestige_10
+    name: Silicon God
+    description: Perform 10 prestiges
+    category: prestige
+    icon: 🏆
+    trigger_type: manual
+    hidden: false
+    rewards:
+      - type: multiplier
+        value: 2.0
+        description: +100% production
+
+  - id: speedrunner
+    name: Speedrun
+    description: Reach 1M bits in under 10 minutes
+    category: special
+    icon: ⚡
+    trigger_type: manual
+    hidden: true
+    secret_description: ???
+
+  - id: idle_master
+    name: Idle Master
+    description: Earn 1M bits while idle (no clicks in 5 min)
+    category: special
+    icon: 😴
+    trigger_type: manual
+    hidden: true
+    secret_description: ???
+
+  - id: completionist
+    name: Completionist
+    description: Unlock all other achievements
+    category: special
+    icon: 🎯
+    trigger_type: manual
+    hidden: true
+    secret_description: ???
+    rewards:
+      - type: multiplier
+        value: 1.5
+        description: +50% production

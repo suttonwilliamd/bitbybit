@@ -1,0 +1,222 @@
+# Quests Configuration for Bit by Bit
+# Tutorial and progression quests
+
+quests[15]:
+  # Tutorial Quests
+  - id: tutorial_click
+    name: Generate Bits
+    description: Click the accumulator to generate your first bits
+    category: tutorial
+    icon: 👆
+    level: 1
+    objectives:
+      - id: click_1
+        description: Click the accumulator
+        type: current_bits
+        value: 1
+    rewards:
+      - type: bits
+        value: 10
+        description: 10 bits
+      - type: generator
+        value: rng
+        description: Random Number Generator
+    unlocks: tutorial_buy_generator
+
+  - id: tutorial_buy_generator
+    name: Automate It
+    description: Buy your first generator to automate bit production
+    category: tutorial
+    icon: 🎲
+    level: 1
+    prerequisites:
+      - tutorial_click
+    objectives:
+      - id: buy_rng
+        description: Buy a Random Number Generator
+        type: generators
+        value: rng
+    rewards:
+      - type: bits
+        value: 50
+        description: 50 bits
+    unlocks: tutorial_reach_100
+
+  - id: tutorial_reach_100
+    name: Growing Pains
+    description: Reach 100 total bits
+    category: tutorial
+    icon: 💯
+    level: 1
+    prerequisites:
+      - tutorial_buy_generator
+    objectives:
+      - id: reach_100
+        description: Earn 100 total bits
+        type: bits
+        value: 100
+    rewards:
+      - type: bits
+        value: 100
+        description: 100 bits
+    unlocks: tutorial_first_upgrade
+
+  - id: tutorial_first_upgrade
+    name: Power Up
+    description: Buy your first upgrade to boost production
+    category: tutorial
+    icon: ⚡
+    level: 1
+    prerequisites:
+      - tutorial_reach_100
+    objectives:
+      - id: buy_upgrade
+        description: Buy an upgrade
+        type: upgrades
+        value: click_power
+    rewards:
+      - type: bits
+        value: 200
+        description: 200 bits
+    unlocks: tutorial_1k_bits
+
+  - id: tutorial_1k_bits
+    name: Kilobit Club
+    description: Earn 1,000 total bits
+    category: tutorial
+    icon: 1k
+    level: 2
+    prerequisites:
+      - tutorial_first_upgrade
+    objectives:
+      - id: reach_1k
+        description: Earn 1,000 bits
+        type: bits
+        value: 1000
+    rewards:
+      - type: bits
+        value: 500
+        description: 500 bits
+      - type: generator
+        value: biased_coin
+        description: Biased Coin
+
+  # Main Quests
+  - id: main_10k
+    name: Decakbit
+    description: Earn 10,000 total bits
+    category: main
+    icon: 10k
+    level: 3
+    objectives:
+      - id: reach_10k
+        description: Earn 10,000 bits
+        type: bits
+        value: 10000
+    rewards:
+      - type: bits
+        value: 1000
+        description: 1,000 bits
+      - type: generator
+        value: dice_roller
+        description: Dice Roller
+
+  - id: main_100k
+    name: Hectokbit
+    description: Earn 100,000 total bits
+    category: main
+    icon: 100k
+    level: 5
+    objectives:
+      - id: reach_100k
+        description: Earn 100,000 bits
+        type: bits
+        value: 100000
+    rewards:
+      - type: bits
+        value: 10000
+        description: 10,000 bits
+      - type: upgrade
+        value: entropy_amplification
+        description: Entropy Amplification
+
+  - id: main_1m
+    name: Megabit Master
+    description: Earn 1,000,000 total bits
+    category: main
+    icon: 1M
+    level: 8
+    objectives:
+      - id: reach_1m
+        description: Earn 1,000,000 bits
+        type: bits
+        value: 1000000
+    rewards:
+      - type: bits
+        value: 100000
+        description: 100,000 bits
+
+  - id: main_first_rebirth
+    name: Compression Initiate
+    description: Complete your first rebirth
+    category: main
+    icon: 🌀
+    level: 10
+    objectives:
+      - id: first_rebirth
+        description: Complete rebirth
+        type: rebirths
+        value: 1
+    rewards:
+      - type: bits
+        value: 1000000
+        description: 1,000,000 bits
+
+  # Side Quests
+  - id: side_click_100
+    name: Clickety Click
+    description: Click 100 times
+    category: side
+    icon: 🖱️
+    level: 2
+    objectives:
+      - id: click_100
+        description: Click 100 times
+        type: clicks
+        value: 100
+    rewards:
+      - type: bits
+        value: 200
+        description: 200 bits
+
+  - id: side_generator_10
+    name: Mass Production
+    description: Own 10 total generators
+    category: side
+    icon: 🏭
+    level: 4
+    objectives:
+      - id: gen_10
+        description: Own 10 generators
+        type: manual
+        value: 10
+    rewards:
+      - type: bits
+        value: 5000
+        description: 5,000 bits
+
+  - id: side_upgrade_5
+    name: Max Power
+    description: Max out any upgrade
+    category: side
+    icon: ⬆️
+    level: 6
+    objectives:
+      - id: max_upgrade
+        description: Reach max level on an upgrade
+        type: manual
+        value: 1
+    rewards:
+      - type: bits
+        value: 10000
+        description: 10,000 bits
