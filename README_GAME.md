@@ -9,7 +9,7 @@ This launches the full game with all features:
 - Compression Era (dual currency, efficiency mechanics)
 - Motherboard Upgrade System (10 generations)
 - Prestige System (Quantum Fragments)
-- Rich visual effects and animations
+- Calm charcoal-and-sage dashboard with optional visual effects
 - Save/load with offline progress
 
 ### Option 2: Run from command line
@@ -20,7 +20,7 @@ python main.py
 ## Game Progression
 
 1. **Start**: Click the abacus to earn pebbles and buy early generators.
-2. **Research**: Click **RESEARCH [R]** below the title (or press R) to see goals, rewards and the next era.
+2. **Research**: Click the discovery bar at the bottom (or press R) to see goals, rewards and the next era.
 3. **Define Bit**: At 500 lifetime pebbles, convert your remaining balance 100:1 and gain 2x clicks and production. Owned generators continue producing in the new currency.
 4. **Advance eras**: After defining bits, earn the displayed total and select **ADVANCE** in Research. This does not spend your balance or reset progress. Historical generators only produce in their own era, so buy the new era's hardware.
 5. **More research**: Claim the permanent milestones below in order. Claims are free, one-time, saved immediately, and survive rebirth and prestige.
@@ -65,10 +65,18 @@ Post-binary units are the cumulative `total_bits_earned` field across historical
 - Compression era with dual currency and efficiency mechanics
 - Data Shards collection system (separate from rebirth)
 - Prestige system with permanent bonuses
-- Spectacular visual effects and animations
+- Readable dashboard, consistent shop cards and era-specific machine illustrations
 - Save/load with offline progress
 - TOON configuration system
 - Visual notifications for upgrades
+
+## Interface
+
+The dashboard uses a quiet charcoal background, sage actions, warm accents and a large currency counter. Hardware and upgrades use matching cards; bright purchase buttons indicate affordability. Hover over a card's text for its full description. The machine illustration is also a click target.
+
+The window supports resizing down to **960 × 640**. Shops scroll with the mouse wheel or scrollbar, keeping purchases clipped to the visible area. The bottom discovery bar opens the research journal.
+
+Binary rain, click particles and CRT texture are **off by default**, including a one-time migration for older saves. Settings can re-enable them; reduced motion pauses animated effects. High contrast and visual preferences are saved. No progression or balance is reset by the visual refresh.
 
 ## Controls
 

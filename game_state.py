@@ -56,8 +56,9 @@ class GameState:
         # Visual settings - CRT effects OFF by default
         self.visual_settings = {
             "crt_effects": False,
-            "binary_rain": True,
-            "particle_effects": True,
+            "binary_rain": False,
+            "particle_effects": False,
+            "theme_version": 2,
         }
 
         # Data Shards system

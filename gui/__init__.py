@@ -40,6 +40,8 @@ from .information_core import draw_information_core
 from .rebirth_bar import draw_rebirth_bar
 from .motherboard_notification import MotherboardUpgradeNotification
 from .research import draw_research, research_button_rect, research_layout
+from . import dashboard, theme
+from .modals import reset_layout, tutorial_layout
 
 
 UI_ARROW_DOWN = "▼"
@@ -178,13 +180,13 @@ class BitByBitGame:
 
     def _setup_fonts(self):
         try:
-            self.title_font = pygame.font.SysFont("Consolas", 24, bold=True)
-            self.large_font = pygame.font.SysFont("Consolas", 18, bold=True)
-            self.medium_font = pygame.font.SysFont("Consolas", 16)
-            self.small_font = pygame.font.SysFont("Consolas", 13)
-            self.tiny_font = pygame.font.SysFont("Consolas", 11)
-            self.monospace_font = pygame.font.SysFont("Consolas", 16)
-            self.bit_counter_font = pygame.font.SysFont("Consolas", 28, bold=True)
+            self.title_font = pygame.font.SysFont("Segoe UI,DejaVu Sans,Arial", 28, bold=True)
+            self.large_font = pygame.font.SysFont("Segoe UI,DejaVu Sans,Arial", 21, bold=True)
+            self.medium_font = pygame.font.SysFont("Segoe UI,DejaVu Sans,Arial", 17, bold=True)
+            self.small_font = pygame.font.SysFont("Arial,DejaVu Sans", 16)
+            self.tiny_font = pygame.font.SysFont("Arial,DejaVu Sans", 14)
+            self.monospace_font = pygame.font.SysFont("Consolas,DejaVu Sans Mono", 16)
+            self.bit_counter_font = pygame.font.SysFont("Segoe UI,DejaVu Sans,Arial", 48, bold=True)
             self.ui_font = pygame.font.SysFont("Segoe UI Symbol", 16)
             self.ui_font_fallback = pygame.font.SysFont("Arial", 16)
         except (pygame.error, OSError):
@@ -346,6 +348,9 @@ class BitByBitGame:
             return f"{num / 1000000000000:.1f}T"
 
     def handle_window_resize(self, new_width, new_height):
+        new_width, new_height = max(960, new_width), max(640, new_height)
+        if self.screen.get_size() != (new_width, new_height):
+            self.screen = pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
         self.current_width = new_width
         self.current_height = new_height
         
@@ -456,10 +461,14 @@ class BitByBitGame:
                 self.component_upgrade_buttons[comp_name].rect.width = button_width
                 self.component_upgrade_buttons[comp_name].rect.height = button_height
 
+        dashboard.apply_layout(self)
+
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
 
         for event in pygame.event.get():
+            if hasattr(event, 'pos'):
+                mouse_pos = event.pos
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.VIDEORESIZE:
@@ -550,13 +559,8 @@ class BitByBitGame:
                     self.cheat_mode = False
 
             if self.showing_rebirth_confirmation:
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    yes_rect = pygame.Rect(
-                        WINDOW_WIDTH // 2 - 120, WINDOW_HEIGHT // 2 + 50, 100, 40
-                    )
-                    no_rect = pygame.Rect(
-                        WINDOW_WIDTH // 2 + 20, WINDOW_HEIGHT // 2 + 50, 100, 40
-                    )
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    _, yes_rect, no_rect = reset_layout(self.current_width, self.current_height)
 
                     if yes_rect.collidepoint(mouse_pos):
                         result = self.state.perform_rebirth()
@@ -582,13 +586,8 @@ class BitByBitGame:
                 continue
 
             if self.showing_prestige_confirmation:
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    yes_rect = pygame.Rect(
-                        WINDOW_WIDTH // 2 - 150, WINDOW_HEIGHT // 2 + 120, 140, 50
-                    )
-                    no_rect = pygame.Rect(
-                        WINDOW_WIDTH // 2 + 10, WINDOW_HEIGHT // 2 + 120, 140, 50
-                    )
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    _, yes_rect, no_rect = reset_layout(self.current_width, self.current_height)
 
                     if yes_rect.collidepoint(mouse_pos):
                         result = self.state.perform_prestige()
@@ -622,9 +621,7 @@ class BitByBitGame:
 
             if self.showing_tutorial:
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    continue_rect = pygame.Rect(
-                        WINDOW_WIDTH // 2 - 100, WINDOW_HEIGHT // 2 + 60, 200, 40
-                    )
+                    _, continue_rect = tutorial_layout(self.current_width, self.current_height)
                     if continue_rect.collidepoint(mouse_pos):
                         self.showing_tutorial = False
                         self.tutorial_text = ""
@@ -635,20 +632,9 @@ class BitByBitGame:
 
             clicked_core = False
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if hasattr(self, 'information_core') and self.information_core:
-                    core = self.information_core
-                    dist = math.sqrt((mouse_pos[0] - core["x"]) ** 2 + (mouse_pos[1] - core["y"]) ** 2)
-                    if dist < core["radius"]:
-                        clicked_core = True
-                        self.handle_click()
-                
-                # Check for abacus click in Era 0
-                current_computing_era = getattr(self.state, 'current_era', 0)
-                if current_computing_era == 0:
-                    abacus_area = getattr(self.state, '_abacus_click_area', None)
-                    if abacus_area and abacus_area.collidepoint(mouse_pos):
-                        clicked_core = True
-                        self.handle_click()
+                if self.accumulator_click_rect.collidepoint(mouse_pos):
+                    clicked_core = True
+                    self.handle_click()
             
             # Only click button if core wasn't clicked
             if not clicked_core and self.click_button.is_clicked(event):
@@ -659,14 +645,14 @@ class BitByBitGame:
                 and event.type == pygame.MOUSEBUTTONDOWN
                 and event.button == 1
             ):
-                self.handle_generator_card_clicks(mouse_pos)
+                dashboard.handle_shop_click(self, mouse_pos)
 
             if (
                 self.upgrades_panel_open
                 and event.type == pygame.MOUSEBUTTONDOWN
                 and event.button == 1
             ):
-                self.handle_upgrade_card_clicks(mouse_pos)
+                dashboard.handle_shop_click(self, mouse_pos, upgrades=True)
 
             if self.settings_button.is_clicked(event):
                 self.showing_settings = True
@@ -1008,99 +994,17 @@ class BitByBitGame:
             self.screen.blit(text, text_rect)
 
     def draw(self):
+        theme.configure(self.high_contrast_mode)
         if self.showing_research:
             draw_research(self.screen, self.state, self.large_font, self.medium_font, self.tiny_font)
             return
-        self._draw_background()
-
-        draw_circuit_background(self.screen, self.current_width, self.current_height)
-
-        if self.state.visual_settings["binary_rain"]:
-            self.binary_rain.draw(self.screen)
-
+        self.screen.fill(COLORS["deep_space_blue"])
         if not self.showing_settings and not self.showing_rebirth_confirmation and not self.showing_prestige_confirmation and not self.showing_statistics:
-            if self.state.visual_settings["particle_effects"]:
-                self.bit_visualization.draw(self.screen, self.state.bits)
-
-            draw_top_bar(
-                self.screen, self.current_width, self.current_height,
-                self.base_width, self.base_height, self.state,
-                self.bit_counter_font, self.large_font, self.small_font, self.medium_font, COLORS
-            )
-
-            if self.state.prestige_count > 0:
-                prestige_text = f"🔧 {self.state.prestige_currency} Quantum Fragments (+{int((self.state.get_prestige_bonus()-1)*100)}% prod)"
-                prestige_surface = self.small_font.render(prestige_text, True, COLORS["quantum_violet"])
-                prestige_rect = prestige_surface.get_rect(center=(self.current_width // 2, 55))
-                self.screen.blit(prestige_surface, prestige_rect)
-
-            if self.cheat_mode:
-                cheat_text = "⚡ CHEAT MODE: FREE UPGRADES ⚡"
-                cheat_surface = self.large_font.render(cheat_text, True, COLORS["red_error"])
-                cheat_rect = cheat_surface.get_rect(center=(self.current_width // 2, 80))
-                self.screen.blit(cheat_surface, cheat_rect)
-
-            if self.state.can_prestige():
-                self.prestige_button.draw(self.screen)
-
-            if self.state.can_collect_data_shards():
-                self.collect_shards_button.draw(self.screen)
-
-            draw_accumulator(
-                self.screen, self.state, self.bit_grid, self.compression_panel,
-                self.compression_meter, self.token_display, self.compression_progress,
-                self.current_width, self.current_height, self.base_width, self.base_height,
-                self.monospace_font, self.medium_font, self.small_font, COLORS
-            )
-
-            if self.state.era == "compression":
-                comp_panel_rect = self.layout.get_compression_panel_rect()
-                self.data_shard_upgrade_cards = draw_data_shard_upgrades(
-                    self.screen, self.state, comp_panel_rect,
-                    self.small_font, self.medium_font, COLORS
-                )
-
-            self._draw_panels()
-
-            draw_rebirth_bar(
-                self.screen, self.state, self.bit_grid, self.rebirth_button,
-                self.current_width, self.current_height, self.base_width, self.base_height,
-                self.monospace_font, COLORS
-            )
-
-            if hasattr(self, 'motherboard_notification'):
-                self.motherboard_notification.draw(self.screen, self.current_width, self.current_height)
-
-            self.click_button.draw(self.screen)
-
-            draw_effects(self.screen, self.particles, self.floating_texts)
+            dashboard.draw(self)
             draw_tutorial(
                 self.screen, self.showing_tutorial, self.tutorial_text,
                 self.current_width, self.current_height, self.medium_font, self.small_font, COLORS
             )
-
-            self.settings_button.draw(self.screen)
-            self.stats_button.draw(self.screen)
-            
-            # Delete save button - only visible in cheat mode (CTRL held)
-            if self.cheat_mode:
-                # Draw red border
-                pygame.draw.rect(self.screen, (200, 50, 50), 
-                    self.delete_save_button.rect.inflate(4, 4), 2, border_radius=4)
-                self.delete_save_button.draw(self.screen)
-
-            # Draw save/load feedback messages
-            self._draw_save_feedback()
-
-            draw_tooltips(
-                self.screen, pygame.mouse.get_pos(), self.hardware_panel_open,
-                self.upgrades_panel_open, self.hardware_scroll_panel,
-                self.upgrades_scroll_panel, self.state, CONFIG,
-                self.small_font, self.tiny_font, self.current_width, self.current_height, COLORS
-            )
-
-            if self.state.visual_settings["crt_effects"]:
-                draw_crt_overlay(self.screen, self.current_width, self.current_height)
         elif self.showing_rebirth_confirmation:
             draw_rebirth_confirmation(
                 self.screen, self.showing_rebirth_confirmation, self.state,
@@ -1265,7 +1169,7 @@ class BitByBitGame:
             draw_scrollbar(self.screen, panel, pygame.mouse.get_pos())
 
     def handle_settings_events(self, event):
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = getattr(event, 'pos', pygame.mouse.get_pos())
 
         if self._settings_rects and event.type == pygame.MOUSEBUTTONDOWN:
             if self._settings_rects["close"].collidepoint(mouse_pos):
@@ -1463,6 +1367,9 @@ class BitByBitGame:
             self.particles.append(Particle(center_x, center_y, color, "burst"))
 
     def save_game(self):
+        self.state.visual_settings.update(high_contrast=self.high_contrast_mode,
+                                          reduced_motion=self.reduced_motion_mode,
+                                          quality=self.visual_quality)
         save_data = {
             "version": "1.1.0",
             "timestamp": time.time(),
@@ -1547,7 +1454,7 @@ class BitByBitGame:
                 self._try_load_backup()
                 return
             self.showing_tutorial = True
-            self.tutorial_text = "Welcome to BIT BY BIT!\n\nYou are about to discover\nfundamental nature of information.\n\nClick accumulator to generate\nyour first bits."
+            self.tutorial_text = "Welcome to bit by bit.\n\nCount pebbles by clicking the abacus or Count button.\nBuild hardware for steady production.\nOpen Research [R] to make your first discovery.\n\nThere is no rush. Every small step counts."
             return
 
         try:
@@ -1609,7 +1516,15 @@ class BitByBitGame:
             self.state.upgrades.update(state_data.get("upgrades", {}))
             self.state.tutorial_step = state_data.get("tutorial_step", 0)
             self.state.has_seen_tutorial = state_data.get("has_seen_tutorial", False)
-            self.state.visual_settings = state_data.get("visual_settings", self.state.visual_settings)
+            self.state.visual_settings.update(state_data.get("visual_settings", {}))
+            # One-time visual migration: old saves should get the quieter defaults too.
+            if state_data.get("visual_settings", {}).get("theme_version", 0) < 2:
+                self.state.visual_settings.update(binary_rain=False, particle_effects=False, crt_effects=False)
+            self.state.visual_settings["theme_version"] = 2
+            self.high_contrast_mode = self.state.visual_settings.get("high_contrast", False)
+            self.reduced_motion_mode = self.state.visual_settings.get("reduced_motion", False)
+            quality = self.state.visual_settings.get("quality", "high")
+            self.visual_quality = quality if quality in ("high", "medium", "low") else "high"
 
             for gen_id in CONFIG["GENERATORS"]:
                 if gen_id not in self.state.generators:

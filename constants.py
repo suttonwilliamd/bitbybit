@@ -76,34 +76,34 @@ def parse_color(color_str):
 # Enhanced color palette with better visual hierarchy and accessibility
 COLORS = {
     # Primary colors - optimized for eye comfort and accessibility
-    "deep_space_blue": (15, 18, 28),  # Darkest background
-    "electric_cyan": (0, 170, 220),  # Reduced saturation for better eye comfort
-    "neon_purple": (160, 90, 230),  # Lighter for better contrast and readability
-    "matrix_green": (57, 255, 20),  # Success/positive states
-    "signal_orange": (255, 140, 90),  # Warning/caution
-    "quantum_violet": (148, 63, 236),  # Premium accent
-    "gold": (255, 215, 0),  # Premium tokens
-    "red_error": (255, 89, 89),  # Error states
+    "deep_space_blue": (23, 27, 28),
+    "electric_cyan": (170, 202, 167),  # Sage; legacy keys retained for compatibility
+    "neon_purple": (189, 179, 205),
+    "matrix_green": (170, 202, 167),
+    "signal_orange": (218, 183, 128),
+    "quantum_violet": (189, 179, 205),
+    "gold": (218, 183, 128),
+    "red_error": (226, 153, 139),
     # UI layers - clear hierarchy with better contrast
-    "panel_background": (22, 25, 35),  # Panel backgrounds
-    "panel_title_bg": (28, 32, 45),  # Title bars
-    "card_background": (28, 32, 42),  # Card backgrounds
-    "card_affordable": (32, 36, 48),  # Affordable cards
-    "card_disabled": (25, 25, 30),  # Disabled cards
+    "panel_background": (31, 37, 38),
+    "panel_title_bg": (39, 46, 46),
+    "card_background": (39, 46, 46),
+    "card_affordable": (48, 69, 56),
+    "card_disabled": (39, 46, 46),
     # Text colors - improved readability with high contrast
-    "soft_white": (240, 245, 255),  # Primary text
-    "white": (255, 255, 255),  # Pure white
-    "muted_blue": (120, 140, 180),  # Secondary text
-    "muted_gray": (100, 110, 130),  # Tertiary text
-    "text_disabled": (80, 85, 95),  # Disabled text
+    "soft_white": (237, 238, 226),
+    "white": (237, 238, 226),
+    "muted_blue": (175, 188, 181),
+    "muted_gray": (175, 188, 181),
+    "text_disabled": (175, 188, 181),
     # High contrast mode colors (for accessibility)
     "high_contrast_primary": (255, 255, 255),  # White
     "high_contrast_secondary": (0, 0, 0),  # Black
     "high_contrast_border": (128, 128, 128),  # Gray
     "high_contrast_background": (255, 255, 255),  # White
     # Legacy colors for compatibility
-    "dim_gray": (42, 45, 58),
-    "deep_space_gradient_end": (26, 30, 55),
+    "dim_gray": (39, 46, 46),
+    "deep_space_gradient_end": (23, 27, 28),
 }
 
 # Game constants from config

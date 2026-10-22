@@ -22,7 +22,15 @@ Expose a guided research track: Define Bit -> Boolean Algebra -> Logic Gates, al
 
 ## Implemented progression
 
-The second change adds the Research roadmap (click below the title, or R), clickable one-time invention claims, readiness indicators, progress bars, and explicit no-reset era advancement. Boolean Algebra now uses post-binary earnings instead of a pebble counter that stops growing. Two new ordered milestones extend the track: Stored Programs (Vacuum Tubes, 8M earned, 1.5x efficiency) and Integrated Circuits (Transistors, 50M earned, 2x efficiency). All five projects together grant 24x clicks and production, persist through resets, and are saved immediately on claim. Later era advancement retains unlocked hardware categories rather than disabling existing production.
+The second change adds the Research roadmap (now in the bottom discovery bar, or R), clickable one-time invention claims, readiness indicators, progress bars, and explicit no-reset era advancement. Boolean Algebra now uses post-binary earnings instead of a pebble counter that stops growing. Two new ordered milestones extend the track: Stored Programs (Vacuum Tubes, 8M earned, 1.5x efficiency) and Integrated Circuits (Transistors, 50M earned, 2x efficiency). All five projects together grant 24x clicks and production, persist through resets, and are saved immediately on claim. Later era advancement retains unlocked hardware categories rather than disabling existing production.
+
+## Visual refresh
+
+A new dashboard replaces the old layered neon presentation rather than recoloring its individual widgets. The art direction is warm charcoal, sage, restrained amber, readable sans-serif text, generous spacing and static, era-specific counting machines. The balance is the visual anchor; consistent shop cards and a bottom discovery bar provide the two next actions. Settings, statistics, onboarding, reset confirmations and research use the same design language.
+
+Drawing and hit-testing share shop and dialog geometry. The minimum window is 960 × 640; overflowing cards remain scrollable and cannot be purchased outside the viewport. Truncated descriptions have full-text hover cards. Effects are opt-in, reduced motion pauses animations, and the standard body/secondary/action text combinations meet 4.5:1 contrast in normal and high-contrast palettes. Visual preferences persist; older saves receive a one-time quiet-default migration without changing progression.
+
+`python -m unittest test_gameplay test_visual_refresh -v` now runs 13 tests, including four supported sizes, every era and modal, resize/scroll purchases, hidden/clipped card guards, shard-upgrade geometry, dialog routing, contrast and preference migration. Native Windows rendering is checked separately from the headless tests. The legacy compression configuration/parser and incomplete effects remain outside this presentation-only change.
 
 ## Further recommendations
 
