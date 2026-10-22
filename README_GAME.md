@@ -24,7 +24,7 @@ python main.py
 3. **Define Bit**: At 500 lifetime pebbles, convert your remaining balance 100:1 and gain 2x clicks and production. Owned generators continue producing in the new currency.
 4. **Advance eras**: After defining bits, earn the displayed total and select **ADVANCE** in Research. This does not spend your balance or reset progress. **All owned machines from earlier eras keep producing in your current currency**, with their existing upgrades. Earlier machines and upgrades stay in the scrollable shops; new-era technology is listed first. Historical click upgrades also carry forward.
 5. **More research**: Claim the permanent milestones below in order. Claims are free, one-time, saved immediately, and survive rebirth and prestige.
-6. **Rebirth / prestige**: Existing resets award Data Shards or Quantum Fragments. See `REVIEW.md` for remaining inconsistencies between historical eras and motherboard generations.
+6. **Your next cycle**: Once all five inventions and historical chapters are complete, Research becomes a completed-discovery summary plus a **Next step** panel. It recommends **Rebirth** first (Data Shards), then **Prestige** after your first Rebirth (Quantum Fragments and permanent bonuses). The panel shows live requirements, rewards and what resets; **Review Rebirth / Review Prestige** opens the existing confirmation. **Keep going** or Escape returns to the journal without resetting anything. This is guidance, not a change to reset eligibility; existing dashboard reset actions remain available. See `REVIEW.md` for remaining historical-era/motherboard inconsistencies.
 
 ### Research milestones
 

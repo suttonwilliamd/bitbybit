@@ -39,7 +39,8 @@ from .effects import draw_effects, draw_crt_overlay, draw_circuit_background, dr
 from .information_core import draw_information_core
 from .rebirth_bar import draw_rebirth_bar
 from .motherboard_notification import MotherboardUpgradeNotification
-from .research import draw_research, research_button_rect, research_layout
+from .research import (draw_research, research_button_rect, research_layout,
+                       research_finished, completed_research_layout, research_reset_step)
 from . import dashboard, theme
 from .machines import MachineAnimation
 from .modals import reset_layout, tutorial_layout
@@ -60,6 +61,7 @@ except:
 class BitByBitGame:
     def __init__(self):
         self.showing_research = False
+        self.reset_from_research = False
         self.screen = pygame.display.set_mode(
             (WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE
         )
@@ -467,6 +469,12 @@ class BitByBitGame:
 
         dashboard.apply_layout(self)
 
+    def _cancel_reset_confirmation(self):
+        self.showing_rebirth_confirmation = False
+        self.showing_prestige_confirmation = False
+        self.showing_research = self.reset_from_research
+        self.reset_from_research = False
+
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
 
@@ -479,6 +487,21 @@ class BitByBitGame:
                 self.handle_window_resize(event.w, event.h)
 
             if self.showing_research:
+                if research_finished(self.state):
+                    _, _, reset, close = completed_research_layout(self.current_width, self.current_height)
+                    if event.type == pygame.KEYDOWN and event.key in (pygame.K_r, pygame.K_ESCAPE):
+                        self.showing_research = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        if close.collidepoint(event.pos):
+                            self.showing_research = False
+                        elif reset.collidepoint(event.pos):
+                            step = research_reset_step(self.state, self.bit_grid)
+                            if step['ready']:
+                                self.showing_research = False
+                                self.reset_from_research = True
+                                self.showing_rebirth_confirmation = step['name'] == 'Rebirth'
+                                self.showing_prestige_confirmation = step['name'] == 'Prestige'
+                    continue
                 cards, buttons, close = research_layout(self.current_width, self.current_height)
                 if event.type == pygame.KEYDOWN and event.key in (pygame.K_r, pygame.K_ESCAPE):
                     self.showing_research = False
@@ -569,6 +592,7 @@ class BitByBitGame:
                     if yes_rect.collidepoint(mouse_pos):
                         result = self.state.perform_rebirth()
                         self.showing_rebirth_confirmation = False
+                        self.reset_from_research = False
                         if result:
                             self.bit_grid.reset_on_rebirth()
                             self.bit_grid.upgrade_to_era(self.state.hardware_generation)
@@ -584,9 +608,9 @@ class BitByBitGame:
                             else:
                                 self.create_rebirth_effect()
                     elif no_rect.collidepoint(mouse_pos):
-                        self.showing_rebirth_confirmation = False
+                        self._cancel_reset_confirmation()
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    self.showing_rebirth_confirmation = False
+                    self._cancel_reset_confirmation()
                 continue
 
             if self.showing_prestige_confirmation:
@@ -597,15 +621,16 @@ class BitByBitGame:
                         result = self.state.perform_prestige()
                         if result:
                             self.showing_prestige_confirmation = False
+                            self.reset_from_research = False
                             self.bit_grid.reset_on_rebirth()
                             self.bit_grid.upgrade_to_era(0)
                             self.hardware_scroll_panel.scroll_to(0)
                             self.upgrades_scroll_panel.scroll_to(0)
                             self.create_prestige_effect()
                     elif no_rect.collidepoint(mouse_pos):
-                        self.showing_prestige_confirmation = False
+                        self._cancel_reset_confirmation()
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    self.showing_prestige_confirmation = False
+                    self._cancel_reset_confirmation()
                 continue
 
             if self.showing_settings:
@@ -1006,7 +1031,7 @@ class BitByBitGame:
     def draw(self):
         theme.configure(self.high_contrast_mode)
         if self.showing_research:
-            draw_research(self.screen, self.state, self.large_font, self.medium_font, self.tiny_font)
+            draw_research(self.screen, self.state, self.large_font, self.medium_font, self.tiny_font, self.bit_grid)
             return
         self.screen.fill(COLORS["deep_space_blue"])
         if not self.showing_settings and not self.showing_rebirth_confirmation and not self.showing_prestige_confirmation and not self.showing_statistics:

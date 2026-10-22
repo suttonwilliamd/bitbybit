@@ -2,7 +2,7 @@
 import pygame
 from constants import ERAS, get_all_generators, get_all_upgrades, format_number
 from . import theme as t
-from .research import research_button_rect
+from .research import research_button_rect, research_reset_step
 from .machines import draw_era_machine
 from .transistors import draw_transistor_board
 from .vacuum import draw_vacuum_instrument
@@ -250,12 +250,19 @@ def draw(game):
         goal = f"Next discovery · {project['name']}"
         detail = f"{format_number(project['earned'])} / {format_number(project['target'])} earned"
         fraction = project['earned'] / project['target']
+    elif state.get_next_era_info():
+        next_era = state.get_next_era_info()
+        goal = 'Next chapter · ' + next_era['name']
+        detail = f"{format_number(state.get_total_currency_earned())} / {format_number(next_era['unlock_bits'])} earned"
+        fraction = state.get_era_progress()
     else:
-        goal, detail, fraction = 'All research complete', 'Keep growing your computing legacy.', 1
+        step = research_reset_step(state, game.bit_grid)
+        goal, detail, fraction, ready = 'Next step · ' + step['name'], step['requirement'], step['fraction'], step['ready']
     t.text(screen, game.medium_font, goal, (footer.x + 16, footer.y + 10), t.TEXT, footer.width - 360)
     t.text(screen, game.small_font, detail, (footer.x + 16, footer.y + 34), t.MUTED, footer.width - 360)
     t.progress(screen, pygame.Rect(footer.x + 16, footer.bottom - 9, footer.width - 200, 3), fraction)
     t.button(screen, pygame.Rect(footer.right - 168, footer.y + 12, 152, 38),
+             'Next cycle [R]' if project is None and state.get_next_era_info() is None else
              'Research ready [R]' if ready else 'Research [R]', game.small_font, primary=ready)
     if game.last_save_error or game.last_load_error:
         t.text(screen, game.small_font, game.last_save_error or game.last_load_error,
