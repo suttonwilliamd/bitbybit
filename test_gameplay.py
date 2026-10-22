@@ -48,6 +48,80 @@ class GameplayTests(unittest.TestCase):
         self.assertEqual(s.collect_data_shards(), 1)
         self.assertFalse(s.purchase_data_shard_upgrade('missing'))
 
+    def test_research_roadmap(self):
+        s = GameState()
+        self.assertFalse(s.complete_research('missing'))
+        self.assertFalse(s.complete_research('define_bit'))
+        s.pebbles = s.total_pebbles_earned = 500
+        self.assertFalse(s.can_advance_era())
+        self.assertTrue(s.complete_research('define_bit'))
+        self.assertEqual(s.bits, 5)
+        self.assertFalse(s.complete_research('define_bit'))
+        s.total_bits_earned = s.bits = 50000
+        self.assertFalse(s.complete_research('boolean_algebra'))
+        self.assertTrue(s.advance_era())
+        self.assertTrue(s.complete_research('boolean_algebra'))
+        self.assertTrue(s.advance_era())
+        s.total_bits_earned = s.bits = 5000000
+        self.assertTrue(s.complete_research('logic_gates'))
+        self.assertTrue(s.advance_era())
+        s.total_bits_earned = s.bits = 8000000
+        self.assertTrue(s.complete_research('stored_program'))
+        s.total_bits_earned = s.bits = 50000000
+        self.assertTrue(s.advance_era())
+        self.assertTrue(s.complete_research('integrated_circuits'))
+        self.assertEqual(s.binary_efficiency, 24)
+        self.assertTrue(all(p['complete'] for p in s.get_research_projects()))
+        s.perform_prestige()
+        self.assertTrue(all(p['complete'] for p in s.get_research_projects()))
+        self.assertEqual(s.binary_efficiency, 24)
+        s.current_era = 4
+        s.total_bits_earned = 10**12
+        s.unlocked_hardware_categories = ['cpu', 'ram']
+        self.assertTrue(s.advance_era())
+        self.assertTrue(s.is_hardware_category_unlocked('cpu'))
+        self.assertTrue(s.advance_era())
+        self.assertTrue(s.is_hardware_category_unlocked('ram'))
+
+    def test_research_gui_events(self):
+        from gui.research import research_layout
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(CONFIG, SAVE_FILE=str(Path(directory) / 'save.json')):
+                game = BitByBitGame()
+                game.showing_tutorial = False
+                game.state.pebbles = game.state.total_pebbles_earned = 500
+                pygame.event.clear()
+                pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_r))
+                game.handle_events()
+                self.assertTrue(game.showing_research)
+                game.draw()
+                _, buttons, _ = research_layout(game.current_width, game.current_height)
+                pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN,
+                                                     button=1, pos=buttons[0].center))
+                game.handle_events()
+                self.assertTrue(game.state.binary_invented)
+                restored = BitByBitGame()
+                self.assertTrue(restored.state.binary_invented)
+                game.state.current_era = 4
+                game.state.bits = game.state.total_bits_earned = 50000000
+                game.state.boolean_algebra_invented = True
+                for project in ('boolean_algebra', 'logic_gates', 'stored_program'):
+                    game.state.prestige_upgrades[project] = {'purchased': True}
+                self.assertTrue(game.state.complete_research('integrated_circuits'))
+                game.save_game()
+                restored = BitByBitGame()
+                self.assertTrue(restored.state.prestige_upgrades['integrated_circuits']['purchased'])
+                self.assertEqual(restored.state.binary_efficiency, game.state.binary_efficiency)
+                for size in ((1200, 800), (1024, 768), (800, 600)):
+                    game.handle_window_resize(*size)
+                    game.draw()
+                pygame.event.post(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
+                game.handle_events()
+                self.assertFalse(game.showing_research)
+                for era in range(7):
+                    game.state.current_era = era
+                    game.draw()
+
     def test_gui_save_offline_and_backup(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / 'save.json')

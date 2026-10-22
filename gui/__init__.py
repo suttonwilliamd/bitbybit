@@ -39,6 +39,7 @@ from .effects import draw_effects, draw_crt_overlay, draw_circuit_background, dr
 from .information_core import draw_information_core
 from .rebirth_bar import draw_rebirth_bar
 from .motherboard_notification import MotherboardUpgradeNotification
+from .research import draw_research, research_button_rect, research_layout
 
 
 UI_ARROW_DOWN = "▼"
@@ -55,6 +56,7 @@ except:
 
 class BitByBitGame:
     def __init__(self):
+        self.showing_research = False
         self.screen = pygame.display.set_mode(
             (WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE
         )
@@ -462,6 +464,40 @@ class BitByBitGame:
                 self.running = False
             elif event.type == pygame.VIDEORESIZE:
                 self.handle_window_resize(event.w, event.h)
+
+            if self.showing_research:
+                cards, buttons, close = research_layout(self.current_width, self.current_height)
+                if event.type == pygame.KEYDOWN and event.key in (pygame.K_r, pygame.K_ESCAPE):
+                    self.showing_research = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if close.collidepoint(event.pos):
+                        self.showing_research = False
+                    else:
+                        for i, button in enumerate(buttons):
+                            if button.collidepoint(event.pos):
+                                if i < 5:
+                                    project = self.state.get_research_projects()[i]
+                                    changed = self.state.complete_research(project["id"])
+                                else:
+                                    changed = self.state.advance_era()
+                                    if changed:
+                                        self.bit_grid.upgrade_to_era(self.state.current_era)
+                                        self.hardware_scroll_panel.scroll_to(0)
+                                        self.upgrades_scroll_panel.scroll_to(0)
+                                if changed:
+                                    self.save_game()
+                                break
+                continue
+
+            other_modal = (self.showing_settings or self.showing_statistics or self.showing_tutorial
+                           or self.showing_rebirth_confirmation or self.showing_prestige_confirmation)
+            if not other_modal and (
+                (event.type == pygame.KEYDOWN and event.key == pygame.K_r)
+                or (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and research_button_rect(self.current_width, self.current_height).collidepoint(event.pos))
+            ):
+                self.showing_research = True
+                continue
 
             if event.type == pygame.MOUSEWHEEL:
                 self.hardware_scroll_panel.handle_scroll(event)
@@ -972,6 +1008,9 @@ class BitByBitGame:
             self.screen.blit(text, text_rect)
 
     def draw(self):
+        if self.showing_research:
+            draw_research(self.screen, self.state, self.large_font, self.medium_font, self.tiny_font)
+            return
         self._draw_background()
 
         draw_circuit_background(self.screen, self.current_width, self.current_height)

@@ -415,9 +415,50 @@ class GameState:
         self.era_upgrades[upgrade_id]["level"] += 1
         return True
     
+    def get_research_projects(self):
+        """Ordered, permanent research goals exposed to the player UI."""
+        projects = [
+            ("define_bit", "Define Bit", 0, 500, self.total_pebbles_earned,
+             self.binary_invented, "Convert balance 100:1; 2x clicks and production"),
+            ("boolean_algebra", "Boolean Algebra", 1, 50000, self.total_bits_earned,
+             self.boolean_algebra_invented, "2x clicks and production"),
+            ("logic_gates", "Logic Gates", 2, 5000000, self.total_bits_earned,
+             self.prestige_upgrades.get("logic_gates", {}).get("purchased", False),
+             "2x clicks and production"),
+            ("stored_program", "Stored Programs", 3, 8000000, self.total_bits_earned,
+             self.prestige_upgrades.get("stored_program", {}).get("purchased", False),
+             "1.5x clicks and production"),
+            ("integrated_circuits", "Integrated Circuits", 4, 50000000, self.total_bits_earned,
+             self.prestige_upgrades.get("integrated_circuits", {}).get("purchased", False),
+             "2x clicks and production"),
+        ]
+        result = []
+        previous_complete = True
+        for project_id, name, era, target, earned, complete, reward in projects:
+            result.append(dict(id=project_id, name=name, era=era, target=target,
+                               earned=earned, complete=complete, reward=reward,
+                               ready=not complete and previous_complete
+                               and self.current_era >= era and earned >= target))
+            previous_complete = complete
+        return result
+
+    def complete_research(self, project_id):
+        """Claim once, in order; research persists through rebirth and prestige."""
+        project = next((p for p in self.get_research_projects() if p["id"] == project_id), None)
+        if not project or not project["ready"]:
+            return False
+        actions = {"define_bit": self.perform_define_bit,
+                   "boolean_algebra": self.perform_boolean_algebra,
+                   "logic_gates": self.perform_logic_gates}
+        if project_id in actions:
+            return actions[project_id]()
+        self.prestige_upgrades[project_id] = {"purchased": True}
+        self.binary_efficiency *= 1.5 if project_id == "stored_program" else 2
+        return True
+
     def can_advance_era(self):
         """Check if player can advance to the next era"""
-        if self.current_era >= len(ERAS) - 1:
+        if self.current_era >= len(ERAS) - 1 or not self.binary_invented:
             return False
         
         next_era_info = ERAS[self.current_era + 1]
@@ -438,7 +479,8 @@ class GameState:
             era_info = ERAS[self.current_era]
             # For transistor era and beyond, unlock hardware categories
             if self.current_era >= 4:
-                self.unlocked_hardware_categories = era_info.get("generator_categories", ["cpu"])
+                self.unlocked_hardware_categories = list(dict.fromkeys(
+                    self.unlocked_hardware_categories + era_info.get("generator_categories", ["cpu"])))
         
         return True
     
@@ -510,7 +552,7 @@ class GameState:
             return False
         
         # Requires 50,000 pebbles earned in Abacus era
-        return self.total_pebbles_earned >= PRESTIGE_UPGRADES["boolean_algebra"]["unlock_threshold"]
+        return self.current_era >= 1 and self.total_bits_earned >= PRESTIGE_UPGRADES["boolean_algebra"]["unlock_threshold"]
     
     def perform_boolean_algebra(self):
         """Perform Boolean Algebra prestige - doubles production"""
@@ -562,7 +604,7 @@ class GameState:
         
         if not self.boolean_algebra_invented:
             threshold = PRESTIGE_UPGRADES["boolean_algebra"]["unlock_threshold"]
-            return min(self.total_pebbles_earned / threshold, 1.0)
+            return min(self.total_bits_earned / threshold, 1.0)
         
         # Logic gates
         threshold = PRESTIGE_UPGRADES["logic_gates"]["unlock_threshold"]

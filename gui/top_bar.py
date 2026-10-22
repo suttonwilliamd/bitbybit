@@ -4,6 +4,7 @@ Top bar drawing function
 
 import pygame
 from constants import COLORS, format_number
+from .research import research_button_rect
 
 
 class TopBarDisplayState:
@@ -52,17 +53,22 @@ def draw_top_bar(screen, current_width, current_height, base_width, base_height,
         screen.blit(glow_surface, (int(20 * scale_x) + offset[0], int(12 * scale_y) + offset[1]))
     screen.blit(title_text, (int(20 * scale_x), int(12 * scale_y)))
     
+    research_rect = research_button_rect(current_width, current_height)
+    ready = any(project['ready'] for project in state.get_research_projects()) or state.can_advance_era()
+    pygame.draw.rect(screen, (25, 65, 60) if ready else (25, 35, 50), research_rect, border_radius=4)
     subtitle_text = small_font.render(
-        "Information Accumulator", True, COLORS["muted_blue"]
+        'RESEARCH [R]' + (' - READY!' if ready else ' - View goals'), True,
+        COLORS['matrix_green'] if ready else COLORS['electric_cyan']
     )
-    screen.blit(subtitle_text, (int(20 * scale_x), int(50 * scale_y)))
+    screen.blit(subtitle_text, (research_rect.x + 6, research_rect.y + 4))
     
     # For small values, use actual value to avoid display lag confusion
-    if state.bits < 10:
-        display_bits = state.bits
+    currency_value = state.get_current_currency_value()
+    if currency_value < 10:
+        display_bits = currency_value
     else:
         smoothing_factor = 0.15
-        _top_bar_state.display_bits += (state.bits - _top_bar_state.display_bits) * smoothing_factor
+        _top_bar_state.display_bits += (currency_value - _top_bar_state.display_bits) * smoothing_factor
         display_bits = _top_bar_state.display_bits
     
     bits_str = f"{round(display_bits)}"
@@ -90,13 +96,7 @@ def draw_top_bar(screen, current_width, current_height, base_width, base_height,
     screen.blit(bits_text, bits_rect)
     
     rate = state.get_production_rate()
-    rate_str = f"+{int(rate)} bits/sec"
-    if rate >= 1000:
-        rate_str = f"+{rate / 1000:.1f}K bits/sec"
-    if rate >= 1000000:
-        rate_str = f"+{rate / 1000000:.1f}M bits/sec"
-    if rate >= 1000000000:
-        rate_str = f"+{rate / 1000000000:.1f}B bits/sec"
+    rate_str = f"+{format_number(rate)} {state.get_current_currency()}/sec"
         
     rate_text = medium_font.render(rate_str, True, COLORS["electric_cyan"])
     rate_rect = rate_text.get_rect(center=(current_width // 2, int(68 * scale_y)))

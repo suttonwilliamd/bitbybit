@@ -20,6 +20,10 @@ The computing-history theme, era-specific accumulator art, and active/idle blend
 
 Expose a guided research track: Define Bit -> Boolean Algebra -> Logic Gates, alongside an explicit next-era goal. Show requirements and rewards before unlocking, and let players claim inventions and advance eras from the main screen. Use post-binary earnings for Boolean Algebra so defining bits early cannot permanently lock it out. Keep a meaningful reason to complete research before moving on.
 
+## Implemented progression
+
+The second change adds the Research roadmap (click below the title, or R), clickable one-time invention claims, readiness indicators, progress bars, and explicit no-reset era advancement. Boolean Algebra now uses post-binary earnings instead of a pebble counter that stops growing. Two new ordered milestones extend the track: Stored Programs (Vacuum Tubes, 8M earned, 1.5x efficiency) and Integrated Circuits (Transistors, 50M earned, 2x efficiency). All five projects together grant 24x clicks and production, persist through resets, and are saved immediately on claim. Later era advancement retains unlocked hardware categories rather than disabling existing production.
+
 ## Further recommendations
 
 - Separate historical era and motherboard generation before adding more historical content; rebirth and era advancement currently move the same index.
@@ -30,4 +34,4 @@ Expose a guided research track: Define Bit -> Boolean Algebra -> Logic Gates, al
 
 ## Verification
 
-`python -m unittest test_gameplay -v` covers currency routing, costs, upgrade caps, shard resets, save/load, offline earnings, legacy clocks, backup recovery, and headless GUI rendering using temporary save files. `python playtest.py` exercises the existing deterministic progression checks. Headless rendering is not a substitute for subjective visual/playability testing.
+`python -m unittest test_gameplay -v` covers currency routing, costs, upgrade caps, shard resets, save/load, offline earnings, legacy clocks, backup recovery, and headless GUI rendering using temporary save files. `python playtest.py` exercises the existing deterministic progression checks. The expanded suite has six tests, including research ordering, duplicate claims, persistence, GUI keyboard/mouse routing, three window sizes and rendering across all seven historical eras. A native Windows display smoke test also opened and rendered the main screen and research screen. Neither smoke test is a substitute for a long-run balance/playability session.

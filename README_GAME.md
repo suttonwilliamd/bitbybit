@@ -19,12 +19,24 @@ python main.py
 
 ## Game Progression
 
-1. **Start**: Click to generate bits, buy first generator
-2. **Entropy Era**: Build up hardware, unlock categories
-3. **Rebirth**: Reset for Data Shards, advance motherboard generation
-4. **Data Shards**: Collect at 10K+ bits (separate from rebirth)
-5. **Hardware Generations**: 10 levels from Mainframe to Singularity
-6. **Prestige** (at Gen 3+): Full reset for Quantum Fragments + permanent bonuses
+1. **Start**: Click the abacus to earn pebbles and buy early generators.
+2. **Research**: Click **RESEARCH [R]** below the title (or press R) to see goals, rewards and the next era.
+3. **Define Bit**: At 500 lifetime pebbles, convert your remaining balance 100:1 and gain 2x clicks and production. Owned generators continue producing in the new currency.
+4. **Advance eras**: After defining bits, earn the displayed total and select **ADVANCE** in Research. This does not spend your balance or reset progress. Historical generators only produce in their own era, so buy the new era's hardware.
+5. **More research**: Claim the permanent milestones below in order. Claims are free, one-time, saved immediately, and survive rebirth and prestige.
+6. **Rebirth / prestige**: Existing resets award Data Shards or Quantum Fragments. See `REVIEW.md` for remaining inconsistencies between historical eras and motherboard generations.
+
+### Research milestones
+
+| Project | Minimum era | Earned total | Reward |
+| --- | --- | --- | --- |
+| Define Bit | Abacus | 500 pebbles | 2x clicks and production; balance conversion |
+| Boolean Algebra | Mechanical | 50K post-binary units | 2x clicks and production |
+| Logic Gates | Electromechanical | 5M post-binary units | 2x clicks and production |
+| Stored Programs | Vacuum Tubes | 8M post-binary units | 1.5x clicks and production |
+| Integrated Circuits | Transistors | 50M post-binary units | 2x clicks and production |
+
+Post-binary units are the cumulative `total_bits_earned` field across historical currency names, reset by rebirth/prestige. Spent currency still counts. Completed projects remain completed after a reset; their multipliers stack to 24x. Era advancement retains existing hardware categories, preventing later eras from disabling already-unlocked production.
 
 ## Progression Systems
 
@@ -61,7 +73,8 @@ python main.py
 ## Controls
 
 - **Mouse**: Click buttons, navigate menus
-- **ESC**: Close modals (settings, rebirth confirmation)
+- **R**: Open/close Research roadmap
+- **ESC**: Close modals (including Research, settings, rebirth confirmation)
 - **Numbers 1-9**: Quick-buy generators (planned)
 
 ## Configuration
