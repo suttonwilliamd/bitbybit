@@ -43,7 +43,7 @@ def draw_research(screen, state, title_font, font, small_font):
             detail = (f"{format_number(state.get_total_currency_earned())} / "
                       f"{format_number(next_era['unlock_bits'])} earned · Define Bit required"
                       if next_era else 'All historical eras explored. Keep building your legacy.')
-            reward = 'Unlock hardware. Keep your balance and inventions.'
+            reward = 'Add new hardware. Keep your balance, machines and inventions.'
             ready, complete = state.can_advance_era(), next_era is None
             label = 'Advance' if ready else 'Completed' if complete else 'Not ready'
             fraction = state.get_era_progress()

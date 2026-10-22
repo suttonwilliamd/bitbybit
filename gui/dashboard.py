@@ -1,6 +1,6 @@
 """Calm dashboard and shared shop geometry for drawing and hit-testing."""
 import pygame
-from constants import get_all_generators, get_all_upgrades, format_number
+from constants import ERAS, get_all_generators, get_all_upgrades, format_number
 from . import theme as t
 from .research import research_button_rect
 from .machines import draw_era_machine
@@ -47,11 +47,19 @@ def shop_items(state, upgrades=False):
     if upgrades:
         result = [(key, definition, 'upgrade') for key, definition in get_all_upgrades().items()
                   if state.is_upgrade_unlocked(key)]
+        result.sort(key=lambda item: (item[1].get('era') != state.current_era,
+                                      -item[1].get('era', 4)))
         if state.total_data_shards or state.data_shards:
             result += [(key, definition, 'shard') for key, definition in state.data_shard_upgrades.items()]
         return result
-    return [(key, definition, 'generator') for key, definition in get_all_generators().items()
-            if state.is_era_generator_unlocked(key)]
+    result = [(key, definition, 'generator') for key, definition in get_all_generators().items()
+              if state.is_era_generator_unlocked(key)]
+    # New technology first, then productive earlier machines, then other old stock.
+    result.sort(key=lambda item: (
+        0 if state.get_generator_era(item[0]) == state.current_era else
+        1 if state.generators[item[0]]['count'] else 2,
+        -state.get_generator_era(item[0])))
+    return result
 
 
 def viewport(panel):
@@ -101,7 +109,9 @@ def draw_shop(game, upgrades=False):
     panel.set_content_height(max(0, len(items) * (CARD_HEIGHT + CARD_GAP) - CARD_GAP))
     panel.scroll_to(panel.scroll_offset)
     t.panel(screen, panel.rect)
-    t.text(screen, game.small_font, 'Improve your craft' if upgrades else 'Build a little momentum',
+    caption = ('Improve your craft' if upgrades else
+               'Earlier machines still work' if state.current_era > 0 else 'Build a little momentum')
+    t.text(screen, game.small_font, caption,
            (panel.rect.x + 14, panel.rect.y + 16), t.MUTED, panel.rect.width - 28)
     view = viewport(panel)
     old_clip = screen.get_clip()
@@ -116,9 +126,15 @@ def draw_shop(game, upgrades=False):
         if kind == 'generator':
             count = state.generators[key]['count']
             cost = state.get_generator_cost(key)
-            detail = f"{count} owned  ·  base {format_number(definition.get('base_production', 0))}/s"
-            t.text(screen, game.small_font, detail, (card.x + 12, card.y + 39), t.MUTED, card.width - 24)
-            t.text(screen, game.small_font, definition.get('flavor', 'Steady progress, one step at a time.'),
+            production = state.get_generator_production(key)
+            detail = f"{count} owned  ·  +{format_number(production)}/s"
+            t.text(screen, game.small_font, detail, (card.x + 12, card.y + 39),
+                   t.SAGE if count else t.MUTED, card.width - 24)
+            source_era = state.get_generator_era(key)
+            description = (ERAS[source_era]['name'] + ' · Still available'
+                           if source_era < state.current_era else
+                           definition.get('flavor', 'Steady progress, one step at a time.'))
+            t.text(screen, game.small_font, description,
                    (card.x + 12, card.y + 61), t.MUTED, card.width - 24)
             t.button(screen, ten, '×10', game.small_font, game.can_afford(state.get_generator_cost(key, 10)))
             affordable = game.can_afford(cost)

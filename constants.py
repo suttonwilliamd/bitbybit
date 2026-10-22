@@ -845,6 +845,18 @@ ELECTROMECHANICAL_GENERATORS = {
 }
 
 VACUUM_TUBE_GENERATORS = {
+    "vacuum_diode": {
+        "id": "vacuum_diode",
+        "name": "Thermionic Diode",
+        "category": "vacuum_tubes",
+        "era": 3,
+        "base_cost": 1000000,
+        "base_production": 50000,
+        "cost_multiplier": 1.15,
+        "icon": "💡",
+        "flavor": "A one-way valve for electrons.",
+        "unlock_threshold": 500000,
+    },
     "triode": {
         "id": "triode",
         "name": "Triode Tube",

@@ -32,6 +32,20 @@ Drawing and hit-testing share shop and dialog geometry. The minimum window is 96
 
 `python -m unittest test_gameplay test_visual_refresh -v` now runs 13 tests, including four supported sizes, every era and modal, resize/scroll purchases, hidden/clipped card guards, shard-upgrade geometry, dialog routing, contrast and preference migration. Native Windows rendering is checked separately from the headless tests. The legacy compression configuration/parser and incomplete effects remain outside this presentation-only change.
 
+## Era continuity and entry pacing
+
+The era-equality filters introduced with historical purchasing were too strict: they hid earlier machines and excluded their income immediately after advancement, despite retaining the counts in the save. Replaced the per-current-era production branches with a sum of every owned machine introduced at or before the current era. Each family retains its own production upgrades; research, prestige and the advertised Entropy Amplification multiplier apply once. Legacy basic generators also contribute in modern eras. Owned machines never depend on re-earning a shop unlock threshold to keep running.
+
+Earlier machines/upgrades remain visible and purchasable using the current currency; future-era machines and hardware upgrades remain guarded at the purchase boundary as well as in the shop. Earlier click bonuses now accumulate rather than being replaced by the current era's bonus. Abacus unlocks retain lifetime pebble evidence after Define Bit. Shop cards show actual owned output and mark earlier-era sources, with current-era technology first.
+
+Added an entry-level Thermionic Diode at the existing Vacuum Tubes entry threshold (500K earned, 1M cost, 50K/s base), rather than nerfing or repricing existing Triodes (still 10M cost, 500K/s). No migration or new save fields are needed. Explicit resets still clear machine counts.
+
+`playtest_era_progression.py` uses ten initial clicks, no subsequent clicking or injected money, one-second steps and a documented purchase policy: save for the entry machine immediately after advancing, otherwise choose affordable production/cost, at most 12 purchases per step. With only Define Bit, starter waits were **19 / 19 / 31 / 0 seconds** for eras 1–4; with research claimed as available they were **19 / 10 / 13 / 0 seconds**. No simulated second had zero income, and no transition reduced production. This is a bounded deterministic probe, not a universal balance guarantee or a late-game rebirth/prestige simulation.
+
+`python -m unittest test_era_progression test_machines test_gameplay test_visual_refresh -v` runs **37 regressions**. Continuity tests cover all six advances, mixed-family multipliers, prior purchases/click bonuses, unlock preservation, future-tech guards, bulk costs, unchanged Triodes, bounded entry-saving pacing, explicit resets, pre-Diode saves, offline carryover and resized/scrolled real purchase events. Native Windows smoke additionally advances through Research into eras 1–4, verifies identical income/counts at the transition, purchases earlier hardware through its painted button, runs 120 frames per scenario at 960x640/1200x800, and saves only to a temporary directory.
+
+Working Mechanical/Electromechanical illustrations are documented in `docs/MACHINE_DESIGN.md`. BobRoss.bot supplied art-direction consultation in WIL-164. Rendered sign-off in WIL-165 is still pending: Paperclip attachment publication encountered ownership/run restrictions. Neither implementation tests nor our native smoke are claimed as BobRoss's visual approval.
+
 ## Further recommendations
 
 - Separate historical era and motherboard generation before adding more historical content; rebirth and era advancement currently move the same index.

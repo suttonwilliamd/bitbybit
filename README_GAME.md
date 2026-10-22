@@ -22,7 +22,7 @@ python main.py
 1. **Start**: Click the abacus to earn pebbles and buy early generators.
 2. **Research**: Click the discovery bar at the bottom (or press R) to see goals, rewards and the next era.
 3. **Define Bit**: At 500 lifetime pebbles, convert your remaining balance 100:1 and gain 2x clicks and production. Owned generators continue producing in the new currency.
-4. **Advance eras**: After defining bits, earn the displayed total and select **ADVANCE** in Research. This does not spend your balance or reset progress. Historical generators only produce in their own era, so buy the new era's hardware.
+4. **Advance eras**: After defining bits, earn the displayed total and select **ADVANCE** in Research. This does not spend your balance or reset progress. **All owned machines from earlier eras keep producing in your current currency**, with their existing upgrades. Earlier machines and upgrades stay in the scrollable shops; new-era technology is listed first. Historical click upgrades also carry forward.
 5. **More research**: Claim the permanent milestones below in order. Claims are free, one-time, saved immediately, and survive rebirth and prestige.
 6. **Rebirth / prestige**: Existing resets award Data Shards or Quantum Fragments. See `REVIEW.md` for remaining inconsistencies between historical eras and motherboard generations.
 
@@ -37,6 +37,14 @@ python main.py
 | Integrated Circuits | Transistors | 50M post-binary units | 2x clicks and production |
 
 Post-binary units are the cumulative `total_bits_earned` field across historical currency names, reset by rebirth/prestige. Spent currency still counts. Completed projects remain completed after a reset; their multipliers stack to 24x. Era advancement retains existing hardware categories, preventing later eras from disabling already-unlocked production.
+
+### No empty era transitions
+
+The Vacuum Tubes era now starts with a **Thermionic Diode**: visible at 500K earned, costing 1M and producing 50K/s before bonuses. Existing Triodes and their costs/output are unchanged. This bridges the old jump directly to a 10M starter. Shop cards show each owned machine's actual total contribution, including upgrades and research, rather than only its base rate. Entropy Amplification now applies its advertised global production multiplier.
+
+A deterministic entry-saving probe starts with ten clicks and then uses idle income only. With research claimed as it becomes available, its waits after entering Mechanical / Electromechanical / Vacuum Tubes were **19 / 10 / 13 seconds**, with production continuing throughout. These are a specific simulated policy, not guaranteed timing for every play style. Run `python playtest_era_progression.py` to reproduce both research and Define-Bit-only policies.
+
+No save reset is required: saved earlier machines begin contributing again automatically. Explicit rebirth/prestige still reset machine counts.
 
 ## Progression Systems
 

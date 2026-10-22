@@ -189,108 +189,52 @@ class GameState:
             return self.total_pebbles_earned
         return self.total_bits_earned
     
+    def get_generator_era(self, generator_id):
+        """Historical families have explicit eras; legacy/basic hardware starts at 4."""
+        definition = self._get_generator_definition(generator_id)
+        return definition.get("era", 4) if definition is not None else None
+
+    def get_global_production_multiplier(self):
+        upgrade = CONFIG.get("UPGRADES", {}).get("entropy_amplification", {})
+        level = self.upgrades.get("entropy_amplification", {}).get("level", 0)
+        return (self.binary_efficiency * self.get_prestige_bonus()
+                * math.pow(upgrade.get("effect", 1), level))
+
+    def get_generator_production(self, generator_id):
+        """Actual contribution of an owned machine, including retained era bonuses."""
+        definition = self._get_generator_definition(generator_id)
+        if definition is None or self.get_generator_era(generator_id) > self.current_era:
+            return 0.0
+        count = self.generators.get(generator_id, {}).get("count", 0)
+        if count <= 0:
+            return 0.0
+        category = definition.get("category")
+        if definition.get("era", 4) < 4:
+            multiplier = self.get_era_upgrade_multiplier(category)
+        else:
+            multiplier = self.get_category_multiplier(category)
+        # Ownership, not today's shop unlock threshold, keeps a machine running.
+        return count * definition["base_production"] * multiplier * self.get_global_production_multiplier()
+
     def get_era_production_rate(self):
-        """Calculate production rate based on current era"""
-        base_production = 0
-        
-        # Era 0: Abacus generators
-        if self.current_era == 0:
-            for gen_id, gen_data in self.generators.items():
-                if gen_data["count"] > 0 and gen_id in ABACUS_GENERATORS:
-                    generator = ABACUS_GENERATORS[gen_id]
-                    # Check if generator is unlocked
-                    if self.is_era_generator_unlocked(gen_id):
-                        gen_production = gen_data["count"] * generator["base_production"]
-                        base_production += gen_production
-            
-            # Apply era-specific upgrades
-            era_multiplier = self.get_era_upgrade_multiplier("abacus")
-            base_production *= era_multiplier
-            
-        # Era 1: Mechanical generators
-        elif self.current_era == 1:
-            for gen_id, gen_data in self.generators.items():
-                if gen_data["count"] > 0 and gen_id in MECHANICAL_GENERATORS:
-                    generator = MECHANICAL_GENERATORS[gen_id]
-                    if self.is_era_generator_unlocked(gen_id):
-                        gen_production = gen_data["count"] * generator["base_production"]
-                        base_production += gen_production
-            
-            era_multiplier = self.get_era_upgrade_multiplier("mechanical")
-            base_production *= era_multiplier
-            
-        # Era 2: Electromechanical generators
-        elif self.current_era == 2:
-            for gen_id, gen_data in self.generators.items():
-                if gen_data["count"] > 0 and gen_id in ELECTROMECHANICAL_GENERATORS:
-                    generator = ELECTROMECHANICAL_GENERATORS[gen_id]
-                    if self.is_era_generator_unlocked(gen_id):
-                        gen_production = gen_data["count"] * generator["base_production"]
-                        base_production += gen_production
-            
-            era_multiplier = self.get_era_upgrade_multiplier("electromechanical")
-            base_production *= era_multiplier
-            
-        # Era 3: Vacuum Tube generators
-        elif self.current_era == 3:
-            for gen_id, gen_data in self.generators.items():
-                if gen_data["count"] > 0 and gen_id in VACUUM_TUBE_GENERATORS:
-                    generator = VACUUM_TUBE_GENERATORS[gen_id]
-                    if self.is_era_generator_unlocked(gen_id):
-                        gen_production = gen_data["count"] * generator["base_production"]
-                        base_production += gen_production
-            
-            era_multiplier = self.get_era_upgrade_multiplier("vacuum_tubes")
-            base_production *= era_multiplier
-            
-        # Era 4+: Transistors (modern hardware generators)
-        elif self.current_era >= 4:
-            # Use existing hardware generator logic
-            for gen_id, gen_data in self.generators.items():
-                if (gen_data["count"] > 0 and gen_id in CONFIG.get("HARDWARE_GENERATORS", {})):
-                    generator = CONFIG["HARDWARE_GENERATORS"][gen_id]
-                    category = generator["category"]
-                    if self.is_hardware_category_unlocked(category):
-                        category_multiplier = self.get_category_multiplier(category)
-                        production = gen_data["count"] * generator["base_production"] * category_multiplier
-                        base_production += production
-        
-        # Apply binary efficiency multiplier (from prestige upgrades)
-        base_production *= self.binary_efficiency
-        
-        # Apply prestige bonus
-        prestige_bonus = self.get_prestige_bonus()
-        base_production *= prestige_bonus
-        
-        return base_production
+        """Advancing adds technology; it never retires the player's existing income."""
+        return sum(self.get_generator_production(key) for key, owned in self.generators.items()
+                   if owned["count"] > 0)
     
     def is_era_generator_unlocked(self, generator_id):
-        """Check if an era-specific generator is unlocked"""
-        for era, definitions in enumerate((ABACUS_GENERATORS, MECHANICAL_GENERATORS,
-                                           ELECTROMECHANICAL_GENERATORS, VACUUM_TUBE_GENERATORS)):
-            if generator_id in definitions and self.current_era != era:
-                return False
-        if self.current_era >= 4:
-            return self.is_generator_unlocked(generator_id)
-        # Check which generator dictionary it belongs to
-        if generator_id in ABACUS_GENERATORS:
-            generator = ABACUS_GENERATORS[generator_id]
-        elif generator_id in MECHANICAL_GENERATORS:
-            generator = MECHANICAL_GENERATORS[generator_id]
-        elif generator_id in ELECTROMECHANICAL_GENERATORS:
-            generator = ELECTROMECHANICAL_GENERATORS[generator_id]
-        elif generator_id in VACUUM_TUBE_GENERATORS:
-            generator = VACUUM_TUBE_GENERATORS[generator_id]
-        else:
+        """Earlier machines remain available; future technology stays locked."""
+        generator = self._get_generator_definition(generator_id)
+        if generator is None or self.get_generator_era(generator_id) > self.current_era:
             return False
-        
-        # Check if there's an unlock threshold
-        if "unlock_threshold" not in generator:
+        if self.generators.get(generator_id, {}).get("count", 0) > 0:
             return True
-        
-        # Check based on current era's total currency
-        total_currency = self.get_total_currency_earned()
-        return total_currency >= generator["unlock_threshold"]
+        if generator.get("era", 4) >= 4:
+            return self.is_generator_unlocked(generator_id)
+        total = self.total_bits_earned
+        if generator["era"] == 0:
+            total = max(total, self.total_pebbles_earned)
+        return (generator_id in self.unlocked_generators
+                or total >= generator.get("unlock_threshold", 0))
     
     def get_era_upgrade_multiplier(self, category):
         """Get the upgrade multiplier for an era category"""
@@ -311,19 +255,11 @@ class GameState:
         """Calculate click power based on current era"""
         base_click = 1
         
-        # Era-specific click bonuses
-        if self.current_era == 0:
-            level = self.era_upgrades.get("clay_inscriptions", {}).get("level", 0)
-            base_click += level * ERA_UPGRADES["clay_inscriptions"]["effect"]
-        elif self.current_era == 1:
-            level = self.era_upgrades.get("precision_crafting", {}).get("level", 0)
-            base_click += level * ERA_UPGRADES["precision_crafting"]["effect"]
-        elif self.current_era == 2:
-            level = self.era_upgrades.get("card_punching", {}).get("level", 0)
-            base_click += level * ERA_UPGRADES["card_punching"]["effect"]
-        elif self.current_era == 3:
-            level = self.era_upgrades.get("tube_replacement", {}).get("level", 0)
-            base_click += level * ERA_UPGRADES["tube_replacement"]["effect"]
+        # Earlier click upgrades are investments too, not temporary era rentals.
+        for key in ("clay_inscriptions", "precision_crafting", "card_punching", "tube_replacement"):
+            if ERA_UPGRADES[key]["era"] <= self.current_era:
+                level = self.era_upgrades.get(key, {}).get("level", 0)
+                base_click += level * ERA_UPGRADES[key]["effect"]
         
         # Add basic click upgrade bonus
         click_upgrade_level = self.upgrades.get("click_power", {}).get("level", 0)
@@ -356,7 +292,7 @@ class GameState:
         current_count = self.generators[generator_id]["count"]
         
         # Get era-specific cost multiplier
-        era_cost_mult = COST_MULT_BY_ERA.get(self.current_era, 1.15)
+        era_cost_mult = COST_MULT_BY_ERA.get(generator.get("era", 4), 1.15)
         cost_multiplier = generator.get("cost_multiplier", era_cost_mult)
 
         if quantity == 1:
@@ -392,7 +328,7 @@ class GameState:
         if upgrade_id not in ERA_UPGRADES:
             return False
         upgrade = ERA_UPGRADES[upgrade_id]
-        if upgrade["era"] != self.current_era or self.era_upgrades[upgrade_id]["level"] >= upgrade["max_level"]:
+        if upgrade["era"] > self.current_era or self.era_upgrades[upgrade_id]["level"] >= upgrade["max_level"]:
             return False
         cost = self.get_era_upgrade_cost(upgrade_id)
         if self.current_era == 0 and not self.binary_invented:
@@ -674,15 +610,7 @@ class GameState:
         """Purchase an unlocked generator using the active currency."""
         if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity < 1 or generator_id not in self.generators:
             return False
-        definition = self._get_generator_definition(generator_id)
-        if definition is None:
-            return False
-        if generator_id in ABACUS_GENERATORS or generator_id in MECHANICAL_GENERATORS \
-                or generator_id in ELECTROMECHANICAL_GENERATORS or generator_id in VACUUM_TUBE_GENERATORS:
-            unlocked = self.is_era_generator_unlocked(generator_id)
-        else:
-            unlocked = self.is_generator_unlocked(generator_id)
-        if not unlocked:
+        if not self.is_era_generator_unlocked(generator_id):
             return False
         cost = self.get_era_generator_cost(generator_id, quantity)
         if not self.spend_active_currency(cost):
@@ -757,15 +685,15 @@ class GameState:
     def is_upgrade_unlocked(self, upgrade_id):
         """Check if upgrade is unlocked based on hardware category and bits earned"""
         if upgrade_id in ERA_UPGRADES:
-            return ERA_UPGRADES[upgrade_id]["era"] == self.current_era
+            return ERA_UPGRADES[upgrade_id]["era"] <= self.current_era
         if upgrade_id in CONFIG["UPGRADES"]:
             # Basic upgrades available from start
             if self.total_bits_earned >= 1000:
                 return True
         elif upgrade_id in CONFIG.get("HARDWARE_UPGRADES", {}):
             upgrade = CONFIG["HARDWARE_UPGRADES"][upgrade_id]
-            # Hardware upgrades are unlocked by category
-            return self.is_hardware_category_unlocked(upgrade["category"])
+            # Category membership alone must not expose modern tech before its era.
+            return self.current_era >= 4 and self.is_hardware_category_unlocked(upgrade["category"])
         else:
             # Unknown upgrade
             return False
