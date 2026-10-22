@@ -124,7 +124,7 @@ def balance_text(amount):
 
 
 @lru_cache(maxsize=8)
-def _housing(compact, palette):
+def _housing(compact, palette, detail=3):
     height = 280 if compact else 400
     surface = pygame.Surface((720, height), pygame.SRCALPHA)
     _panel(surface, (8, 9, 704, height - 18), (37, 47, 52), (111, 132, 141), 18)
@@ -141,8 +141,9 @@ def _housing(compact, palette):
     for plate in plates:
         pygame.draw.rect(surface, (106, 91, 64), plate.move(0, 4), border_radius=5)
         pygame.draw.ellipse(surface, GOLD, plate)
-        pygame.draw.ellipse(surface, (217, 193, 144), plate, 1)
-        for x in (plate.x + 15, plate.right - 15):
+        if detail >= 2:
+            pygame.draw.ellipse(surface, (217, 193, 144), plate, 1)
+        for x in ((plate.x + 15, plate.right - 15) if detail >= 2 else ()):
             pygame.draw.circle(surface, (77, 75, 61), (x, plate.centery), 2)
     for path in paths:
         pygame.draw.lines(surface, WIRE, False, path, 2)
@@ -154,7 +155,7 @@ def _housing(compact, palette):
             _line(surface, GOLD, (x - 3, y), (x + 3, y), 2)
     center, radius = sphere_geometry(compact)
     pygame.draw.circle(surface, (79, 103, 112), center, radius, 1)
-    for plane in range(3):
+    for plane in range(3 if detail >= 1 else 1):
         for i in range(96):
             pair = []
             vectors = []
@@ -175,20 +176,20 @@ def _housing(compact, palette):
     for i, rect in enumerate(probability_geometry(compact)):
         _panel(surface, rect, (33, 46, 51), (72, 93, 97), 3)
         _label(surface, f'P({i})', (534, rect.y - 23), 14, t.MUTED)
-    for x in (29, 691):
+    for x in ((29, 691) if detail >= 2 else ()):
         for y in (28, height - 34):
             _screw(surface, (x, y))
     return surface
 
 
-def draw_quantum_instrument(screen, rect, amount, animation=None):
+def draw_quantum_instrument(screen, rect, amount, animation=None, detail=3):
     if rect.width <= 0 or rect.height <= 0:
         return
     animation = animation if animation is not None else MachineAnimation()
     phase = animation.phase
     frame = quantum_frame(phase)
     compact = rect.height < 180
-    canvas = _housing(compact, (t.TEXT, t.MUTED, t.SAGE, t.AMBER, t.BORDER)).copy()
+    canvas = _housing(compact, (t.TEXT, t.MUTED, t.SAGE, t.AMBER, t.BORDER), detail).copy()
     _, chip, paths = cryostat_geometry(compact)
     # A short control burst travels down a real drawn feed line; never an orbiting electron.
     path = paths[frame.stage % len(paths)]
@@ -197,7 +198,7 @@ def draw_quantum_instrument(screen, rect, amount, animation=None):
         pygame.draw.lines(canvas, t.AMBER, False, segment, 3)
     pygame.draw.rect(canvas, t.SAGE, chip.inflate(6, 6), 1, border_radius=4)
     # Bounded presentation history, reconstructed without saving samples or using a clock.
-    history = [project(quantum_frame(max(0, phase - (25 - i) * .055)).bloch, compact) for i in range(26)]
+    history = [project(quantum_frame(max(0, phase - (25 - i) * .055)).bloch, compact) for i in range(26 if detail >= 3 else 0)]
     for i, (a, b) in enumerate(zip(history, history[1:])):
         fraction = .15 + .55 * i / 24
         color = tuple(round(DARK[k] + (t.SAGE[k] - DARK[k]) * fraction) for k in range(3))

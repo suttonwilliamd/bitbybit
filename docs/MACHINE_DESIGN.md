@@ -1,5 +1,15 @@
 # Working historical machines
 
+## Restoration ranks and historical views
+
+The instruments described below are now the **Masterwork** destination, not free starting decoration. `detail=0..3` selects Assembled / Refitted / Refined / Masterwork; standalone renderers default to 3 for compatibility. The dashboard passes only the purchased rank, while the separate Workshop can preview owned/next/final ranks without granting earnings or upgrades. Static caches remain bounded and include detail alongside size/palette. All ranks retain working mechanisms, demo labels and truthful readings; Reduced Motion still freezes decoration only. Masterwork matches all 28 pre-change full-art hashes at both reference sizes and themes.
+
+Progressive details: Abacus gains rounded, then circular, then polished two-tone beads; Mechanical gains spoked gears, cabinet machining, then flywheel inlays; relays gain windings, pilots, then tape-roller hardware; valves gain supports/getters, vents, then glass/socket finishing; the discrete card gains edge contacts, capacitors, then machined cans; Quantum gains a reference grid, cryostat machining, then the reconstructed vector trail; Cosmic gains another orbit/star guides, extra streams/markers, then full inlays/history (normal layout). None of these decorations calculate income.
+
+`machine_progression.py` owns stage text and presentation-only catalogue grouping. `viewed_era` is independent of reached era; main-dashboard selection switches the machine and both shops together without touching progression. Later motherboard generations display Cosmic. Actual purchase eligibility/pricing and historical production remain model-controlled. `GameState` grants an explicit additive 0.10 global click/production multiplier per paid rank, persists ranks/history through both reset tiers, and never derives bonuses from animation or previews.
+
+Sixteen new `test_history_workshop.py` regressions bring the combined suite to 105. Native temporary-save Windows checks at 1200x800/960x640 verify linked historical shops, actual purchases, preview isolation, bonuses, persistence, contrast and frozen decoration with live balance. Still/rank-filmstrip artifacts are outside Git in `Projects/history-workshop-review`. These are native/still checks, not BobRoss rendered/motion sign-off.
+
 Art direction was consulted with **BobRoss.bot**, the Paperclip company's Creative Director / UI/UX Lead, in **WIL-164**. His initial consultation was based on the proposed direction, not inspection of rendered art; it was not visual approval.
 
 Applied priorities:

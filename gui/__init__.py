@@ -44,6 +44,7 @@ from .research import (draw_research, research_button_rect, research_layout,
 from . import dashboard, theme
 from .machines import MachineAnimation
 from .modals import reset_layout, tutorial_layout
+from .workshop import draw_workshop, workshop_layout, history_button_rect, present_button_rect
 
 
 UI_ARROW_DOWN = "▼"
@@ -62,6 +63,11 @@ class BitByBitGame:
     def __init__(self):
         self.showing_research = False
         self.reset_from_research = False
+        self.showing_workshop = False
+        self.workshop_from_research = False
+        self.workshop_era = 0
+        self.workshop_preview = 0
+        self.viewed_era = None  # Follow progression until the player explicitly revisits history.
         self.screen = pygame.display.set_mode(
             (WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE
         )
@@ -475,6 +481,51 @@ class BitByBitGame:
         self.showing_research = self.reset_from_research
         self.reset_from_research = False
 
+    def _select_era_view(self, era):
+        if era is not None and (type(era) is not int or not 0 <= era <= self.state.get_history_limit()):
+            return False
+        self.viewed_era = None if era is None or era == min(6, self.state.current_era) else era
+        for panel in (self.hardware_scroll_panel, self.upgrades_scroll_panel):
+            panel.stop_drag()
+            panel.scroll_to(0)
+        dashboard.apply_layout(self)
+        return True
+
+    def _open_workshop(self):
+        self.workshop_era = dashboard.viewed_era(self)
+        self.workshop_preview = 0
+        self.workshop_from_research = self.showing_research
+        self.showing_research = False
+        self.showing_workshop = True
+
+    def _close_workshop(self):
+        self.showing_workshop = False
+        self.showing_research = self.workshop_from_research
+        self.workshop_from_research = False
+
+    def _handle_workshop_event(self, event):
+        if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_h, pygame.K_w):
+            self._close_workshop()
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            geometry = workshop_layout(self.current_width, self.current_height)
+            if geometry['close'].collidepoint(event.pos):
+                self._close_workshop()
+            elif geometry['view'].collidepoint(event.pos):
+                self._select_era_view(self.workshop_era)
+                self.workshop_from_research = False
+                self._close_workshop()
+            elif geometry['buy'].collidepoint(event.pos):
+                if self.state.purchase_machine_restoration(self.workshop_era):
+                    self.workshop_preview = 0
+                    self.save_game()
+            else:
+                for era, row in enumerate(geometry['rows']):
+                    if era <= self.state.get_history_limit() and row.collidepoint(event.pos):
+                        self.workshop_era, self.workshop_preview = era, 0
+                for mode, button in enumerate(geometry['modes']):
+                    if button.collidepoint(event.pos) and (mode != 1 or self.state.get_machine_level(self.workshop_era) < 3):
+                        self.workshop_preview = mode
+
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
 
@@ -485,6 +536,27 @@ class BitByBitGame:
                 self.running = False
             elif event.type == pygame.VIDEORESIZE:
                 self.handle_window_resize(event.w, event.h)
+
+            if self.showing_workshop:
+                self._handle_workshop_event(event)
+                continue
+
+            other_modal = (self.showing_settings or self.showing_statistics or self.showing_tutorial
+                           or self.showing_rebirth_confirmation or self.showing_prestige_confirmation)
+            if not other_modal and (
+                (event.type == pygame.KEYDOWN and event.key in (pygame.K_h, pygame.K_w))
+                or (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and history_button_rect(self.current_width, self.current_height, self.showing_research).collidepoint(event.pos))
+            ):
+                self._open_workshop()
+                continue
+            if not other_modal and not self.showing_research and self.viewed_era is not None and (
+                (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE)
+                or (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and present_button_rect(self.current_width, self.current_height).collidepoint(event.pos))
+            ):
+                self._select_era_view(None)
+                continue
 
             if self.showing_research:
                 if research_finished(self.state):
@@ -517,6 +589,7 @@ class BitByBitGame:
                                 else:
                                     changed = self.state.advance_era()
                                     if changed:
+                                        self._select_era_view(None)
                                         self.bit_grid.upgrade_to_era(self.state.current_era)
                                         self.hardware_scroll_panel.scroll_to(0)
                                         self.upgrades_scroll_panel.scroll_to(0)
@@ -525,8 +598,6 @@ class BitByBitGame:
                                 break
                 continue
 
-            other_modal = (self.showing_settings or self.showing_statistics or self.showing_tutorial
-                           or self.showing_rebirth_confirmation or self.showing_prestige_confirmation)
             if not other_modal and (
                 (event.type == pygame.KEYDOWN and event.key == pygame.K_r)
                 or (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
@@ -594,6 +665,7 @@ class BitByBitGame:
                         self.showing_rebirth_confirmation = False
                         self.reset_from_research = False
                         if result:
+                            self._select_era_view(None)
                             self.bit_grid.reset_on_rebirth()
                             self.bit_grid.upgrade_to_era(self.state.hardware_generation)
                             self.hardware_scroll_panel.scroll_to(0)
@@ -622,6 +694,7 @@ class BitByBitGame:
                         if result:
                             self.showing_prestige_confirmation = False
                             self.reset_from_research = False
+                            self._select_era_view(None)
                             self.bit_grid.reset_on_rebirth()
                             self.bit_grid.upgrade_to_era(0)
                             self.hardware_scroll_panel.scroll_to(0)
@@ -756,7 +829,7 @@ class BitByBitGame:
 
     def handle_click(self):
         click_power = self.state.add_manual_currency()
-        if self.state.current_era in (1, 2, 3, 4, 5, 6):
+        if dashboard.viewed_era(self) in (1, 2, 3, 4, 5, 6):
             self.machine_animation.click(self.reduced_motion_mode)
 
         self.last_click_time = pygame.time.get_ticks()
@@ -973,7 +1046,7 @@ class BitByBitGame:
             self.state.add_idle_currency(production_int)
             self.production_accumulator -= production_int
 
-        if self.state.current_era in (1, 2, 3, 4, 5, 6):
+        if self.showing_workshop or dashboard.viewed_era(self) in (1, 2, 3, 4, 5, 6):
             self.machine_animation.update(dt, self.state.get_current_currency_value(),
                                           production_rate, self.reduced_motion_mode)
 
@@ -1030,8 +1103,13 @@ class BitByBitGame:
 
     def draw(self):
         theme.configure(self.high_contrast_mode)
+        if self.showing_workshop:
+            draw_workshop(self)
+            return
         if self.showing_research:
             draw_research(self.screen, self.state, self.large_font, self.medium_font, self.tiny_font, self.bit_grid)
+            theme.button(self.screen, history_button_rect(self.current_width, self.current_height, True),
+                         'Workshop [W]', self.small_font)
             return
         self.screen.fill(COLORS["deep_space_blue"])
         if not self.showing_settings and not self.showing_rebirth_confirmation and not self.showing_prestige_confirmation and not self.showing_statistics:
@@ -1431,6 +1509,8 @@ class BitByBitGame:
                 "total_rebirths": self.state.total_rebirths,
                 "total_lifetime_bits": self.state.total_lifetime_bits,
                 "hardware_generation": self.state.hardware_generation,
+                "highest_era": self.state.get_history_limit(),
+                "machine_restorations": self.state.machine_restorations,
                 "unlocked_hardware_categories": self.state.unlocked_hardware_categories,
                 "era": self.state.era,
                 "data_shards": self.state.data_shards,
@@ -1547,6 +1627,7 @@ class BitByBitGame:
                     self.state.data_shard_upgrades[upgrade_id]["level"] = progress.get("level", 0)
             
             self.state.generators.update(state_data.get("generators", {}))
+            self.state.load_machine_progression(state_data)
             self.state.unlocked_generators = state_data.get("unlocked_generators", ["rng"])
             self.state.upgrades.update(state_data.get("upgrades", {}))
             self.state.tutorial_step = state_data.get("tutorial_step", 0)

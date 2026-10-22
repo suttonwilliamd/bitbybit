@@ -94,7 +94,7 @@ def balance_text(amount):
 
 
 @lru_cache(maxsize=8)
-def _housing(compact, palette):
+def _housing(compact, palette, detail=3):
     height = 280 if compact else 400
     surface = pygame.Surface((720, height), pygame.SRCALPHA)
     _panel(surface, (8, 9, 704, height - 18), (35, 37, 47), (116, 117, 132), 18)
@@ -103,7 +103,7 @@ def _housing(compact, palette):
     _panel(surface, (34, 66, 486, height - 136), DARK, (64, 78, 95), 8)
     _panel(surface, (532, 66, 152, height - 136), DARK, (64, 78, 95), 8)
     # Fixed integer placement, not randomness or blinking background effects.
-    for i in range(36):
+    for i in range((10, 16, 24, 36)[detail]):
         x = 46 + ((i * 137) ^ (i * i * 43) ^ (i << 7)) % 460
         y = 78 + ((i * 73) ^ (i * i * 19) ^ (i << 3)) % (height - 160)
         color = ((62, 74, 86), (82, 96, 101), (111, 118, 115))[i % 3]
@@ -115,7 +115,8 @@ def _housing(compact, palette):
     _line(surface, (71, 84, 102), (548, 146 if compact else 173), (668, 146 if compact else 173), 1)
     _label(surface, 'DEMO ONLY', (608, 196 if compact else 243), 10 if compact else 12, t.MUTED, center=True)
     if not compact:
-        _label(surface, 'RECENT', (608, 281), 11, t.MUTED, center=True)
+        if detail >= 3:
+            _label(surface, 'RECENT', (608, 281), 11, t.MUTED, center=True)
         _label(surface, 'ILLUSTRATIVE FOLDED-SPACE ROUTING', (278, 312), 11, t.MUTED, center=True)
     for x in (29, 691):
         for y in (28, height - 34):
@@ -141,11 +142,11 @@ def _disc_bands(compact):
     return tuple(bands)
 
 
-def _disc(phase, compact):
+def _disc(phase, compact, detail=3):
     (cx, cy), _, _ = engine_geometry(compact)
     inner, outer = (36, 80) if compact else (60, 132)
     segments = []
-    for arm in range(3):
+    for arm in range(3 if detail >= 2 else 1):
         points = []
         for i in range(49):
             u = i / 48
@@ -172,24 +173,25 @@ def _packet(canvas, position, branch, phase, compact, color):
         pygame.draw.circle(canvas, t.TEXT, tuple(round(v) for v in point), 2)
 
 
-def draw_cosmic_engine(screen, rect, amount, animation=None):
+def draw_cosmic_engine(screen, rect, amount, animation=None, detail=3):
     if rect.width <= 0 or rect.height <= 0:
         return
     animation = animation if animation is not None else MachineAnimation()
     phase = animation.phase
     compact = rect.height < 180
     frame = cosmic_frame(phase)
-    canvas = _housing(compact, (t.TEXT, t.MUTED, t.SAGE, t.AMBER, t.BORDER)).copy()
+    canvas = _housing(compact, (t.TEXT, t.MUTED, t.SAGE, t.AMBER, t.BORDER), detail).copy()
     center, _, horizon = engine_geometry(compact)
-    for scale, aspect in ((1, .44), (.9, .52)):
+    for scale, aspect in (((1, .44), (.9, .52)) if detail >= 1 else ((1, .44),)):
         orbit = [orbit_point(i * math.tau / 96, phase, compact, scale, aspect) for i in range(97)]
         pygame.draw.aalines(canvas, (64, 78, 96), False, orbit)
     for branch in range(3):
         pygame.draw.aalines(canvas, (58, 76, 82), False, route_path(branch, phase, compact))
-    for i in range(8):
-        point = orbit_point(i * math.tau / 8 + phase * .14, phase, compact)
+    markers = (2, 4, 8, 8)[detail]
+    for i in range(markers):
+        point = orbit_point(i * math.tau / markers + phase * .14, phase, compact)
         pygame.draw.circle(canvas, (112, 132, 137), tuple(round(v) for v in point), 2)
-    disc = _disc(phase, compact)
+    disc = _disc(phase, compact, detail)
     for points, color, front in _disc_bands(compact):
         if not front:
             pygame.draw.polygon(canvas, color, points)
@@ -221,7 +223,7 @@ def draw_cosmic_engine(screen, rect, amount, animation=None):
     answer = '= ----' if frame.result is None else f'= 0x{frame.result:02X}'
     _label(canvas, answer, (608, 170 if compact else 204), 20 if compact else 26,
            t.MUTED if frame.result is None else t.TEXT, center=True)
-    if not compact:
+    if not compact and detail >= 3:
         for i in range(4):
             previous = frame.index - 4 + i
             text = '--' if previous < 0 else f'{cosmic_job(previous)[2]:02X}'

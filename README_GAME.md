@@ -22,7 +22,7 @@ python main.py
 1. **Start**: Click the abacus to earn pebbles and buy early generators.
 2. **Research**: Click the discovery bar at the bottom (or press R) to see goals, rewards and the next era.
 3. **Define Bit**: At 500 lifetime pebbles, convert your remaining balance 100:1 and gain 2x clicks and production. Owned generators continue producing in the new currency.
-4. **Advance eras**: After defining bits, earn the displayed total and select **ADVANCE** in Research. This does not spend your balance or reset progress. **All owned machines from earlier eras keep producing in your current currency**, with their existing upgrades. Earlier machines and upgrades stay in the scrollable shops; new-era technology is listed first. Historical click upgrades also carry forward.
+4. **Advance eras**: After defining bits, earn the displayed total and select **ADVANCE** in Research. This does not spend your balance or reset progress. **All owned machines from earlier eras keep producing in your current currency**, with their existing upgrades. The shops show only the viewed era: **History [H] → choose era → View this era** switches the centerpiece, hardware and upgrades together. **Back to present** restores the current era. Hidden earlier machines still produce; historical purchases use your current currency and existing unlock rules. Historical click upgrades also carry forward.
 5. **More research**: Claim the permanent milestones below in order. Claims are free, one-time, saved immediately, and survive rebirth and prestige.
 6. **Your next cycle**: Once all five inventions and historical chapters are complete, Research becomes a completed-discovery summary plus a **Next step** panel. It recommends **Rebirth** first (Data Shards), then **Prestige** after your first Rebirth (Quantum Fragments and permanent bonuses). The panel shows live requirements, rewards and what resets; **Review Rebirth / Review Prestige** opens the existing confirmation. **Keep going** or Escape returns to the journal without resetting anything. This is guidance, not a change to reset eligibility; existing dashboard reset actions remain available. See `REVIEW.md` for remaining historical-era/motherboard inconsistencies.
 
@@ -55,7 +55,13 @@ No save reset is required: saved earlier machines begin contributing again autom
 ### Data Shards (formerly Compression Tokens)
 - Collect at 10K+ bits without resetting
 - Based on log10(total_bits_earned) - 3
-- Used for compression era mechanics
+- Spend them in **History [H] / Shard Workshop [W]** on permanent centerpiece restorations
+- Every era starts **Assembled**, with three purchases: **Refitted → Refined → Masterwork**
+- Each purchased rank adds **+10 percentage points** to a shared all-era click/production multiplier: 1.00x → 1.10x → 1.20x, up to 3.10x for all 21 ranks; this stacks with research and prestige, not with animation
+- Costs per era are `n`, `8n`, `64n` shards, where Abacus is `n=1` through Cosmic `n=7`; no repeat purchase beyond rank 3
+- **Owned / Next rank / Masterwork** previews show the visual goal without purchasing or granting a bonus
+- Purchased ranks and historical access survive both reset tiers. Unspent shards still reset on Prestige under the existing rules
+- Old saves retain progress and start restorations at rank 0; the former detailed artwork is the Masterwork destination
 
 ### Prestige System
 - Unlocks at Hardware Generation 3 (Multimedia) + 1M bits
@@ -80,7 +86,9 @@ No save reset is required: saved earlier machines begin contributing again autom
 
 ## Interface
 
-The dashboard uses a quiet charcoal background, sage actions, warm accents and a large currency counter. Hardware and upgrades use matching cards; bright purchase buttons indicate affordability. Hover over a card's text for its full description. The machine illustration is also a click target.
+The dashboard uses a quiet charcoal background, sage actions, warm accents and a large currency counter. Hardware and upgrades use matching cards; bright purchase buttons indicate affordability. Hover over a card's text for its full description. The machine illustration is also a click target. **History [H]** hides older stock until explicitly requested and switches both shops with the centerpiece; it never changes your reached era, income or research. Quantum and Cosmic catalogue categories are grouped with their matching centerpiece without changing existing prices/eligibility. Historical views can remain available after a reset, but future-cycle hardware is still locked until the model's normal requirements are met.
+
+The descriptions below show the fully restored **Masterwork** instruments. Earlier restoration ranks progressively add machining, windings, glass details, contacts, guides, trails and inlays while keeping working mechanisms and truthful balance readouts.
 
 Mechanical now has a working brass gear train, crank and guided carriage, plus a **hinged split-flap register** showing the **low eight digits of your actual balance**. Digits fold around the center seam instead of scrolling vertically. Clicking either historical machine briefly increases its drive speed without changing rewards.
 
@@ -94,7 +102,7 @@ Quantum now has a **quantum interferometer**: a suspended gold cryostat stack an
 
 Cosmic now has a **fold engine**: a dark central horizon, a layered brass accretion disk with moving streams, orbiting relay markers, and two input packets spiraling inward before a computed byte returns through the output gate. The **UPLINK / FOLD / RETURN / HOLD** sequence runs changing-input XOR demonstrations and remembers recent completed answers. This is explicitly fictional routing, not astrophysical simulation or earnings. Stars and the disk body stay steady; the separate LOW BYTE header reflects your real balance.
 
-Reduced Motion freezes gears, relays, tube/qubit/cosmic demonstrations, signals and tape programs and updates readings instantly without flipping. Motion is independent of the optional particle/background effects. The abacus illustration is unchanged.
+Reduced Motion freezes gears, relays, tube/qubit/cosmic demonstrations, signals and tape programs and updates readings instantly without flipping. Motion is independent of the optional particle/background effects. The abacus follows the same restoration path, from plain tally blocks to polished two-tone beads.
 
 The window supports resizing down to **960 × 640**. Shops scroll with the mouse wheel or scrollbar, keeping purchases clipped to the visible area. The bottom discovery bar opens the research journal.
 
@@ -104,7 +112,8 @@ Binary rain, click particles and CRT texture are **off by default**, including a
 
 - **Mouse**: Click buttons, navigate menus
 - **R**: Open/close Research roadmap
-- **ESC**: Close modals (including Research, settings, rebirth confirmation)
+- **H / W**: Open/close History & Shard Workshop (also available from Research)
+- **ESC**: Close modals; from a historical dashboard, return to the present
 - **Numbers 1-9**: Quick-buy generators (planned)
 
 ## Configuration

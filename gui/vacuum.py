@@ -92,7 +92,7 @@ def flow_segment(path, phase):
 
 
 @lru_cache(maxsize=8)
-def _layers(compact, palette):
+def _layers(compact, palette, detail=3):
     height = 280 if compact else 400
     back = pygame.Surface((720, height), pygame.SRCALPHA)
     front = pygame.Surface((720, height), pygame.SRCALPHA)
@@ -118,14 +118,15 @@ def _layers(compact, palette):
         cx = glass.centerx
         # Clear shouldered glass envelope, silver getter patch, steel support rods.
         pygame.draw.rect(back, (37, 49, 46), glass, border_radius=27)
-        for x in (cx - 20, cx + 20):
+        for x in ((cx - 20, cx + 20) if detail >= 1 else ()):
             _line(back, (89, 107, 96), (x, glass.y + 28), (x, glass.bottom - 8), 2)
-        pygame.draw.ellipse(front, (92, 109, 100), (cx - 17, glass.y + 9, 34, 10))
+        if detail >= 1:
+            pygame.draw.ellipse(front, (92, 109, 100), (cx - 17, glass.y + 9, 34, 10))
         # Two vented plate assemblies leave the central cathode/grid visible.
         top, bottom = glass.y + (23 if compact else 37), glass.bottom - 31
         for x in (cx - 18, cx + 6):
             pygame.draw.rect(front, (101, 115, 105), (x, top, 12, bottom - top), border_radius=2)
-            for y in range(top + 5, bottom - 3, 9 if compact else 15):
+            for y in (range(top + 5, bottom - 3, 9 if compact else 15) if detail >= 2 else ()):
                 pygame.draw.rect(front, (39, 52, 46), (x + 3, y, 6, 3), border_radius=1)
         for y in range(top + 4, bottom, 11 if compact else 20):
             _line(front, (126, 130, 104), (cx - 6, y), (cx + 6, y), 1)
@@ -136,12 +137,14 @@ def _layers(compact, palette):
                            (cx, glass.bottom - 16), (cx + 4, glass.bottom - 22),
                            (cx + 8, glass.bottom - 16)], 2)
         pygame.draw.rect(front, (113, 138, 128), glass, 2, border_radius=27)
-        _line(front, (158, 176, 164), (glass.x + 8, glass.y + 29), (glass.x + 8, glass.bottom - 25), 2)
-        _line(front, (76, 98, 87), (glass.right - 7, glass.y + 35), (glass.right - 7, glass.bottom - 30), 1)
+        if detail >= 3:
+            _line(front, (158, 176, 164), (glass.x + 8, glass.y + 29), (glass.x + 8, glass.bottom - 25), 2)
+            _line(front, (76, 98, 87), (glass.right - 7, glass.y + 35), (glass.right - 7, glass.bottom - 30), 1)
         if not compact:
             _label(front, '6SN7', (cx, glass.bottom - 39), 10, t.MUTED, center=True)
         socket = socket_rect(glass)
-        _panel(front, (cx - 31, glass.bottom - 4, 62, 9), (60, 49, 38), (123, 105, 75), 3)
+        if detail >= 3:
+            _panel(front, (cx - 31, glass.bottom - 4, 62, 9), (60, 49, 38), (123, 105, 75), 3)
         _panel(front, (socket.x, glass.bottom + 4, socket.width, 13), (150, 147, 120), (77, 89, 73), 4)
         for x in (cx - 24, cx - 8, cx + 8, cx + 24):
             _line(front, COPPER, (x, glass.bottom + 14), (x, socket.bottom), 2)
@@ -159,14 +162,14 @@ def _layers(compact, palette):
     return back, front
 
 
-def draw_vacuum_instrument(screen, rect, amount, animation=None):
+def draw_vacuum_instrument(screen, rect, amount, animation=None, detail=3):
     if rect.width <= 0 or rect.height <= 0:
         return
     animation = animation if animation is not None else MachineAnimation()
     phase = animation.phase
     compact = rect.height < 180
     palette = (t.TEXT, t.MUTED, t.SAGE, t.AMBER, t.BORDER)
-    back, front = _layers(compact, palette)
+    back, front = _layers(compact, palette, detail)
     canvas = back.copy()
     selected = selected_stage(phase)
     levels = conduction_levels(phase * TAU * .65)

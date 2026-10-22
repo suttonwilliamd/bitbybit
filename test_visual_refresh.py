@@ -98,22 +98,20 @@ class VisualRefreshTests(unittest.TestCase):
         self.click(first)
         self.assertEqual(game.state.generators['pebble']['count'], 0)
 
-    def test_shard_upgrades_share_visible_shop_geometry(self):
+    def test_shard_restorations_have_dedicated_visible_workshop_geometry(self):
+        from gui.workshop import history_button_rect, workshop_layout
         game = self.game
         game.state.data_shards = game.state.total_data_shards = 10**9
-        game.state.data_shard_upgrades['quick_collect'] = dict(name='Quick Collect', level=0,
-            max_level=3, base_cost=5, cost_scale=5, effect_per_level=10,
-            description='Reduce the shard collection threshold.')
         game.draw()
-        items = dashboard.shop_items(game.state, True)
-        index = max(i for i, item in enumerate(items) if item[2] == 'shard')
-        key = items[index][0]
-        panel = game.upgrades_scroll_panel
-        panel.scroll_to_bottom()
-        _, one, _ = dashboard.card_geometry(panel, index)
-        self.assertTrue(dashboard.viewport(panel).contains(one))
-        self.click(one)
-        self.assertEqual(game.state.data_shard_upgrades[key]['level'], 1)
+        self.assertFalse(any(kind == 'shard' for _, _, kind in dashboard.shop_items(game.state, True)))
+        self.click(history_button_rect(game.current_width, game.current_height))
+        self.assertTrue(game.showing_workshop)
+        game.draw()
+        geometry = workshop_layout(game.current_width, game.current_height)
+        self.assertTrue(geometry['panel'].contains(geometry['buy']))
+        self.click(geometry['buy'])
+        self.assertEqual(game.state.get_machine_level(0), 1)
+        self.assertEqual(game.state.data_shards, 10**9 - 1)
 
     def test_dialog_and_settings_clicks_at_resized_coordinates(self):
         game = self.game

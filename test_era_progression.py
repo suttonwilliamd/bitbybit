@@ -115,19 +115,22 @@ class EraProgressionTests(unittest.TestCase):
         self.assertEqual(state.get_generator_production('missing'), 0)
         self.assertEqual(state.get_production_rate(), 0)
 
-    def test_shop_orders_new_tech_then_owned_earlier_machines(self):
+    def test_shop_shows_current_tech_and_keeps_old_stock_in_history(self):
         state = GameState()
         state.current_era = 2
         state.total_bits_earned = 50000
         state.generators['pebble']['count'] = 2
         keys = [key for key, _, _ in shop_items(state)]
         self.assertEqual(keys[0], 'relay')
-        self.assertEqual(keys[1], 'pebble')
-        self.assertIn('lever', keys)
+        self.assertNotIn('pebble', keys)
+        self.assertNotIn('lever', keys)
         self.assertNotIn('triode', keys)
+        self.assertIn('pebble', [key for key, _, _ in shop_items(state, era=0)])
+        self.assertIn('lever', [key for key, _, _ in shop_items(state, era=1)])
         upgrades = [key for key, _, _ in shop_items(state, True)]
-        self.assertEqual(ERA_UPGRADES[upgrades[0]]['era'], 2)
-        self.assertIn('clay_inscriptions', upgrades)
+        self.assertTrue(all(ERA_UPGRADES[key]['era'] == 2 for key in upgrades))
+        self.assertNotIn('clay_inscriptions', upgrades)
+        self.assertIn('clay_inscriptions', [key for key, _, _ in shop_items(state, True, era=0)])
 
     def test_vacuum_entry_machine_bridges_gap_without_nerfing_existing_triodes(self):
         state = GameState()
@@ -181,7 +184,7 @@ class EraProgressionTests(unittest.TestCase):
             self.assertEqual(loaded.state.get_production_rate(), rate)
             self.assertEqual(loaded.state.generators['vacuum_diode']['count'], 0)
             self.assertAlmostEqual(loaded.state.bits, 1234 + 60 * 0.75 * rate)
-            self.assertIn('lever', [key for key, _, _ in shop_items(loaded.state)])
+            self.assertIn('lever', [key for key, _, _ in shop_items(loaded.state, era=1)])
 
     def test_old_machine_and_upgrade_clicks_after_resize_and_scroll(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(CONFIG, SAVE_FILE=str(Path(directory) / 'save.json')):
@@ -191,9 +194,10 @@ class EraProgressionTests(unittest.TestCase):
             game.state.bits = game.state.total_bits_earned = 10**8
             for size in ((1200, 800), (960, 640)):
                 game.handle_window_resize(*size)
+                game._select_era_view(0)
                 for upgrades, key in ((False, 'pebble'), (True, 'clay_inscriptions')):
                     game.draw()
-                    items = shop_items(game.state, upgrades)
+                    items = shop_items(game.state, upgrades, era=0)
                     index = next(i for i, item in enumerate(items) if item[0] == key)
                     panel = game.upgrades_scroll_panel if upgrades else game.hardware_scroll_panel
                     panel.scroll_to(index * (CARD_HEIGHT + CARD_GAP))

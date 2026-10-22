@@ -96,7 +96,7 @@ def _panel(surface, rect, fill, edge, radius=8):
 
 
 @lru_cache(maxsize=8)
-def _housing(era, compact, palette):
+def _housing(era, compact, palette, detail=3):
     """Only static machining, lettering and wiring are cached, never animation frames."""
     height = 280 if compact else 400
     surface = pygame.Surface((WIDTH, height), pygame.SRCALPHA)
@@ -133,7 +133,7 @@ def _housing(era, compact, palette):
         # Flywheel mount and engraved radial index.
         cy = height - (110 if compact else 151)
         r = 46 if compact else 67
-        for i in range(40):
+        for i in range(40 if detail >= 3 else 0):
             angle = i * TAU / 40
             inner = r + (10 if i % 5 else 6)
             outer = r + 15
@@ -159,7 +159,7 @@ def _housing(era, compact, palette):
             pygame.draw.lines(surface, (81, 100, 82), False,
                               [(x - 43, bus_y), (x + 43, bus_y), (x + 43, y), (rect.right, y)], 2)
             _panel(surface, rect, (44, 45, 39), (95, 102, 82), 5)
-            for sx in (rect.x + 7, rect.right - 7):
+            for sx in ((rect.x + 7, rect.right - 7) if detail >= 2 else ()):
                 _screw(surface, (sx, rect.bottom - 8))
             if not compact:
                 _label(surface, f'K{index + 1:02}', (rect.x + 7, rect.y + 5), 11, t.MUTED)
@@ -170,7 +170,7 @@ def _housing(era, compact, palette):
             _label(surface, str(7 - i), (x, output.y + 8), 10, t.MUTED, center=True)
         _panel(surface, (540, 62, 136, height - 128), (53, 61, 53), (117, 129, 107), 5)
         _label(surface, '8-BIT DEMO', (608, 77), 12, t.MUTED, center=True)
-    for x in (29, 691):
+    for x in ((29, 691) if detail >= 2 else ()):
         for y in (28, height - 34):
             _screw(surface, (x, y))
     return surface
@@ -196,7 +196,7 @@ def mechanical_gears(compact=False, phase=0.0):
     return [(x + offset, y, r, count, angle) for x, y, r, count, angle in result]
 
 
-def _gear(surface, x, y, radius, teeth, angle, index):
+def _gear(surface, x, y, radius, teeth, angle, index, detail=3):
     depth = radius / teeth * 1.35
     points = []
     for tooth in range(teeth):
@@ -209,6 +209,9 @@ def _gear(surface, x, y, radius, teeth, angle, index):
     pygame.draw.polygon(surface, BRASS if index % 2 == 0 else COPPER, points)
     pygame.draw.polygon(surface, BRASS_LIGHT if index % 2 == 0 else BRASS, points, 1)
     center = (round(x), round(y))
+    if detail < 1:
+        pygame.draw.circle(surface, STEEL, center, max(3, round(radius * .11)))
+        return
     rim = max(3, round(radius - depth - 5))
     pygame.draw.circle(surface, BRASS_SHADOW, center, rim)
     pygame.draw.circle(surface, DARK, center, max(2, rim - 3))
@@ -217,7 +220,7 @@ def _gear(surface, x, y, radius, teeth, angle, index):
         start = (x + math.cos(a) * radius * .18, y + math.sin(a) * radius * .18)
         end = (x + math.cos(a) * (rim - 2), y + math.sin(a) * (rim - 2))
         _line(surface, BRASS if index % 2 == 0 else COPPER, start, end, max(3, round(radius * .13)))
-    pygame.draw.circle(surface, BRASS_LIGHT, center, max(5, round(radius * .19)))
+    pygame.draw.circle(surface, BRASS_LIGHT if detail >= 2 else BRASS_SHADOW, center, max(5, round(radius * .19)))
     pygame.draw.circle(surface, STEEL, center, max(3, round(radius * .11)))
     a = angle + .4
     _line(surface, DARK, (x - math.cos(a) * 3, y - math.sin(a) * 3),
@@ -296,7 +299,7 @@ def _counter(surface, amount, animation, compact):
         _flap_digit(surface, rect, previous[i], digit, progress, compact)
 
 
-def _mechanical(surface, amount, animation, compact):
+def _mechanical(surface, amount, animation, compact, detail=3):
     height = surface.get_height()
     gears = mechanical_gears(compact, animation.phase)
     crank = gears[-1][4]
@@ -322,7 +325,7 @@ def _mechanical(surface, amount, animation, compact):
     _line(surface, STEEL, (slider_x, rack_y), pin, 8)
     pygame.draw.circle(surface, BRASS_LIGHT, (round(slider_x), rack_y), 7)
     for index, gear in enumerate(gears):
-        _gear(surface, *gear, index)
+        _gear(surface, *gear, index, detail)
     # Flywheel: rotating spokes, eccentric crank pin and wooden grip.
     pygame.draw.circle(surface, DARK, (596, cy + 3), radius + 5)
     pygame.draw.circle(surface, BRASS_SHADOW, (596, cy), radius, 9)
@@ -391,7 +394,7 @@ def tape_position(phase):
     return tape_frame(phase).position * 14
 
 
-def _relay(surface, rect, index, closure, compact):
+def _relay(surface, rect, index, closure, compact, detail=3):
     cx, cy = rect.centerx, rect.centery
     coil_y = rect.y + (26 if compact else 57)
     coil_h = 16 if compact else 31
@@ -400,7 +403,7 @@ def _relay(surface, rect, index, closure, compact):
     pygame.draw.rect(surface, (91, 59, 40), core, border_radius=3)
     # Individual copper windings and bobbin flanges.
     energized = tuple(round(a + (b - a) * closure) for a, b in zip(COPPER, BRASS_LIGHT))
-    for x in range(core.x + 3, core.right - 2, 6 if compact else 3):
+    for x in (range(core.x + 3, core.right - 2, 6 if compact else 3) if detail >= 1 else ()):
         _line(surface, energized, (x, core.y + 2), (x, core.bottom - 2), 2)
     for x in (core.x - 3, core.right):
         pygame.draw.rect(surface, (109, 119, 98), (x, core.y - 3, 4, coil_h + 6))
@@ -419,15 +422,16 @@ def _relay(surface, rect, index, closure, compact):
     pygame.draw.circle(surface, BRASS_LIGHT, fixed, 2)
     # Small local pilot lamps, not bloom or full-screen strobes.
     lamp = (rect.right - 12, rect.y + 10)
-    pygame.draw.circle(surface, DARK, lamp, 6)
-    lamp_color = tuple(round(a + (b - a) * closure) for a, b in zip((64, 78, 65), t.SAGE))
-    pygame.draw.circle(surface, lamp_color, lamp, 4)
+    if detail >= 2:
+        pygame.draw.circle(surface, DARK, lamp, 6)
+        lamp_color = tuple(round(a + (b - a) * closure) for a, b in zip((64, 78, 65), t.SAGE))
+        pygame.draw.circle(surface, lamp_color, lamp, 4)
     if not compact:
         _label(surface, 'CLOSED' if closure > .65 else 'OPEN', (cx, rect.bottom - 17), 10,
                t.SAGE if closure > .65 else t.MUTED, center=True)
 
 
-def _tape(surface, frame, compact, seed=0):
+def _tape(surface, frame, compact, seed=0, detail=3):
     height = surface.get_height()
     tape = tape_geometry(compact)
     _label(surface, frame.job.name, (608, 98), 20, t.SAGE, center=True)
@@ -459,7 +463,7 @@ def _tape(surface, frame, compact, seed=0):
     # Roller lips and an eight-pin punch head: only computed result bits punch.
     for y in (tape.y - 4, tape.bottom + 3):
         _panel(surface, (548, y - 4, 120, 9), (91, 106, 95), DARK, 3)
-        for i in range(10):
+        for i in range(10 if detail >= 3 else 0):
             x = 556 + i * 11 + (frame.position * row_height) % 11
             _line(surface, (160, 168, 146), (x, y - 2), (x, y + 2), 1)
     stroke = math.sin(math.pi * (frame.position % 1)) * 5 if frame.stage == 'PUNCH' else 0
@@ -469,18 +473,18 @@ def _tape(surface, frame, compact, seed=0):
               (x, tape.y - 5), (x, tape.y - 1 + (stroke if on else 0)), 2)
 
 
-def _electromechanical(surface, amount, animation, compact):
+def _electromechanical(surface, amount, animation, compact, detail=3):
     frame = tape_frame(animation.phase, animation.demo_seed)
     scan = frame.scan_phase
     closures = relay_states(scan) if scan is not None else [0] * 8
     for i, (rect, closure) in enumerate(zip(relay_geometry(compact), closures)):
-        _relay(surface, rect, i, closure, compact)
+        _relay(surface, rect, i, closure, compact, detail)
         # A complete scan precedes each result; READ/PUNCH/HOLD leave contacts open.
         local = (scan * 2 - i) % 8 if scan is not None else -1
         if .2 < local < .8:
             x = rect.centerx - 40 + (local - .2) / .6 * 60
             _line(surface, t.SAGE, (x, rect.y - 9), (x + 20, rect.y - 9), 2)
-    _tape(surface, frame, compact, animation.demo_seed)
+    _tape(surface, frame, compact, animation.demo_seed, detail)
     # This inset strip alone reads player currency, never the demo-program output.
     output, lamps = relay_output_geometry(compact)
     value = int(amount) & 255
@@ -492,18 +496,18 @@ def _electromechanical(surface, amount, animation, compact):
     _label(surface, f'{value:03} / 255', (608, output.centery), 12, t.SAGE, center=True)
 
 
-def draw_era_machine(screen, rect, era, amount, animation=None):
+def draw_era_machine(screen, rect, era, amount, animation=None, detail=3):
     """Render only inside rect, with cached plate art and antialiased downsampling."""
     if rect.width <= 0 or rect.height <= 0:
         return
     animation = animation if animation is not None else MachineAnimation()
     compact = rect.height < 180
     palette = (t.BACKGROUND, t.TEXT, t.MUTED, t.SAGE, t.AMBER)
-    canvas = _housing(era, compact, palette).copy()
+    canvas = _housing(era, compact, palette, detail).copy()
     if era == 1:
-        _mechanical(canvas, amount, animation, compact)
+        _mechanical(canvas, amount, animation, compact, detail)
     elif era == 2:
-        _electromechanical(canvas, amount, animation, compact)
+        _electromechanical(canvas, amount, animation, compact, detail)
     else:
         raise ValueError('Working machine renderer supports eras 1 and 2')
     image = pygame.transform.smoothscale(canvas, rect.size)

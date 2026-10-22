@@ -5,6 +5,7 @@ Game state management for Bit by Bit Game
 import pygame
 import math
 import json
+from machine_progression import technology_era
 from constants import (
     CONFIG, GENERATORS, UPGRADES, HARDWARE_GENERATIONS, COST_MULT_BY_ERA,
     ERAS, ABACUS_GENERATORS, MECHANICAL_GENERATORS, ELECTROMECHANICAL_GENERATORS,
@@ -15,6 +16,8 @@ from constants import (
 class GameState:
     def __init__(self):
         # Start with Era 0 (Abacus) - pebbles as currency
+        self.highest_era = 0
+        self.machine_restorations = {str(era): 0 for era in ERAS}
         self.current_era = 0  # 0=Abacus, 1=Mechanical, 2=Electromechanical, etc.
         
         # Currency (pebbles in Era 0, converts to bits when binary is invented)
@@ -96,6 +99,47 @@ class GameState:
     @current_era.setter
     def current_era(self, value):
         self.hardware_generation = int(value)
+        self.highest_era = max(getattr(self, 'highest_era', 0), min(max(ERAS), max(0, int(value))))
+
+    def get_history_limit(self):
+        """Remember historical access without unlocking purchases in a fresh cycle."""
+        from constants import get_all_generators
+        owned = [technology_era(definition) for key, definition in get_all_generators().items()
+                 if self.generators.get(key, {}).get('count', 0) > 0]
+        discoveries = [p['era'] for p in self.get_research_projects() if p['complete']]
+        return min(max(ERAS), max(0, self.highest_era, self.current_era, *owned, *discoveries))
+
+    def load_machine_progression(self, data):
+        """Old saves start assembled; malformed optional ranks cannot create bonuses."""
+        highest = data.get('highest_era', 0)
+        self.highest_era = min(max(ERAS), max(0, highest)) if type(highest) is int else 0
+        self.highest_era = self.get_history_limit()
+        ranks = data.get('machine_restorations', {})
+        if not isinstance(ranks, dict):
+            ranks = {}
+        for era in ERAS:
+            rank = ranks.get(str(era), 0)
+            self.machine_restorations[str(era)] = min(3, max(0, rank)) if type(rank) is int else 0
+
+    def get_machine_level(self, era):
+        return self.machine_restorations.get(str(era), 0)
+
+    def get_workshop_multiplier(self):
+        return 1 + sum(self.get_machine_level(era) for era in ERAS) * .1
+
+    def get_machine_restoration_cost(self, era):
+        if type(era) is not int or era not in ERAS or era > self.get_history_limit():
+            return None
+        level = self.get_machine_level(era)
+        return (era + 1) * 8 ** level if level < 3 else None
+
+    def purchase_machine_restoration(self, era):
+        cost = self.get_machine_restoration_cost(era)
+        if cost is None or self.data_shards < cost:
+            return False
+        self.data_shards -= cost
+        self.machine_restorations[str(era)] = self.get_machine_level(era) + 1
+        return True
 
     def initialize_structures(self):
         # Initialize era-specific generators (Abacus Era - Era 0)
@@ -198,7 +242,7 @@ class GameState:
         upgrade = CONFIG.get("UPGRADES", {}).get("entropy_amplification", {})
         level = self.upgrades.get("entropy_amplification", {}).get("level", 0)
         return (self.binary_efficiency * self.get_prestige_bonus()
-                * math.pow(upgrade.get("effect", 1), level))
+                * math.pow(upgrade.get("effect", 1), level) * self.get_workshop_multiplier())
 
     def get_generator_production(self, generator_id):
         """Actual contribution of an owned machine, including retained era bonuses."""
@@ -269,7 +313,8 @@ class GameState:
         prestige_click_bonus = self.get_click_prestige_bonus()
         
         # Apply binary efficiency to click as well
-        return (base_click + click_upgrade_bonus + prestige_click_bonus) * self.binary_efficiency
+        return ((base_click + click_upgrade_bonus + prestige_click_bonus)
+                * self.binary_efficiency * self.get_workshop_multiplier())
     
     def get_era_generator_cost(self, generator_id, quantity=1):
         """Get the cost for an era-specific generator"""
@@ -797,6 +842,7 @@ class GameState:
         if not self.can_rebirth():
             return False
 
+        self.highest_era = self.get_history_limit()
         # Calculate tokens earned based on total bits
         tokens = self.get_estimated_rebirth_tokens()
 
@@ -873,6 +919,7 @@ class GameState:
         if not self.can_prestige():
             return False
 
+        self.highest_era = self.get_history_limit()
         # Calculate prestige currency earned
         currency_earned = self.get_prestige_currency_earned()
 

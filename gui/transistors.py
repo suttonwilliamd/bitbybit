@@ -67,7 +67,7 @@ def _resistor(surface, center):
         _line(surface, color, (x + offset, y - 6), (x + offset, y + 6), 3)
 
 
-def _transistor(surface, center, index, compact):
+def _transistor(surface, center, index, compact, detail=3):
     x, y = center
     radius = 18 if compact else 23
     for offset in (-18, 0, 18):
@@ -79,19 +79,20 @@ def _transistor(surface, center, index, compact):
     pygame.draw.circle(surface, (17, 30, 23), (x + 4, y + 5), radius + 3)
     pygame.draw.circle(surface, (86, 105, 94), (x, y), radius + 2)
     pygame.draw.circle(surface, (191, 199, 180), (x - 1, y - 1), radius)
-    pygame.draw.circle(surface, (120, 139, 126), (x + 1, y + 1), radius - 3)
-    pygame.draw.circle(surface, METAL, (x - 1, y - 2), radius - 4)
-    # The metal-can package's locating tab and a restrained machined highlight.
-    pygame.draw.polygon(surface, (185, 194, 177),
-                        [(x - radius, y - 6), (x - radius - 7, y - 10), (x - radius - 5, y - 16), (x - radius + 3, y - 13)])
-    pygame.draw.arc(surface, (216, 221, 201), (x - radius + 3, y - radius + 3, radius * 2 - 6, radius * 2 - 6),
-                    .7, 2.7, 2)
+    if detail >= 3:
+        pygame.draw.circle(surface, (120, 139, 126), (x + 1, y + 1), radius - 3)
+        pygame.draw.circle(surface, METAL, (x - 1, y - 2), radius - 4)
+        # The metal-can package's locating tab and a restrained machined highlight.
+        pygame.draw.polygon(surface, (185, 194, 177),
+                            [(x - radius, y - 6), (x - radius - 7, y - 10), (x - radius - 5, y - 16), (x - radius + 3, y - 13)])
+        pygame.draw.arc(surface, (216, 221, 201), (x - radius + 3, y - radius + 3, radius * 2 - 6, radius * 2 - 6),
+                        .7, 2.7, 2)
     _label(surface, 'NPN', (x, y), 12 if compact else 14, DARK, center=True)
     _label(surface, f'Q{index + 1}', (x + radius + 9, y - 14), 12, t.MUTED)
 
 
 @lru_cache(maxsize=8)
-def _layers(compact, palette):
+def _layers(compact, palette, detail=3):
     """Cache only fixed board and parts; palette changes receive distinct entries."""
     height = 280 if compact else 400
     base = pygame.Surface((WIDTH, height), pygame.SRCALPHA)
@@ -117,7 +118,7 @@ def _layers(compact, palette):
         pygame.draw.lines(base, TRACE, False,
                           [(558, y + radius + 16), (644, y + radius + 16), (644, height - 79)], 3)
         for col, x in enumerate((140, 340, 540)):
-            _transistor(parts, (x, y), row * 3 + col, compact)
+            _transistor(parts, (x, y), row * 3 + col, compact, detail)
             # The emitter has a separate return rail, not a disconnected decoration.
             pygame.draw.lines(base, (83, 106, 77), False,
                               [(x - 18, y + radius + 16), (x - 18, y + radius + 23),
@@ -126,9 +127,10 @@ def _layers(compact, palette):
                 _resistor(parts, (x + 65, y + radius + 26))
         # Two dipped ceramic capacitors on the input side of the card.
         cy = y + 5
-        _line(parts, METAL, (66, cy), (66, cy + 30), 2)
-        _line(parts, METAL, (78, cy), (78, cy + 30), 2)
-        _panel(parts, (60, cy - 11, 24, 30), (156, 117, 65), (198, 162, 100), 9)
+        if detail >= 2:
+            _line(parts, METAL, (66, cy), (66, cy + 30), 2)
+            _line(parts, METAL, (78, cy), (78, cy + 30), 2)
+            _panel(parts, (60, cy - 11, 24, 30), (156, 117, 65), (198, 162, 100), 9)
     register_y = height - (56 if compact else 65)
     _panel(base, (34, register_y - 12, 652, 36 if compact else 42), DARK, (80, 104, 80), 5)
     _label(base, 'LOW BYTE', (46, register_y + 1), 14, t.MUTED)
@@ -136,7 +138,7 @@ def _layers(compact, palette):
         _label(base, 'DEMO SIGNAL  >  SWITCHING STAGES', (48, 96), 11, t.MUTED)
     else:
         _label(base, 'DEMO FLOW', (590, height - 25), 11, t.MUTED)
-    for index in range(16):
+    for index in range(16 if detail >= 1 else 0):
         x = 145 + index * 27
         pygame.draw.rect(base, (156, 134, 83), (x, height - 28, 17, 20), border_radius=2)
         _line(base, (205, 181, 115), (x + 3, height - 26), (x + 3, height - 11), 2)
@@ -146,14 +148,14 @@ def _layers(compact, palette):
     return base, parts
 
 
-def draw_transistor_board(screen, rect, amount, animation=None):
+def draw_transistor_board(screen, rect, amount, animation=None, detail=3):
     """Bounded, pure render; decorative flow never stands in for earned currency."""
     if rect.width <= 0 or rect.height <= 0:
         return
     animation = animation if animation is not None else MachineAnimation()
     compact = rect.height < 180
     palette = (t.TEXT, t.MUTED, t.SAGE, t.BORDER)
-    plate, parts = _layers(compact, palette)
+    plate, parts = _layers(compact, palette, detail)
     canvas = plate.copy()
     segment = signal_segment(animation.phase, compact)
     if len(segment) > 1:
