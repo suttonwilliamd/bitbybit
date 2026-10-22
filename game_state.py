@@ -156,7 +156,7 @@ class GameState:
             self.compression_generators[gen_id] = {"count": 0, "total_bought": 0}
 
         for upgrade_id in self.data_shard_upgrades:
-            self.data_shard_upgrades[upgrade_id] = {"level": 0}
+            self.data_shard_upgrades[upgrade_id]["level"] = 0
 
     def get_production_rate(self):
         # Use the new era progression system
@@ -265,6 +265,12 @@ class GameState:
     
     def is_era_generator_unlocked(self, generator_id):
         """Check if an era-specific generator is unlocked"""
+        for era, definitions in enumerate((ABACUS_GENERATORS, MECHANICAL_GENERATORS,
+                                           ELECTROMECHANICAL_GENERATORS, VACUUM_TUBE_GENERATORS)):
+            if generator_id in definitions and self.current_era != era:
+                return False
+        if self.current_era >= 4:
+            return self.is_generator_unlocked(generator_id)
         # Check which generator dictionary it belongs to
         if generator_id in ABACUS_GENERATORS:
             generator = ABACUS_GENERATORS[generator_id]
@@ -293,6 +299,8 @@ class GameState:
         for upgrade_id, upgrade_data in ERA_UPGRADES.items():
             if upgrade_data.get("category") == category:
                 level = self.era_upgrades.get(upgrade_id, {}).get("level", 0)
+                if upgrade_id in ("clay_inscriptions", "precision_crafting", "card_punching", "tube_replacement"):
+                    continue
                 effect = upgrade_data.get("effect", 1)
                 multiplier *= math.pow(effect, level)
         
@@ -379,7 +387,12 @@ class GameState:
         )
     
     def can_afford_era_upgrade(self, upgrade_id):
-        """Check if player can afford an era upgrade"""
+        """Check availability, cap, and active currency before purchasing."""
+        if upgrade_id not in ERA_UPGRADES:
+            return False
+        upgrade = ERA_UPGRADES[upgrade_id]
+        if upgrade["era"] != self.current_era or self.era_upgrades[upgrade_id]["level"] >= upgrade["max_level"]:
+            return False
         cost = self.get_era_upgrade_cost(upgrade_id)
         if self.current_era == 0 and not self.binary_invented:
             return self.pebbles >= cost
@@ -474,7 +487,7 @@ class GameState:
         self.binary_invented = True
         self.bits = converted_bits
         self.total_bits_earned = converted_bits
-        self.total_pebbles_earned = self.pebbles  # Keep track
+        # Lifetime pebbles include spent currency; never replace with the balance.
         
         # Apply binary efficiency multiplier
         self.binary_efficiency = PRESTIGE_UPGRADES["define_bit"]["effect"]
@@ -571,6 +584,13 @@ class GameState:
             return "total_pebbles_earned"
         return "total_bits_earned"
 
+    def add_idle_currency(self, amount):
+        """Credit production to the same currency used by clicks and purchases."""
+        if amount <= 0:
+            return
+        for key in (self.get_active_currency_key(), self.get_active_total_key()):
+            setattr(self, key, getattr(self, key) + amount)
+
     def add_manual_currency(self):
         """Apply one manual click using the current era's currency."""
         amount = self.get_click_power()
@@ -609,7 +629,7 @@ class GameState:
 
     def purchase_generator(self, generator_id, quantity=1):
         """Purchase an unlocked generator using the active currency."""
-        if quantity < 1 or generator_id not in self.generators:
+        if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity < 1 or generator_id not in self.generators:
             return False
         definition = self._get_generator_definition(generator_id)
         if definition is None:
@@ -630,6 +650,8 @@ class GameState:
 
     def purchase_upgrade(self, upgrade_id):
         """Purchase a basic or hardware upgrade using active currency."""
+        if upgrade_id in ERA_UPGRADES:
+            return self.purchase_era_upgrade(upgrade_id)
         definitions = {**CONFIG.get("UPGRADES", {}), **CONFIG.get("HARDWARE_UPGRADES", {})}
         if upgrade_id not in definitions or upgrade_id not in self.upgrades:
             return False
@@ -648,38 +670,11 @@ class GameState:
         return self.get_era_click_power()
 
     def get_generator_cost(self, generator_id, quantity=1):
-        # Check both basic and hardware generators
-        if generator_id in CONFIG["GENERATORS"]:
-            generator = CONFIG["GENERATORS"][generator_id]
-        elif generator_id in CONFIG.get("HARDWARE_GENERATORS", {}):
-            generator = CONFIG["HARDWARE_GENERATORS"][generator_id]
-        else:
-            return float('inf')  # Unknown generator
-        
-        current_count = self.generators[generator_id]["count"]
-        
-        # Get era-specific cost multiplier (design doc: 1.15 for early eras, 1.10 for late)
-        era_cost_mult = COST_MULT_BY_ERA.get(self.hardware_generation, 1.15)
-        
-        # Use generator's own multiplier if set, otherwise use era multiplier
-        cost_multiplier = generator.get("cost_multiplier", era_cost_mult)
-
-        if quantity == 1:
-            return int(
-                generator["base_cost"]
-                * math.pow(cost_multiplier, current_count)
-            )
-
-        # Bulk purchase cost calculation
-        first_cost = generator["base_cost"] * math.pow(
-            cost_multiplier, current_count
-        )
-        ratio = math.pow(cost_multiplier, quantity) - 1
-        denominator = cost_multiplier - 1
-
-        return int(first_cost * ratio / denominator)
+        return self.get_era_generator_cost(generator_id, quantity)
 
     def get_upgrade_cost(self, upgrade_id):
+        if upgrade_id in ERA_UPGRADES:
+            return self.get_era_upgrade_cost(upgrade_id)
         # Check if it's a basic upgrade or hardware upgrade
         if upgrade_id in CONFIG["UPGRADES"]:
             upgrade = CONFIG["UPGRADES"][upgrade_id]
@@ -718,6 +713,8 @@ class GameState:
 
     def is_upgrade_unlocked(self, upgrade_id):
         """Check if upgrade is unlocked based on hardware category and bits earned"""
+        if upgrade_id in ERA_UPGRADES:
+            return ERA_UPGRADES[upgrade_id]["era"] == self.current_era
         if upgrade_id in CONFIG["UPGRADES"]:
             # Basic upgrades available from start
             if self.total_bits_earned >= 1000:
@@ -848,6 +845,7 @@ class GameState:
         # Check if we should advance hardware generation
         advanced = self.advance_hardware_generation()
 
+        self.last_collect_bits = 0
         # Reset progress (keep lifetime stats)
         lifetime_bits = self.total_bits_earned
         self.bits = 0
@@ -912,6 +910,7 @@ class GameState:
         self.total_prestige_currency += currency_earned
         self.prestige_count += 1
 
+        self.last_collect_bits = 0
         # Reset everything for full prestige
         self.bits = 0
         self.total_bits_earned = 0
@@ -939,14 +938,10 @@ class GameState:
 
     def get_data_shards_earned(self):
         """Calculate data shards earned based on total bits earned since last collection"""
-        if self.total_bits_earned < 10000:
-            return 0
-        
         bits_since_collect = self.total_bits_earned - self.last_collect_bits
-        if bits_since_collect < 10000:
+        if bits_since_collect < self.get_collect_threshold():
             return 0
-        
-        shards = max(0, int(math.log10(bits_since_collect)) - 3)
+        shards = max(1, int(math.log10(max(1, bits_since_collect))) - 3)
         return shards
 
     def can_collect_data_shards(self):
@@ -973,7 +968,7 @@ class GameState:
     def get_data_shard_upgrade_cost(self, upgrade_id):
         """Calculate cost for next level of a data shard upgrade"""
         if upgrade_id not in self.data_shard_upgrades:
-            return 0
+            return None
         
         upgrade = self.data_shard_upgrades[upgrade_id]
         current_level = upgrade.get("level", 0)

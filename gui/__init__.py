@@ -18,6 +18,7 @@ import math
 import json
 import os
 import random
+import time
 
 from constants import (
     COLORS, CONFIG, GENERATORS, UPGRADES, WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -638,7 +639,7 @@ class BitByBitGame:
             elif self.cheat_mode and self.delete_save_button.is_clicked(event):
                 # Delete the save file and reset game state
                 import os
-                save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bitbybit_save.json")
+                save_path = CONFIG["SAVE_FILE"]
                 if os.path.exists(save_path):
                     os.remove(save_path)
                 # Also remove backup
@@ -783,14 +784,7 @@ class BitByBitGame:
         y_offset = -panel.get_scroll_offset()
 
         for gen_id, generator in all_generators.items():
-            is_locked = False
-            if not self.cheat_mode:
-                if gen_id in basic_generators:
-                    if not self.state.is_generator_unlocked(gen_id):
-                        is_locked = True
-                elif gen_id in hardware_generators:
-                    if not self.state.is_hardware_category_unlocked(generator.get("category", "")):
-                        is_locked = True
+            is_locked = not self.state.is_era_generator_unlocked(gen_id)
 
             if is_locked and not self.cheat_mode:
                 continue
@@ -800,26 +794,26 @@ class BitByBitGame:
             can_afford = self.can_afford(cost)
 
             card_x = panel.rect.x + 20
-            card_y = panel.rect.y + 50 + y_offset + 8
+            card_y = panel.rect.y + 52 + y_offset + 8
             card_width = panel.rect.width - 40
             card_height = 90
 
             card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
             if card_rect.collidepoint(mouse_pos):
-                button_y = card_y + card_height - 32
-                btn_width = 55
-                btn_height = 26
-                btn_spacing = 5
+                button_y = card_y + card_height - 30
+                btn_width = 50
+                btn_height = 24
+                btn_spacing = 4
 
                 btn1_rect = pygame.Rect(
-                    card_x + card_width - btn_width * 2 - btn_spacing * 2 - 10, button_y, btn_width, btn_height
+                    card_x + card_width - btn_width * 2 - btn_spacing * 2 - 8, button_y, btn_width, btn_height
                 )
                 if btn1_rect.collidepoint(mouse_pos) and can_afford:
                     self.buy_generator(gen_id, 10)
                     return
 
                 btn2_rect = pygame.Rect(
-                    card_x + card_width - btn_width - btn_spacing - 10, button_y, btn_width, btn_height
+                    card_x + card_width - btn_width - btn_spacing - 8, button_y, btn_width, btn_height
                 )
                 if btn2_rect.collidepoint(mouse_pos) and can_afford:
                     self.buy_generator(gen_id, 1)
@@ -837,36 +831,26 @@ class BitByBitGame:
         y_offset = -panel.get_scroll_offset()
 
         for upgrade_id, upgrade in all_upgrades.items():
-            is_locked = False
-            if not self.cheat_mode:
-                if upgrade_id in basic_upgrades:
-                    if not self.state.is_upgrade_unlocked(upgrade_id):
-                        is_locked = True
-                elif upgrade_id in hardware_upgrades:
-                    if not self.state.is_hardware_category_unlocked(upgrade.get("category", "")):
-                        is_locked = True
-
-            level = self.state.upgrades.get(upgrade_id, {}).get("level", 0)
+            if not self.cheat_mode and not self.state.is_upgrade_unlocked(upgrade_id):
+                continue
+            levels = self.state.era_upgrades if upgrade_id in self.state.era_upgrades else self.state.upgrades
+            level = levels.get(upgrade_id, {}).get("level", 0)
             cost = self.state.get_upgrade_cost(upgrade_id)
             can_afford = self.can_afford(cost) and level < upgrade["max_level"]
 
             card_x = panel.rect.x + 20
-            card_y = panel.rect.y + 50 + y_offset + 8
+            card_y = panel.rect.y + 52 + y_offset + 8
             card_width = panel.rect.width - 40
             card_height = 85
 
             card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
             if card_rect.collidepoint(mouse_pos):
                 if level < upgrade["max_level"]:
-                    btn_key = f"{upgrade_id}_btn"
-                    if btn_key in self.upgrade_card_buttons:
-                        btn = self.upgrade_card_buttons[btn_key]
-                        btn.rect.x = card_x + card_width - 80
-                        btn.rect.y = card_y + card_height - 25
-                        
-                        if btn.rect.collidepoint(mouse_pos) and can_afford:
-                            self.buy_upgrade(upgrade_id)
-                            return
+                    button_rect = pygame.Rect(card_x + card_width - 75,
+                                              card_y + card_height - 30, 65, 24)
+                    if button_rect.collidepoint(mouse_pos) and can_afford:
+                        self.buy_upgrade(upgrade_id)
+                        return
 
             y_offset += card_height + 14
 
@@ -933,8 +917,7 @@ class BitByBitGame:
         production_int = int(self.production_accumulator)
 
         if production_int > 0:
-            self.state.bits += production_int
-            self.state.total_bits_earned += production_int
+            self.state.add_idle_currency(production_int)
             self.production_accumulator -= production_int
 
         for gen_id, generator in CONFIG["GENERATORS"].items():
@@ -963,7 +946,7 @@ class BitByBitGame:
             self.last_auto_save = current_time
 
         # Clear old messages after 3 seconds
-        if self.save_success_message and current_time - self.state.last_save_time < 3000:
+        if self.save_success_message and current_time - self.state.last_save_time >= 3000:
             self.save_success_message = None
 
     def _draw_save_feedback(self):
@@ -1167,7 +1150,7 @@ class BitByBitGame:
                 else:
                     production = 0
             else:
-                production = 0
+                production = count * generator.get("base_production", 0)
 
             card_height = 90
             card_y = y_offset + 8
@@ -1215,15 +1198,10 @@ class BitByBitGame:
         hardware_upgrades = CONFIG.get("HARDWARE_UPGRADES", {})
 
         for upgrade_id, upgrade in all_upgrades.items():
-            if not self.cheat_mode:
-                if upgrade_id in basic_upgrades:
-                    if not self.state.is_upgrade_unlocked(upgrade_id):
-                        continue
-                elif upgrade_id in hardware_upgrades:
-                    if not self.state.is_hardware_category_unlocked(upgrade["category"]):
-                        continue
-
-            level = self.state.upgrades.get(upgrade_id, {}).get("level", 0)
+            if not self.cheat_mode and not self.state.is_upgrade_unlocked(upgrade_id):
+                continue
+            levels = self.state.era_upgrades if upgrade_id in self.state.era_upgrades else self.state.upgrades
+            level = levels.get(upgrade_id, {}).get("level", 0)
             cost = self.state.get_upgrade_cost(upgrade_id)
             can_afford = self.can_afford(cost) and level < upgrade["max_level"]
 
@@ -1448,8 +1426,16 @@ class BitByBitGame:
     def save_game(self):
         save_data = {
             "version": "1.1.0",
-            "timestamp": pygame.time.get_ticks(),
+            "timestamp": time.time(),
+            "clock": "unix",
             "state": {
+                "pebbles": self.state.pebbles,
+                "total_pebbles_earned": self.state.total_pebbles_earned,
+                "binary_invented": self.state.binary_invented,
+                "boolean_algebra_invented": self.state.boolean_algebra_invented,
+                "binary_efficiency": self.state.binary_efficiency,
+                "era_upgrades": self.state.era_upgrades,
+                "prestige_upgrades": self.state.prestige_upgrades,
                 "bits": self.state.bits,
                 "total_bits_earned": self.state.total_bits_earned,
                 "total_clicks": self.state.total_clicks,
@@ -1515,14 +1501,18 @@ class BitByBitGame:
             self.last_save_error = error_msg
             self.save_success_message = None
 
-    def load_game(self):
-        if not os.path.exists(CONFIG["SAVE_FILE"]):
+    def load_game(self, from_backup=False):
+        save_path = CONFIG["SAVE_FILE"] + (".backup" if from_backup else "")
+        if not os.path.exists(save_path):
+            if not from_backup and os.path.exists(CONFIG["SAVE_FILE"] + ".backup"):
+                self._try_load_backup()
+                return
             self.showing_tutorial = True
             self.tutorial_text = "Welcome to BIT BY BIT!\n\nYou are about to discover\nfundamental nature of information.\n\nClick accumulator to generate\nyour first bits."
             return
 
         try:
-            with open(CONFIG["SAVE_FILE"], "r") as f:
+            with open(save_path, "r") as f:
                 save_data = json.load(f)
 
             # Check save version for migration
@@ -1531,6 +1521,12 @@ class BitByBitGame:
 
             state_data = save_data.get("state", {})
             
+            for field in ("pebbles", "total_pebbles_earned", "binary_invented",
+                          "boolean_algebra_invented", "binary_efficiency"):
+                setattr(self.state, field, state_data.get(field, getattr(self.state, field)))
+            for field in ("era_upgrades", "prestige_upgrades"):
+                getattr(self.state, field).update(state_data.get(field, {}))
+
             # Use .get() for all fields with sensible defaults
             self.state.bits = state_data.get("bits", 0)
             self.state.total_bits_earned = state_data.get("total_bits_earned", 0)
@@ -1564,14 +1560,14 @@ class BitByBitGame:
             self.state.compression_generators = state_data.get("compression_generators", {})
             
             # Migration: compression_upgrades -> data_shard_upgrades
-            if "compression_upgrades" in state_data:
-                self.state.data_shard_upgrades = state_data.get("compression_upgrades", {})
-            else:
-                self.state.data_shard_upgrades = state_data.get("data_shard_upgrades", {})
+            saved_upgrades = state_data.get("compression_upgrades", state_data.get("data_shard_upgrades", {}))
+            for upgrade_id, progress in saved_upgrades.items():
+                if upgrade_id in self.state.data_shard_upgrades:
+                    self.state.data_shard_upgrades[upgrade_id]["level"] = progress.get("level", 0)
             
-            self.state.generators = state_data.get("generators", self.state.generators)
+            self.state.generators.update(state_data.get("generators", {}))
             self.state.unlocked_generators = state_data.get("unlocked_generators", ["rng"])
-            self.state.upgrades = state_data.get("upgrades", self.state.upgrades)
+            self.state.upgrades.update(state_data.get("upgrades", {}))
             self.state.tutorial_step = state_data.get("tutorial_step", 0)
             self.state.has_seen_tutorial = state_data.get("has_seen_tutorial", False)
             self.state.visual_settings = state_data.get("visual_settings", self.state.visual_settings)
@@ -1594,50 +1590,37 @@ class BitByBitGame:
                     if upgrade_id not in self.state.upgrades:
                         self.state.upgrades[upgrade_id] = {"level": 0}
 
-            if save_data.get("timestamp"):
-                offline_time = min(
-                    (pygame.time.get_ticks() - save_data["timestamp"]) / 1000, 86400
-                )
+            # Legacy timestamps were process-local ticks and cannot measure offline time.
+            if save_data.get("clock") == "unix" and save_data.get("timestamp"):
+                offline_time = max(0, min(time.time() - save_data["timestamp"], 86400))
                 offline_production = (
                     self.state.get_production_rate() * offline_time * 0.75
                 )
 
                 if offline_production > 0:
-                    self.state.bits += offline_production
-                    self.state.total_bits_earned += offline_production
+                    self.state.add_idle_currency(offline_production)
                     print(f"Offline progress: {self.format_number(offline_production)} bits")
             
-            self.last_load_error = None
+            self.last_load_error = "Restored from backup" if from_backup else None
 
         except json.JSONDecodeError as e:
             error_msg = f"Save file corrupted: {e}"
             print(error_msg)
             self.last_load_error = error_msg
-            self._try_load_backup()
+            if not from_backup:
+                self._try_load_backup()
         except Exception as e:
             error_msg = f"Failed to load game: {e}"
             print(error_msg)
             self.last_load_error = error_msg
-            self._try_load_backup()
+            if not from_backup:
+                self._try_load_backup()
 
     def _try_load_backup(self):
-        """Try to load from backup file if main save is corrupted"""
-        backup_file = CONFIG["SAVE_FILE"] + ".backup"
-        if os.path.exists(backup_file):
-            try:
-                with open(backup_file, "r") as f:
-                    save_data = json.load(f)
-                # Restore from backup
-                state_data = save_data.get("state", {})
-                self.state.bits = state_data.get("bits", 0)
-                self.state.total_bits_earned = state_data.get("total_bits_earned", 0)
-                self.state.generators = state_data.get("generators", {})
-                self.state.upgrades = state_data.get("upgrades", {})
-                self.state.hardware_generation = state_data.get("hardware_generation", 0)
-                self.last_load_error = "Restored from backup"
-                print("Restored game from backup")
-            except Exception as e:
-                self.last_load_error = f"Backup also corrupted: {e}"
+        """Use the normal migration and restoration path for backups too."""
+        if os.path.exists(CONFIG["SAVE_FILE"] + ".backup"):
+            self.state = GameState()
+            self.load_game(from_backup=True)
 
     def _migrate_save(self, save_data, version):
         """Migrate save data from older versions"""
