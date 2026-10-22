@@ -163,7 +163,7 @@ class MachineRenderTests(unittest.TestCase):
 
     def test_actual_click_target_follows_compact_and_full_machine(self):
         game = self.game
-        for era in (1, 2):
+        for era in (1, 2, 4):
             game.state.current_era = era
             for size in ((960, 640), (1024, 768), (1200, 800), (1600, 900)):
                 game.showing_tutorial = False
@@ -182,7 +182,7 @@ class MachineRenderTests(unittest.TestCase):
 
     def test_reduced_motion_pixels_stay_fixed_and_readings_update_immediately(self):
         game = self.game
-        for era in (1, 2):
+        for era in (1, 2, 4):
             game.state.current_era = era
             game.state.bits = 124
             game.reduced_motion_mode = True
@@ -212,7 +212,7 @@ class MachineRenderTests(unittest.TestCase):
             first = self.image(rect)
             game.machine_animation.phase = 1.2
             dashboard.draw_machine(game.screen, rect, era, 9999, game.machine_animation)
-            if era not in (1, 2):
+            if era not in (1, 2, 4):
                 self.assertEqual(first, self.image(rect))
         self.assertEqual(before, (game.state.bits, game.state.pebbles, game.state.total_clicks,
                                  game.state.total_bits_earned, game.state.total_pebbles_earned))

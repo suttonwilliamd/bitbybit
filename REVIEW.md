@@ -46,6 +46,12 @@ Added an entry-level Thermionic Diode at the existing Vacuum Tubes entry thresho
 
 Working Mechanical/Electromechanical illustrations are documented in `docs/MACHINE_DESIGN.md`. BobRoss.bot supplied art-direction consultation in WIL-164. Rendered sign-off in WIL-165 is still pending: Paperclip attachment publication encountered ownership/run restrictions. Neither implementation tests nor our native smoke are claimed as BobRoss's visual approval.
 
+## Transistors centerpiece follow-up
+
+Replaced era 4's undersized generic chip with a full discrete-transistor logic card, documented in `docs/MACHINE_DESIGN.md`. The board has metal-can packages, visible terminals, banded resistors, ceramic capacitors, routed copper and edge contacts. A labeled demo trace is presentation-only; binary/hex output reads the actual low byte. A compact header gives the card enough room at 960x640. Click geometry, high contrast and Reduced Motion are retained; other eras, balance rules and saves are unchanged.
+
+The combined suite now runs **43 regressions**, including six new board tests and era-4 coverage in actual-click and Reduced Motion GUI tests. Both deterministic playtests and compilation pass. Visible native Windows previews use temporary saves, 180 frames at each supported reference size, spending/large-jump changes, Reduced Motion pixel stability with live readings, and high-contrast rendering. No BobRoss rendered approval is implied.
+
 ## Further recommendations
 
 - Separate historical era and motherboard generation before adding more historical content; rebirth and era advancement currently move the same index.

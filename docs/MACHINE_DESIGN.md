@@ -13,11 +13,19 @@ Applied priorities:
 
 `gui/machines.py` owns procedural drawing and a bounded, delta-time-driven per-game presentation clock. Static plates are cached with bounded caches; draw routines neither read wall time nor mutate gameplay. Click impulses decay analytically and behave consistently at different frame rates. No new dependencies or save fields are needed.
 
-Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Existing abacus/other-era art remains unchanged.
+Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Abacus, Vacuum Tubes and later-era art remains unchanged.
+
+## Transistors centerpiece
+
+`gui/transistors.py` replaces the era-4 generic chip with a discrete solid-state logic card. Metal-can NPN packages have visible leads, locating tabs and restrained machined highlights; color-banded resistors, ceramic capacitors, through-hole pads, right-angle copper traces and gold edge contacts establish a different instrument from the later integrated-circuit eras. Compact layout reserves room for the board rather than squeezing a tiny chip into empty space.
+
+One short sage segment travels along existing copper traces, behind the components. It uses the shared presentation clock, including click impulses and Reduced Motion. **DEMO SIGNAL / DEMO FLOW** labels distinguish illustrative switching from production; this is not a circuit simulator. The binary register and `0x` readout show actual currency modulo 256, bit 7 at left, even while decorative motion is frozen. Fixed board/parts layers have an eight-entry palette-aware cache. No gameplay, save schema or dependencies changed.
+
+Six new regressions cover connected trace endpoints, bounded on-trace motion, pure deterministic rendering with parent clipping, truthful byte/spending/jump output, palette caching and empty targets. Existing real-click and Reduced Motion GUI regressions now include era 4. Native Windows checks render 180 frames at each of 1200x800 and 960x640, verify a visible Windows window, spending/large jumps, frozen geometry with live readings, high contrast and temporary-save isolation. Stills are retained outside the repository under `Projects/transistor-review`. These checks do not constitute BobRoss rendered approval.
 
 Verification:
 ```powershell
-python -m unittest test_machines test_gameplay test_visual_refresh -v
+python -m unittest test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
 python playtest.py
 ```
 

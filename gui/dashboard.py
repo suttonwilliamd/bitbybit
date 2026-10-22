@@ -4,6 +4,7 @@ from constants import ERAS, get_all_generators, get_all_upgrades, format_number
 from . import theme as t
 from .research import research_button_rect
 from .machines import draw_era_machine
+from .transistors import draw_transistor_board
 
 CARD_HEIGHT = 132
 CARD_GAP = 10
@@ -40,7 +41,7 @@ def apply_layout(game):
 
 
 def compact_machine_header(game):
-    return game.state.current_era in (1, 2) and game.current_height < 720
+    return game.state.current_era in (1, 2, 4) and game.current_height < 720
 
 
 def shop_items(state, upgrades=False):
@@ -161,9 +162,11 @@ def draw_shop(game, upgrades=False):
 
 
 def draw_machine(screen, rect, era, amount, animation=None):
-    """Era-specific illustrations; only the working mechanisms use local motion."""
+    """Presentation-only era illustrations; motion never changes earnings."""
     if era in (1, 2):
         draw_era_machine(screen, rect, era, amount, animation)
+    elif era == 4:
+        draw_transistor_board(screen, rect, amount, animation)
     elif era == 0:
         t.panel(screen, rect, (44, 46, 39))
         inner = rect.inflate(-24, -16)
