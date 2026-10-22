@@ -66,6 +66,12 @@ The LOW BYTE panel, lamps, bit labels and numeric balance now share an inset ful
 
 Eight new tests bring the combined suite to **58 passing regressions**. Both deterministic playtests and compilation pass. Native temporary-save Windows checks cover 360 frames at each of 1200x800/960x640, real machine click events, the genuine rare fixture, high contrast, spending/large jumps, Reduced Motion stability/live readings, and pixel-identical unrelated-era art. Task/stage filmstrips and 20 fps APNGs are retained outside the repository. No BobRoss rendered approval is implied.
 
+## Vacuum Tubes centerpiece replacement
+
+Replaced the static five-bar tube graphic with a thermionic signal instrument: four detailed glass valves, vented plates/grids, getters, steady warm heaters, ceramic sockets and connected copper. Electron packets and restrained on-wire segments accompany a rolling demo scope that cycles through oscillator, amplifier, rectifier and half-rate divider views, selecting the matching valve and probe. The independently truthful LOW BYTE strip remains inset inside the cabinet. Compact layout, real click routing and Reduced Motion are supported. No economy, saves or unrelated-era artwork changed.
+
+Seven new waveform/geometry/output/purity/cache regressions bring the combined suite to **65 passing tests**, with era 3 added to existing click and Reduced Motion GUI checks. Both playtests and compilation pass. Native temporary-save Windows checks cover 360 frames per reference size, real clicks, spending/large jumps, high contrast, frozen demonstrations with live balance updates, and pixel-identical other eras. Four-view filmstrips, stills and 20 fps APNGs are retained outside Git. No BobRoss rendered approval is implied.
+
 ## Further recommendations
 
 - Separate historical era and motherboard generation before adding more historical content; rebirth and era advancement currently move the same index.

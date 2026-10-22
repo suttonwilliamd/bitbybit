@@ -86,9 +86,11 @@ Mechanical now has a working brass gear train, crank and guided carriage, plus a
 
 Electromechanical's **8-bit demo tape** runs counting, addition, multiplication, XOR, shifting, Fibonacci, ASCII and parity tasks with changing inputs. **READ → RUN → PUNCH → HOLD** ties the relay scan and punch head to each computed result; program names, inputs and results explain what is happening. The tape holes encode completed demo results, **not player earnings**. A very rare cosmetic message is hidden among the programs, without a currency or progression reward. The fully inset **LOW BYTE** strip separately shows your actual balance modulo 256, bit 7 at left.
 
+Vacuum Tubes now has a **thermionic signal lab**: four glass valves with visible plates, grids, getters, ceramic sockets and steadily warm filaments. Moving demo electron packets and wired signal segments accompany a scrolling scope that cycles through oscillator, amplifier, rectifier and half-rate divider views. The selected valve and probe follow the displayed channel. These are **illustrative signals, not earnings or a circuit simulation**; the separate LOW BYTE lamps and hexadecimal readout show your actual balance modulo 256.
+
 Transistors now has a full discrete-logic card instead of a generic chip: six metal-can transistors, color-banded resistors, ceramic capacitors, copper traces and gold edge contacts. A restrained **demo flow** follows the traces. The binary register and hexadecimal readout show the **actual balance modulo 256**, bit 7 at left; they are not simulated earnings. The board remains a normal click target and fits the minimum window.
 
-Reduced Motion freezes gears, relays, signals and tape programs and updates readings instantly without flipping. Motion is independent of the optional particle/background effects. The abacus, Vacuum Tubes and later-era illustrations are unchanged.
+Reduced Motion freezes gears, relays, tube demonstrations, signals and tape programs and updates readings instantly without flipping. Motion is independent of the optional particle/background effects. The abacus and later-era illustrations are unchanged.
 
 The window supports resizing down to **960 × 640**. Shops scroll with the mouse wheel or scrollbar, keeping purchases clipped to the visible area. The bottom discovery bar opens the research journal.
 

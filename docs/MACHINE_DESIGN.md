@@ -13,7 +13,17 @@ Applied priorities:
 
 `gui/machines.py` owns procedural drawing and a bounded, delta-time-driven per-game presentation clock. Static plates are cached with bounded caches; draw routines neither read wall time nor mutate gameplay. Click impulses decay analytically and behave consistently at different frame rates. No new dependencies or save fields are needed.
 
-Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Abacus, Vacuum Tubes and later-era art remains unchanged.
+Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Abacus and later-era art remains unchanged.
+
+## Vacuum Tubes thermionic instrument
+
+`gui/vacuum.py` replaces five static tube bars with a complete four-valve signal instrument. Each shouldered glass envelope has a silver getter patch, support rods, vented twin plates, central grid, steady amber heater, phenolic collar, ceramic socket and copper pins. Visible socket-to-socket wiring connects the stages. Restrained electron packets move inside the envelopes; filament brightness is constant, without bloom, flashes or animated background effects.
+
+The **DEMO SCOPE** cycles every five presentation-phase units through OSCILLATOR, AMPLIFIER, RECTIFIER and DIVIDE / 2 views. Their functions are a small sine source, saturated gain, positive half-wave rectification and a square wave at half the source frequency. A rolling three-source-period window, moving sample endpoint, channel pilot and matching valve/probe selection show what changes. A routed probe meets the selected valve output pin and scope input. Short signal segments stay on their drawn copper paths. This is an illustrative signal demonstration, not an electrically simulated circuit or a measurement of player production.
+
+A separate inset LOW BYTE strip has bit-7-left lamps and a `0x` readout of actual integer currency modulo 256. Tube/scope/probe geometry and all output components fit inside the cabinet at both reference sizes. Compact layout uses shorter envelopes, a shallower scope and fewer secondary labels rather than squeezing the old artwork into a tiny area. Clicks use the existing presentation impulse; Reduced Motion freezes all decorative geometry/views while the true byte continues updating. The existing per-game clock is reused, with no wall-clock reads, randomness, new dependencies or save fields. Two static layers use an eight-entry palette-aware cache.
+
+Seven new regressions in `test_vacuum.py` cover the four waveform functions/frequencies, sample/view bounds, connected wiring/on-path flow, cabinet/output/text geometry, truthful spending/jump/modulo readings independent of the demo, pure clipped rendering with steady heaters, and bounded theme-safe caches. Existing resized real-click, Reduced Motion and unrelated-era tests now include era 3. The combined suite has **65 passing tests**; both playtests and compilation pass. Native temporary-save Windows previews run 360 frames per reference window size, check real clicks, spending/large jumps, Reduced Motion/live readings and high contrast, and capture 120-frame APNGs at 20 fps plus four-view filmstrips. Other eras are pixel-identical to baseline at both illustration sizes. Artifacts are outside Git under `Projects/vacuum-review`; no BobRoss rendered sign-off is implied.
 
 ## Relay program tape and inset LOW BYTE strip
 
@@ -45,7 +55,7 @@ Six new regressions cover connected trace endpoints, bounded on-trace motion, pu
 
 Verification:
 ```powershell
-python -m unittest test_program_tape test_split_flap test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
+python -m unittest test_vacuum test_program_tape test_split_flap test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
 python playtest.py
 ```
 
