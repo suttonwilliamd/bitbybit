@@ -52,6 +52,12 @@ Replaced era 4's undersized generic chip with a full discrete-transistor logic c
 
 The combined suite now runs **43 regressions**, including six new board tests and era-4 coverage in actual-click and Reduced Motion GUI tests. Both deterministic playtests and compilation pass. Visible native Windows previews use temporary saves, 180 frames at each supported reference size, spending/large-jump changes, Reduced Motion pixel stability with live readings, and high-contrast rendering. No BobRoss rendered approval is implied.
 
+## Stepped Reckoner split-flap correction
+
+Replaced vertically scrolling digits with hinged upper/lower leaves: the outgoing upper half folds into a fixed center seam, then the incoming lower half opens downward. Stationary backing halves never move; unchanged digits do not animate. The existing 240 ms timing, truthful low-eight-digit readings, coalescing, instant spending/large-jump settlement and Reduced Motion behavior remain intact. Fixed faces have a bounded cache, and drawing respects the caller's clip. No gameplay, save schema or unrelated-era art changed.
+
+Seven new split-flap regressions bring the combined suite to **50 passing tests**. Native Windows previews use temporary saves, 240 frames at each reference window size, 30 fps APNGs and a transition filmstrip. Checks include carries, Reduced Motion/live readings, high contrast, spending/large jumps and pixel-identical unrelated-era illustrations. The deterministic playtest and compilation also pass.
+
 ## Further recommendations
 
 - Separate historical era and motherboard generation before adding more historical content; rebirth and era advancement currently move the same index.

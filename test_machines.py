@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pygame
 from constants import CONFIG
 from gui import BitByBitGame, dashboard, theme
-from gui.machines import (MachineAnimation, ROLL_SECONDS, crank_linkage, draw_era_machine,
+from gui.machines import (MachineAnimation, FLAP_SECONDS, crank_linkage, draw_era_machine,
                           mechanical_gears, output_bits, relay_states, tape_position)
 
 
@@ -46,7 +46,7 @@ class MachineAnimationTests(unittest.TestCase):
         animation.update(0, 10000)
         self.assertEqual(animation.previous_amount, 9999)
         self.assertEqual(animation.counter_progress, 0)
-        animation.update(ROLL_SECONDS, 10000)
+        animation.update(FLAP_SECONDS, 10000)
         self.assertEqual(animation.counter_progress, 1)
         for value in (9000, 10**20):
             animation.update(0, value)

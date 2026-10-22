@@ -5,7 +5,7 @@ Art direction was consulted with **BobRoss.bot**, the Paperclip company's Creati
 Applied priorities:
 - Distinct mounted instruments, not disconnected gear/relay icons.
 - A single connected mechanical drive: an open five-gear chain, pitch-radius/tooth-count ratios, counter-rotation and initial tooth/gap phase, equal-pulley belt, crank, fixed-length offset connecting rod and guided reciprocating carriage. The carriage is not falsely meshed to the continuously rotating gears.
-- A pale decimal register shows the low eight digits of real currency. Only small increases roll (240 ms); rapid changes coalesce, and spending/large jumps settle immediately.
+- A pale decimal register shows the low eight digits of real currency. Only small increases flip (240 ms); rapid changes coalesce, and spending/large jumps settle immediately.
 - An enamel cabinet holds a 4x2 bank of copper-wound relays with visible pivot/contact geometry. One restrained scan closes, holds and releases each contact; a wire segment brightens after closure.
 - Eight labeled output lamps reflect floor(actual currency) modulo 256, bit 7 at left. Filled pale centers distinguish ON without relying only on hue.
 - Clearly labeled demo tape uses a fixed illustrative timing pattern and indexed feed, not fictitious earnings history.
@@ -14,6 +14,14 @@ Applied priorities:
 `gui/machines.py` owns procedural drawing and a bounded, delta-time-driven per-game presentation clock. Static plates are cached with bounded caches; draw routines neither read wall time nor mutate gameplay. Click impulses decay analytically and behave consistently at different frame rates. No new dependencies or save fields are needed.
 
 Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Abacus, Vacuum Tubes and later-era art remains unchanged.
+
+## Stepped Reckoner split-flap register
+
+The original register moved whole glyphs vertically, which looked like a scrolling reel rather than split flaps. Each digit now has fixed upper/lower backing leaves and a center hinge with side pivots. In the first half of the transition, the old upper leaf foreshortens into the hinge, revealing the new upper half; in the second half, the new lower leaf opens downward over the old lower half. Only the folding leaf is scaled/shaded. The backing glyph halves never translate, and unchanged digits stay still.
+
+`flap_projection` derives the two half-turn projections from the existing eased 240 ms presentation transition. `FLAP_SECONDS` replaces the old scrolling-duration name. Ten fixed faces at each reference size use a bounded 20-entry cache; animated frames are not cached. Carries and eight-digit wrapping retain real old/new values. Initial readings, spending, large jumps and Reduced Motion still settle immediately. No gameplay or save fields changed.
+
+Seven regressions in `test_split_flap.py` verify projection bounds/order, stationary backing halves, exact endpoints/unchanged digits, carries/wrapping without mutation, instant settlement, parent clipping and cache immutability. The combined suite has **50 tests**. Native Windows previews run 240 frames at each of 1200x800/960x640 with temporary saves, capture 120-frame APNGs at 30 fps plus a hinge-transition filmstrip, and check Reduced Motion stability/live readings, spending, large jumps and high contrast. Pixel hashes confirm all other eras' art is unchanged at both illustration sizes. Artifacts are outside the repository in `Projects/split-flap-review`; these checks do not imply BobRoss rendered sign-off.
 
 ## Transistors centerpiece
 
@@ -25,7 +33,7 @@ Six new regressions cover connected trace endpoints, bounded on-trace motion, pu
 
 Verification:
 ```powershell
-python -m unittest test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
+python -m unittest test_split_flap test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
 python playtest.py
 ```
 

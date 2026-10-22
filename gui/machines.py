@@ -11,7 +11,7 @@ from . import theme as t
 
 TAU = math.tau
 WIDTH = 720
-ROLL_SECONDS = .24
+FLAP_SECONDS = .24
 BRASS = (207, 168, 103)
 BRASS_LIGHT = (246, 218, 160)
 BRASS_SHADOW = (111, 79, 45)
@@ -28,7 +28,7 @@ class MachineAnimation:
     impulse: float = 0.0
     amount: int | None = None
     previous_amount: int = 0
-    counter_age: float = ROLL_SECONDS
+    counter_age: float = FLAP_SECONDS
     production_rate: float = 0.0
 
     def click(self, reduced_motion=False):
@@ -45,17 +45,17 @@ class MachineAnimation:
             if amount < self.amount or amount - self.amount > 9:
                 # Purchases, loading and large jumps settle without invented counts.
                 self.previous_amount = amount
-                self.counter_age = ROLL_SECONDS
-            elif self.counter_age >= ROLL_SECONDS:
+                self.counter_age = FLAP_SECONDS
+            elif self.counter_age >= FLAP_SECONDS:
                 self.previous_amount = self.amount
                 self.counter_age = 0.0
             self.amount = amount
         if reduced_motion:
             self.impulse = 0.0
             self.previous_amount = self.amount
-            self.counter_age = ROLL_SECONDS
+            self.counter_age = FLAP_SECONDS
             return
-        self.counter_age = min(ROLL_SECONDS, self.counter_age + dt)
+        self.counter_age = min(FLAP_SECONDS, self.counter_age + dt)
         decay = math.exp(-5 * dt)
         speed = min(1.7, 1.1 + .16 * math.log10(1 + self.production_rate))
         self.phase += dt * speed + self.impulse * (1 - decay)
@@ -63,7 +63,7 @@ class MachineAnimation:
 
     @property
     def counter_progress(self):
-        value = min(1.0, self.counter_age / ROLL_SECONDS)
+        value = min(1.0, self.counter_age / FLAP_SECONDS)
         return value * value * (3 - 2 * value)
 
 
@@ -223,27 +223,76 @@ def _gear(surface, x, y, radius, teeth, angle, index):
           (x + math.cos(a) * 3, y + math.sin(a) * 3), 2)
 
 
+def flap_projection(progress, height):
+    """Projected leaf height about a fixed middle hinge, never digit translation.
+
+    First the outgoing upper leaf folds to edge-on; then the incoming lower
+    leaf opens downward. Odd-height faces keep their exact upper/lower sizes.
+    """
+    progress = max(0.0, min(1.0, progress))
+    upper = height // 2
+    if progress < .5:
+        return 'upper', round(upper * math.cos(math.pi * progress))
+    return 'lower', round((height - upper) * -math.cos(math.pi * progress))
+
+
+@lru_cache(maxsize=20)
+def _flap_face(digit, width, height, font_size):
+    """Ten stationary glyph faces at each of two sizes; no animated-frame cache."""
+    face = pygame.Surface((width, height))
+    face.fill(PAPER)
+    face.fill((208, 197, 158), (0, height // 2, width, height - height // 2))
+    image = _font(font_size).render(digit, True, DARK)
+    face.blit(image, image.get_rect(center=face.get_rect().center))
+    _line(face, (239, 228, 189), (0, 0), (width - 1, 0), 1)
+    _line(face, (164, 148, 108), (0, height - 1), (width - 1, height - 1), 1)
+    return face
+
+
+def _flap_digit(surface, rect, previous, digit, progress, compact):
+    _panel(surface, rect, DARK, BRASS_SHADOW, 3)
+    inner = rect.inflate(-4, -4)
+    split = inner.height // 2
+    hinge = inner.y + split
+    font_size = 35 if compact else 49
+    current = _flap_face(digit, inner.width, inner.height, font_size)
+    if previous == digit or progress >= 1:
+        surface.blit(current, inner)
+    else:
+        outgoing = _flap_face(previous, inner.width, inner.height, font_size)
+        if progress <= 0:
+            surface.blit(outgoing, inner)
+        else:
+            upper = pygame.Rect(0, 0, inner.width, split)
+            lower = pygame.Rect(0, split, inner.width, inner.height - split)
+            # Stationary backing leaves: new upper half, old lower half.
+            surface.blit(current, inner.topleft, upper)
+            surface.blit(outgoing, (inner.x, hinge), lower)
+            half, projected = flap_projection(progress, inner.height)
+            if projected:
+                source = outgoing.subsurface(upper) if half == 'upper' else current.subsurface(lower)
+                leaf = pygame.transform.smoothscale(source, (inner.width, projected))
+                # A folding leaf darkens as it turns away, without glow or flashing.
+                shade = round(255 * (.45 + .55 * projected / source.get_height()))
+                leaf.fill((shade, shade, shade), special_flags=pygame.BLEND_RGB_MULT)
+                y = hinge - projected if half == 'upper' else hinge
+                surface.blit(leaf, (inner.x, y))
+    # A real split and fixed side pivots remain visible even at rest.
+    _line(surface, DARK, (inner.x, hinge), (inner.right - 1, hinge), 2)
+    for x in (rect.x + 2, rect.right - 3):
+        pygame.draw.circle(surface, BRASS_SHADOW, (x, hinge), 2)
+        pygame.draw.circle(surface, BRASS_LIGHT, (x, hinge), 1)
+
+
 def _counter(surface, amount, animation, compact):
     y, height = 66, 45 if compact else 69
     digit_width = 47
     value = f'{int(amount) % 10**8:08}'
     previous = value if animation.amount is None else f'{animation.previous_amount % 10**8:08}'
     progress = animation.counter_progress
-    font = _font(35 if compact else 49)
     for i, digit in enumerate(value):
         rect = pygame.Rect(70 + i * digit_width, y, digit_width - 4, height)
-        _panel(surface, rect, PAPER, BRASS_SHADOW, 3)
-        old_clip = surface.get_clip()
-        surface.set_clip(rect.inflate(-4, -2))
-        if previous[i] != digit and progress < 1:
-            for character, offset in ((previous[i], -height * progress), (digit, height * (1 - progress))):
-                image = font.render(character, True, DARK)
-                surface.blit(image, image.get_rect(center=(rect.centerx, rect.centery + offset)))
-        else:
-            image = font.render(digit, True, DARK)
-            surface.blit(image, image.get_rect(center=rect.center))
-        surface.set_clip(old_clip)
-        _line(surface, (180, 169, 136), (rect.x + 2, rect.centery), (rect.right - 2, rect.centery), 1)
+        _flap_digit(surface, rect, previous[i], digit, progress, compact)
 
 
 def _mechanical(surface, amount, animation, compact):
