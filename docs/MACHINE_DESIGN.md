@@ -13,7 +13,17 @@ Applied priorities:
 
 `gui/machines.py` owns procedural drawing and a bounded, delta-time-driven per-game presentation clock. Static plates are cached with bounded caches; draw routines neither read wall time nor mutate gameplay. Click impulses decay analytically and behave consistently at different frame rates. No new dependencies or save fields are needed.
 
-Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Abacus and later-era art remains unchanged.
+Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Abacus and Cosmic-era art remains unchanged.
+
+## Quantum interferometer
+
+`gui/quantum.py` replaces era 5's static generic chip with a schematic cryostat, a wireframe Bloch sphere and ideal Z-basis probabilities. Four suspended gold shields/stages, support rods and tapered control lines lead down to Q0. A short amber control pulse follows a drawn feed line; the chip outline, active timeline segment and progress strip connect the demonstration visually. The Bloch vector has an arrow, depth-dependent tone and a bounded 26-point reconstructed trail. The sphere is a state-space representation, not an electron orbit; backgrounds and cryostat geometry do not flash or spin.
+
+The 16-phase-unit sequence is **RESET (0–1), RY +90 (1–4), PHASE (4–9), RY -90 (9–13), READ P (13–16)**. Normalized complex amplitudes drive both the vector and probability bars. Preparation is an illustrative normalized path from the preceding output to zero, not a modeled physical reset channel. The two Y rotations are inverses around a relative phase gate. Final `P(1) = sin²(phi/2)` and `P(0) = cos²(phi/2)` show interference. A deterministic golden-angle phase progression changes the input each pass; the first 120-degree setting gives a visible recombination rather than an invariant Y-eigenstate. READ P holds ideal probabilities, without generating sample counts or implying a real measurement. Target phase is labeled in degrees. The demo grants no currency, rewards or upgrades.
+
+The separate LOW BYTE header reads actual integer balance modulo 256. Compact geometry shortens the cryostat and reduces the Bloch radius while preserving room for the bars and timeline. Era 5 joins the existing click/animation/compact-header gates, so normal clicks also give the shared presentation impulse. Reduced Motion freezes qubit/vector/trail/control/timeline geometry while the real byte remains live. Drawing is pure and caller-clipped, reuses the existing clock and on-wire segment helper, and introduces no randomness, dependencies or save fields. One static housing layer has an eight-entry palette-aware cache; frame/state history is never accumulated or cached.
+
+Eight new tests in `test_quantum.py` cover normalized amplitudes, inverse rotations, unit Bloch vectors, stage/reset continuity, phase-dependent interference and 128-pass variety, orthographic bounds, component/text containment, connected on-wire control pulses, truthful independent currency, immutable frames, deterministic pure clipped drawing without wall-clock/random reads, and bounded immutable theme-safe caching. Existing resized real-click and Reduced Motion GUI tests now include era 5. The combined suite has **73 passing tests**; both playtests and compilation pass. Native temporary-save Windows checks run 360 frames per reference size, verify actual clicks, spending/large jumps, high contrast and frozen demonstrations with live readings, and capture 120-frame APNGs at 20 fps plus stage/interference filmstrips. Other eras are pixel-identical at both illustration sizes. Artifacts remain outside Git under `Projects/quantum-review`; no BobRoss rendered sign-off is implied.
 
 ## Vacuum Tubes thermionic instrument
 
@@ -55,7 +65,7 @@ Six new regressions cover connected trace endpoints, bounded on-trace motion, pu
 
 Verification:
 ```powershell
-python -m unittest test_vacuum test_program_tape test_split_flap test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
+python -m unittest test_quantum test_vacuum test_program_tape test_split_flap test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
 python playtest.py
 ```
 

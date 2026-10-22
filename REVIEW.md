@@ -72,6 +72,12 @@ Replaced the static five-bar tube graphic with a thermionic signal instrument: f
 
 Seven new waveform/geometry/output/purity/cache regressions bring the combined suite to **65 passing tests**, with era 3 added to existing click and Reduced Motion GUI checks. Both playtests and compilation pass. Native temporary-save Windows checks cover 360 frames per reference size, real clicks, spending/large jumps, high contrast, frozen demonstrations with live balance updates, and pixel-identical other eras. Four-view filmstrips, stills and 20 fps APNGs are retained outside Git. No BobRoss rendered approval is implied.
 
+## Quantum centerpiece and animation
+
+Replaced era 5's generic static chip with a cryostat-fed quantum interferometer: gold cold-stage plates, wired control pulses, an evolving Bloch-state vector/trail, ideal probability bars and a highlighted gate timeline. Normalized complex amplitudes follow preparation, Y mixing, relative phase, inverse mixing and a probability hold. Phase input varies every pass; final probabilities match the interference formula, without invented measurements or earnings. A separate real-balance byte remains live with Reduced Motion. Added era 5 to the compact-header, update and actual-click animation gates. No economy, save schema or other-era art changed.
+
+Eight new model/geometry/output/purity/cache tests bring the combined suite to **73 passing regressions**; existing real-click and Reduced Motion GUI tests now cover Quantum. Both playtests and compilation pass. Native temporary-save Windows checks cover 360 frames per reference size, actual clicks, spending/large jumps, high contrast, frozen geometry with live readings and pixel-identical other eras. Stage/interference filmstrips, stills and 20 fps APNGs are outside Git in `Projects/quantum-review`. No BobRoss rendered approval is implied.
+
 ## Further recommendations
 
 - Separate historical era and motherboard generation before adding more historical content; rebirth and era advancement currently move the same index.

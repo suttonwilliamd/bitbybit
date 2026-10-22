@@ -6,6 +6,7 @@ from .research import research_button_rect
 from .machines import draw_era_machine
 from .transistors import draw_transistor_board
 from .vacuum import draw_vacuum_instrument
+from .quantum import draw_quantum_instrument
 
 CARD_HEIGHT = 132
 CARD_GAP = 10
@@ -42,7 +43,7 @@ def apply_layout(game):
 
 
 def compact_machine_header(game):
-    return game.state.current_era in (1, 2, 3, 4) and game.current_height < 720
+    return game.state.current_era in (1, 2, 3, 4, 5) and game.current_height < 720
 
 
 def shop_items(state, upgrades=False):
@@ -182,6 +183,8 @@ def draw_machine(screen, rect, era, amount, animation=None):
                 pygame.draw.ellipse(screen, color, (x - radius, y - radius, radius * 2, radius * 2))
     elif era == 3:
         draw_vacuum_instrument(screen, rect, amount, animation)
+    elif era == 5:
+        draw_quantum_instrument(screen, rect, amount, animation)
     else:
         chip = pygame.Rect(rect.centerx - 45, rect.centery - 30, 90, 60)
         for i in range(5):

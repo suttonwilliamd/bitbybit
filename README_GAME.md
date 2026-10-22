@@ -90,7 +90,9 @@ Vacuum Tubes now has a **thermionic signal lab**: four glass valves with visible
 
 Transistors now has a full discrete-logic card instead of a generic chip: six metal-can transistors, color-banded resistors, ceramic capacitors, copper traces and gold edge contacts. A restrained **demo flow** follows the traces. The binary register and hexadecimal readout show the **actual balance modulo 256**, bit 7 at left; they are not simulated earnings. The board remains a normal click target and fits the minimum window.
 
-Reduced Motion freezes gears, relays, tube demonstrations, signals and tape programs and updates readings instantly without flipping. Motion is independent of the optional particle/background effects. The abacus and later-era illustrations are unchanged.
+Quantum now has a **quantum interferometer**: a suspended gold cryostat stack and control pulses feed a qubit chip, while a moving **Bloch-state vector** and its short trail show preparation, mixing, phase rotation and recombination. Ideal 0/1 probability bars follow normalized complex amplitudes; each pass uses a different phase setting, producing different interference results. These are teaching probabilities, **not real measurements or earnings**. The separate LOW BYTE hexadecimal readout still follows your actual balance.
+
+Reduced Motion freezes gears, relays, tube and qubit demonstrations, signals and tape programs and updates readings instantly without flipping. Motion is independent of the optional particle/background effects. The abacus and Cosmic-era illustrations are unchanged.
 
 The window supports resizing down to **960 × 640**. Shops scroll with the mouse wheel or scrollbar, keeping purchases clipped to the visible area. The bottom discovery bar opens the research journal.
 
