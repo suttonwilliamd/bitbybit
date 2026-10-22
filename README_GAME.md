@@ -92,7 +92,9 @@ Transistors now has a full discrete-logic card instead of a generic chip: six me
 
 Quantum now has a **quantum interferometer**: a suspended gold cryostat stack and control pulses feed a qubit chip, while a moving **Bloch-state vector** and its short trail show preparation, mixing, phase rotation and recombination. Ideal 0/1 probability bars follow normalized complex amplitudes; each pass uses a different phase setting, producing different interference results. These are teaching probabilities, **not real measurements or earnings**. The separate LOW BYTE hexadecimal readout still follows your actual balance.
 
-Reduced Motion freezes gears, relays, tube and qubit demonstrations, signals and tape programs and updates readings instantly without flipping. Motion is independent of the optional particle/background effects. The abacus and Cosmic-era illustrations are unchanged.
+Cosmic now has a **fold engine**: a dark central horizon, a layered brass accretion disk with moving streams, orbiting relay markers, and two input packets spiraling inward before a computed byte returns through the output gate. The **UPLINK / FOLD / RETURN / HOLD** sequence runs changing-input XOR demonstrations and remembers recent completed answers. This is explicitly fictional routing, not astrophysical simulation or earnings. Stars and the disk body stay steady; the separate LOW BYTE header reflects your real balance.
+
+Reduced Motion freezes gears, relays, tube/qubit/cosmic demonstrations, signals and tape programs and updates readings instantly without flipping. Motion is independent of the optional particle/background effects. The abacus illustration is unchanged.
 
 The window supports resizing down to **960 × 640**. Shops scroll with the mouse wheel or scrollbar, keeping purchases clipped to the visible area. The bottom discovery bar opens the research journal.
 

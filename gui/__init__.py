@@ -731,7 +731,7 @@ class BitByBitGame:
 
     def handle_click(self):
         click_power = self.state.add_manual_currency()
-        if self.state.current_era in (1, 2, 3, 4, 5):
+        if self.state.current_era in (1, 2, 3, 4, 5, 6):
             self.machine_animation.click(self.reduced_motion_mode)
 
         self.last_click_time = pygame.time.get_ticks()
@@ -948,7 +948,7 @@ class BitByBitGame:
             self.state.add_idle_currency(production_int)
             self.production_accumulator -= production_int
 
-        if self.state.current_era in (1, 2, 3, 4, 5):
+        if self.state.current_era in (1, 2, 3, 4, 5, 6):
             self.machine_animation.update(dt, self.state.get_current_currency_value(),
                                           production_rate, self.reduced_motion_mode)
 

@@ -78,6 +78,12 @@ Replaced era 5's generic static chip with a cryostat-fed quantum interferometer:
 
 Eight new model/geometry/output/purity/cache tests bring the combined suite to **73 passing regressions**; existing real-click and Reduced Motion GUI tests now cover Quantum. Both playtests and compilation pass. Native temporary-save Windows checks cover 360 frames per reference size, actual clicks, spending/large jumps, high contrast, frozen geometry with live readings and pixel-identical other eras. Stage/interference filmstrips, stills and 20 fps APNGs are outside Git in `Projects/quantum-review`. No BobRoss rendered approval is implied.
 
+## Cosmic centerpiece and animation
+
+Replaced era 6's generic-chip fallback with a fictional cosmic fold engine: a dark horizon, layered warm accretion disk, moving spiral streams, orbiting relay markers and routed input/output packets. UPLINK/FOLD/RETURN/HOLD links two changing bytes to their actual XOR answer, withheld until the inward trips complete. A recent-answer strip is reconstructed without saved history. This is a clearly labeled fictional presentation, not astrophysics or earnings; the independent actual-balance byte remains live in Reduced Motion. Era 6 now participates in compact layout, click impulses and animation updates. Other-era art, economy and saves are unchanged.
+
+Eight new tests bring the combined suite to **81 passing regressions**. Both playtests and compilation pass. Native temporary-save Windows checks cover 360 frames at each asserted reference window size, actual posted clicks, spending/large jumps, high contrast, frozen decoration/live currency and pixel-identical other eras. The disposable preview filters unrelated hardware input/stale resize events, after an interrupted attempt opened Research instead of the dashboard. Stage filmstrips, stills and 20-fps APNGs remain outside Git in `Projects/cosmic-review`. No BobRoss rendered approval is implied.
+
 ## Further recommendations
 
 - Separate historical era and motherboard generation before adding more historical content; rebirth and era advancement currently move the same index.

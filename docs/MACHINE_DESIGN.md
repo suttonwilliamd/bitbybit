@@ -13,7 +13,17 @@ Applied priorities:
 
 `gui/machines.py` owns procedural drawing and a bounded, delta-time-driven per-game presentation clock. Static plates are cached with bounded caches; draw routines neither read wall time nor mutate gameplay. Click impulses decay analytically and behave consistently at different frame rates. No new dependencies or save fields are needed.
 
-Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Abacus and Cosmic-era art remains unchanged.
+Reduced Motion freezes all decorative geometry, scan, signal and tape phases; counter/lamp readings still change immediately. High-contrast mode retains the shared palette for output information. Abacus art remains unchanged.
+
+## Cosmic fold engine
+
+`gui/cosmic.py` replaces era 6's generic-chip fallback with a fictional folded-space router, rather than another circuit board or Bloch sphere. A dark horizon and narrow photon-style rims occlude the back half of a ten-band brass accretion disk; its front half crosses the silhouette. Three brighter spiral streams circulate over the steady disk body. Two slightly precessing guide ellipses, eight orbit markers, fixed irregular stars, labeled A/B/OUT gates and three continuous spiral routes form an observatory-style view. No additive bloom, flashing backgrounds or random star twinkle is used.
+
+A ten-phase-unit job has **UPLINK (0–3), FOLD (3–5), RETURN (5–8), HOLD (8–10)**. Two changing input bytes approach along their actual drawn spirals and disappear behind the central horizon. Only after both inward trips finish does their true byte-XOR answer become available; the output packet then follows its outward route, and the destination gate changes to sage on arrival. Four recent prior-job answers are reconstructed in the normal layout; compact mode omits history and shortens the orbits/disk. The gate sequence, input bytes, result and packet positions agree. This is explicitly fictional routing and a byte-math demonstration, not a model of black-hole physics, a real network, or a source of earnings. The separate LOW BYTE header reads actual integer balance modulo 256.
+
+Era 6 now joins the compact-header, click and animation-update gates. Reduced Motion freezes all streams, orbit markers, packets and demo jobs while the actual currency byte remains live. Drawing is pure, clipped and driven by the existing per-game presentation clock. There are no new dependencies, gameplay/save fields, wall-clock reads or random calls. Static housing has an eight-entry palette-aware cache; immutable disk-band geometry has two entries, and immutable job tuples have 128. No animated frames or growing histories are retained.
+
+Eight new tests in `test_cosmic.py` bring the combined suite to **81 passing tests**. Coverage includes byte rotation/XOR correctness, over 200 distinct results in 1024 jobs, bounded caches, immutable jobs/frames/geometry, stage and packet continuity, delayed answers, route/core connections, disk/orbit/readout bounds, truthful independent currency, stable stars/core, pure clipped drawing and theme safety. Existing actual-click/Reduced Motion GUI checks now include era 6. Both playtests and compilation pass. Native temporary-save Windows verification runs 360 frames at each asserted 1200x800/960x640 window size, real posted mouse events, spending/large jumps, high contrast and frozen motion with live readings. Every other era is pixel-identical at both illustration sizes. Stage filmstrips, stills and 120-frame/20-fps APNGs are retained outside Git under `Projects/cosmic-review`. The disposable preview filters external keyboard/mouse input and stale resize events while exercising its own normal posted click; no BobRoss rendered sign-off is implied.
 
 ## Quantum interferometer
 
@@ -65,7 +75,7 @@ Six new regressions cover connected trace endpoints, bounded on-trace motion, pu
 
 Verification:
 ```powershell
-python -m unittest test_quantum test_vacuum test_program_tape test_split_flap test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
+python -m unittest test_cosmic test_quantum test_vacuum test_program_tape test_split_flap test_transistors test_era_progression test_machines test_gameplay test_visual_refresh -v
 python playtest.py
 ```
 
