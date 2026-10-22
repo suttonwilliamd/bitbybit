@@ -58,6 +58,14 @@ Replaced vertically scrolling digits with hinged upper/lower leaves: the outgoin
 
 Seven new split-flap regressions bring the combined suite to **50 passing tests**. Native Windows previews use temporary saves, 240 frames at each reference window size, 30 fps APNGs and a transition filmstrip. Checks include carries, Reduced Motion/live readings, high contrast, spending/large jumps and pixel-identical unrelated-era illustrations. The deterministic playtest and compilation also pass.
 
+## Electromechanical program tape and cabinet bounds
+
+Replaced the repeating four-byte tape pattern with eight changing-input byte programs: count, add, multiply, XOR, shift, Fibonacci, ASCII and parity. READ/RUN/PUNCH/HOLD links a complete relay scan to a computed answer and a physical punch/feed. Only completed demo results reach the paper. A genuinely rare, cosmetic ASCII-message burst uses a session-only presentation seed and roughly 1-in-65,536 start odds per job; a known-hit seed verifies it without weakening live odds. Neither demo nor secret grants earnings or changes saves.
+
+The LOW BYTE panel, lamps, bit labels and numeric balance now share an inset full-width strip with bottom padding inside the cabinet. Shorter compact sockets and matching relay/tape housing bounds avoid overlap with that strip. The live player low byte remains separate from demo results; other eras are unchanged.
+
+Eight new tests bring the combined suite to **58 passing regressions**. Both deterministic playtests and compilation pass. Native temporary-save Windows checks cover 360 frames at each of 1200x800/960x640, real machine click events, the genuine rare fixture, high contrast, spending/large jumps, Reduced Motion stability/live readings, and pixel-identical unrelated-era art. Task/stage filmstrips and 20 fps APNGs are retained outside the repository. No BobRoss rendered approval is implied.
+
 ## Further recommendations
 
 - Separate historical era and motherboard generation before adding more historical content; rebirth and era advancement currently move the same index.

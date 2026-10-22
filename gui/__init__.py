@@ -204,7 +204,7 @@ class BitByBitGame:
             self.ui_font_fallback = pygame.font.Font(None, 16)
 
     def _setup_visual_systems(self):
-        self.machine_animation = MachineAnimation()
+        self.machine_animation = MachineAnimation(demo_seed=random.getrandbits(64))
         self.binary_rain = BinaryRain(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.bit_visualization = SmartBitVisualization(WINDOW_WIDTH // 2, 200)
 

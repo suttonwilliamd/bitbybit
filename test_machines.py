@@ -105,11 +105,12 @@ class MachineAnimationTests(unittest.TestCase):
                 self.assertAlmostEqual(a, b)
             self.assertTrue(all(0 <= value <= 1 for value in relay_states(phase)))
         self.assertEqual(tape_position(0), 0)
-        self.assertGreater(tape_position(.24), 0)
-        self.assertEqual(tape_position(.6), tape_position(3.9))
-        self.assertEqual(tape_position(4), 10)
-        self.assertGreater(tape_position(4.24), 10)
-        self.assertEqual(tape_position(4.6), 20)
+        self.assertEqual(tape_position(.6), tape_position(4.5))
+        self.assertEqual(tape_position(4.75), 7)
+        self.assertEqual(tape_position(5), 14)
+        self.assertEqual(tape_position(5.1), tape_position(10.5))
+        self.assertEqual(tape_position(10.75), 21)
+        self.assertEqual(tape_position(11), 28)
 
     def test_output_lamps_are_actual_low_byte_most_significant_bit_first(self):
         self.assertEqual(output_bits(128), (True,) + (False,) * 7)

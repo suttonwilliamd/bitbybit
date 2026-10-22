@@ -8,6 +8,7 @@ from functools import lru_cache
 import math
 import pygame
 from . import theme as t
+from .tape_program import tape_frame, tape_job
 
 TAU = math.tau
 WIDTH = 720
@@ -30,6 +31,7 @@ class MachineAnimation:
     previous_amount: int = 0
     counter_age: float = FLAP_SECONDS
     production_rate: float = 0.0
+    demo_seed: int = 0  # Session-only; a zero default keeps standalone rendering pure.
 
     def click(self, reduced_motion=False):
         if not reduced_motion:
@@ -149,7 +151,7 @@ def _housing(era, compact, palette):
         if not compact:
             _label(surface, '8 CONTACTS / No. 02', (476, 35), 14, t.MUTED)
         bank = relay_geometry(compact)
-        _panel(surface, (34, 62, 482, height - 116), (21, 29, 29), (70, 91, 82), 7)
+        _panel(surface, (34, 62, 482, height - 128), (21, 29, 29), (70, 91, 82), 7)
         for index, rect in enumerate(bank):
             x, y = rect.centerx, rect.centery
             bus_y = rect.y - 9
@@ -161,14 +163,13 @@ def _housing(era, compact, palette):
                 _screw(surface, (sx, rect.bottom - 8))
             if not compact:
                 _label(surface, f'K{index + 1:02}', (rect.x + 7, rect.y + 5), 11, t.MUTED)
-        _panel(surface, (34, height - 49, 482, 33), DARK, (70, 91, 82), 4)
-        _label(surface, 'LOW BYTE', (45, height - 32), 12, t.MUTED)
-        for i in range(8):
-            _label(surface, str(7 - i), (246 + i * 27, height - 42), 10, t.MUTED, center=True)
-        _panel(surface, (540, 62, 136, height - 116), (53, 61, 53), (117, 129, 107), 5)
-        _label(surface, 'DEMO TAPE', (608, 77), 12, t.MUTED, center=True)
-        if not compact:
-            _label(surface, 'READ / PUNCH', (608, height - 74), 11, t.MUTED, center=True)
+        output, lamps = relay_output_geometry(compact)
+        _panel(surface, output, DARK, (70, 91, 82), 4)
+        _label(surface, 'LOW BYTE', (45, output.centery - 7), 12, t.MUTED)
+        for i, (x, _) in enumerate(lamps):
+            _label(surface, str(7 - i), (x, output.y + 8), 10, t.MUTED, center=True)
+        _panel(surface, (540, 62, 136, height - 128), (53, 61, 53), (117, 129, 107), 5)
+        _label(surface, '8-BIT DEMO', (608, 77), 12, t.MUTED, center=True)
     for x in (29, 691):
         for y in (28, height - 34):
             _screw(surface, (x, y))
@@ -338,9 +339,21 @@ def _mechanical(surface, amount, animation, compact):
     _counter(surface, amount, animation, compact)
 
 
+def tape_geometry(compact=False):
+    height = 280 if compact else 400
+    return pygame.Rect(554, 137 if compact else 146, 108, height - (233 if compact else 240))
+
+
+def relay_output_geometry(compact=False):
+    """One inset output strip, shared by the housing, bit labels and live lamps."""
+    height = 280 if compact else 400
+    return (pygame.Rect(34, height - 64, 652, 36),
+            tuple((246 + i * 27, height - 38) for i in range(8)))
+
+
 def relay_geometry(compact=False):
-    cell_height = 58 if compact else 108
-    row_gap = 19 if compact else 30
+    cell_height = 54 if compact else 108
+    row_gap = 17 if compact else 30
     return [pygame.Rect(50 + (i % 4) * 115, 82 + (i // 4) * (cell_height + row_gap), 105, cell_height)
             for i in range(8)]
 
@@ -374,10 +387,8 @@ def output_bits(amount):
 
 
 def tape_position(phase):
-    """One short indexed feed per complete relay scan, then a stationary hold."""
-    cycle = phase / 4
-    whole = math.floor(cycle)
-    return (whole + _smooth((cycle - whole) / .12)) * 10
+    """Feed a result row only in PUNCH, after a full demo-program relay scan."""
+    return tape_frame(phase).position * 14
 
 
 def _relay(surface, rect, index, closure, compact):
@@ -416,56 +427,69 @@ def _relay(surface, rect, index, closure, compact):
                t.SAGE if closure > .65 else t.MUTED, center=True)
 
 
-def _tape(surface, phase):
+def _tape(surface, frame, compact, seed=0):
     height = surface.get_height()
-    tape = pygame.Rect(554, 92, 108, height - 186)
+    tape = tape_geometry(compact)
+    _label(surface, frame.job.name, (608, 98), 20, t.SAGE, center=True)
+    expression = frame.job.answer if frame.result_ready else frame.job.prompt
+    _label(surface, expression, (608, 120), 14, t.TEXT, center=True)
+    status = (f'BIT {min(8, int(frame.scan_phase * 2) + 1)}/8' if frame.stage == 'RUN' else
+              f'OUT {frame.job.result:03}' if frame.stage == 'HOLD' else frame.stage)
+    _label(surface, status, (608, height - 76), 13, t.MUTED, center=True)
     old_clip = surface.get_clip()
-    surface.set_clip(tape)
+    surface.set_clip(old_clip.clip(tape))
     pygame.draw.rect(surface, PAPER, tape)
-    row_height = 10
-    position = tape_position(phase)
-    offset = position % row_height
-    first_row = int(position // row_height)
+    row_height = 14
+    whole = math.floor(frame.position)
+    offset = (frame.position - whole) * row_height
+    # The feed holes are pre-punched; result holes and program tags are not.
     for row in range(-1, tape.height // row_height + 2):
-        y = tape.y + row * row_height + offset
-        # A fixed timing demonstration, explicitly not a history of player earnings.
-        value = (0x81, 0x42, 0x24, 0x18)[(row - first_row) % 4]
-        for bit in range(8):
-            if value & (1 << (7 - bit)):
-                pygame.draw.circle(surface, DARK, (tape.x + 16 + bit * 11, round(y)), 2)
+        y = round(tape.y + row_height / 2 + row * row_height + offset)
         for x in (tape.x + 5, tape.right - 5):
-            pygame.draw.circle(surface, (116, 113, 90), (x, round(y)), 2)
+            pygame.draw.circle(surface, (116, 113, 90), (x, y), 2)
+        index = whole - 1 - row
+        if 0 <= index <= frame.last_printable:
+            job = tape_job(index, seed)
+            _label(surface, job.tag, (tape.x + 14, y), 11, (97, 91, 67), center=True)
+            for bit, on in enumerate(output_bits(job.result)):
+                if on:
+                    pygame.draw.circle(surface, DARK, (tape.x + 24 + bit * 10, y), 2)
     surface.set_clip(old_clip)
-    pygame.draw.rect(surface, (20, 29, 28), tape, 2)
-    # Dark roller lips and their turning index ticks.
-    for y in (tape.y - 3, tape.bottom):
+    pygame.draw.rect(surface, DARK, tape, 2)
+    # Roller lips and an eight-pin punch head: only computed result bits punch.
+    for y in (tape.y - 4, tape.bottom + 3):
         _panel(surface, (548, y - 4, 120, 9), (91, 106, 95), DARK, 3)
         for i in range(10):
-            x = 556 + i * 11 + position % 11
+            x = 556 + i * 11 + (frame.position * row_height) % 11
             _line(surface, (160, 168, 146), (x, y - 2), (x, y + 2), 1)
+    stroke = math.sin(math.pi * (frame.position % 1)) * 5 if frame.stage == 'PUNCH' else 0
+    for bit, on in enumerate(output_bits(frame.job.result)):
+        x = tape.x + 24 + bit * 10
+        _line(surface, BRASS if on and stroke > 0 else STEEL,
+              (x, tape.y - 5), (x, tape.y - 1 + (stroke if on else 0)), 2)
 
 
 def _electromechanical(surface, amount, animation, compact):
-    height = surface.get_height()
-    phase = animation.phase
-    cells = relay_geometry(compact)
-    for i, (rect, closure) in enumerate(zip(cells, relay_states(phase))):
+    frame = tape_frame(animation.phase, animation.demo_seed)
+    scan = frame.scan_phase
+    closures = relay_states(scan) if scan is not None else [0] * 8
+    for i, (rect, closure) in enumerate(zip(relay_geometry(compact), closures)):
         _relay(surface, rect, i, closure, compact)
-        # Only the selected circuit brightens after its contact has closed.
-        local = (phase * 2 - i) % 8
+        # A complete scan precedes each result; READ/PUNCH/HOLD leave contacts open.
+        local = (scan * 2 - i) % 8 if scan is not None else -1
         if .2 < local < .8:
             x = rect.centerx - 40 + (local - .2) / .6 * 60
             _line(surface, t.SAGE, (x, rect.y - 9), (x + 20, rect.y - 9), 2)
-    _tape(surface, phase)
-    # Output lamps reflect the *actual* resource's low byte, not the scan clock.
+    _tape(surface, frame, compact, animation.demo_seed)
+    # This inset strip alone reads player currency, never the demo-program output.
+    output, lamps = relay_output_geometry(compact)
     value = int(amount) & 255
-    for i, on in enumerate(output_bits(amount)):
-        x = 246 + i * 27
-        pygame.draw.circle(surface, DARK, (x, height - 24), 8)
-        pygame.draw.circle(surface, t.SAGE if on else (58, 76, 65), (x, height - 24), 6)
+    for center, on in zip(lamps, output_bits(amount)):
+        pygame.draw.circle(surface, DARK, center, 8)
+        pygame.draw.circle(surface, t.SAGE if on else (58, 76, 65), center, 6)
         if on:
-            pygame.draw.circle(surface, t.TEXT, (x, height - 24), 3)
-    _label(surface, f'{value:03} / 255', (608, height - 26), 12, t.SAGE, center=True)
+            pygame.draw.circle(surface, t.TEXT, center, 3)
+    _label(surface, f'{value:03} / 255', (608, output.centery), 12, t.SAGE, center=True)
 
 
 def draw_era_machine(screen, rect, era, amount, animation=None):
