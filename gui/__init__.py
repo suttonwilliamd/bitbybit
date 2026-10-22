@@ -41,6 +41,7 @@ from .rebirth_bar import draw_rebirth_bar
 from .motherboard_notification import MotherboardUpgradeNotification
 from .research import draw_research, research_button_rect, research_layout
 from . import dashboard, theme
+from .machines import MachineAnimation
 from .modals import reset_layout, tutorial_layout
 
 
@@ -187,6 +188,7 @@ class BitByBitGame:
             self.tiny_font = pygame.font.SysFont("Arial,DejaVu Sans", 14)
             self.monospace_font = pygame.font.SysFont("Consolas,DejaVu Sans Mono", 16)
             self.bit_counter_font = pygame.font.SysFont("Segoe UI,DejaVu Sans,Arial", 48, bold=True)
+            self.compact_counter_font = pygame.font.SysFont("Segoe UI,DejaVu Sans,Arial", 36, bold=True)
             self.ui_font = pygame.font.SysFont("Segoe UI Symbol", 16)
             self.ui_font_fallback = pygame.font.SysFont("Arial", 16)
         except (pygame.error, OSError):
@@ -197,10 +199,12 @@ class BitByBitGame:
             self.tiny_font = pygame.font.Font(None, 11)
             self.monospace_font = pygame.font.Font(None, 16)
             self.bit_counter_font = pygame.font.Font(None, 28)
+            self.compact_counter_font = pygame.font.Font(None, 26)
             self.ui_font = pygame.font.Font(None, 16)
             self.ui_font_fallback = pygame.font.Font(None, 16)
 
     def _setup_visual_systems(self):
+        self.machine_animation = MachineAnimation()
         self.binary_rain = BinaryRain(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.bit_visualization = SmartBitVisualization(WINDOW_WIDTH // 2, 200)
 
@@ -727,6 +731,8 @@ class BitByBitGame:
 
     def handle_click(self):
         click_power = self.state.add_manual_currency()
+        if self.state.current_era in (1, 2):
+            self.machine_animation.click(self.reduced_motion_mode)
 
         self.last_click_time = pygame.time.get_ticks()
 
@@ -941,6 +947,10 @@ class BitByBitGame:
         if production_int > 0:
             self.state.add_idle_currency(production_int)
             self.production_accumulator -= production_int
+
+        if self.state.current_era in (1, 2):
+            self.machine_animation.update(dt, self.state.get_current_currency_value(),
+                                          production_rate, self.reduced_motion_mode)
 
         for gen_id, generator in CONFIG["GENERATORS"].items():
             if "unlock_threshold" in generator:

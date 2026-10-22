@@ -74,6 +74,10 @@ Post-binary units are the cumulative `total_bits_earned` field across historical
 
 The dashboard uses a quiet charcoal background, sage actions, warm accents and a large currency counter. Hardware and upgrades use matching cards; bright purchase buttons indicate affordability. Hover over a card's text for its full description. The machine illustration is also a click target.
 
+Mechanical now has a working brass gear train, crank and guided carriage, plus a rolling register showing the **low eight digits of your actual balance**. Electromechanical has a sequential relay bank, pivoting contacts and indexed demo tape; its eight output lamps show the actual balance modulo 256 (bit 7 at left). The tape pattern and scan are illustrative, not an earnings log. Clicking either machine briefly increases its drive speed without changing rewards.
+
+Reduced Motion freezes gears, relays, signals and tape and updates readings instantly without rolling. Motion is independent of the optional particle/background effects. The abacus and other eras are unchanged.
+
 The window supports resizing down to **960 × 640**. Shops scroll with the mouse wheel or scrollbar, keeping purchases clipped to the visible area. The bottom discovery bar opens the research journal.
 
 Binary rain, click particles and CRT texture are **off by default**, including a one-time migration for older saves. Settings can re-enable them; reduced motion pauses animated effects. High contrast and visual preferences are saved. No progression or balance is reset by the visual refresh.

@@ -1,9 +1,9 @@
 """Calm dashboard and shared shop geometry for drawing and hit-testing."""
-import math
 import pygame
 from constants import get_all_generators, get_all_upgrades, format_number
 from . import theme as t
 from .research import research_button_rect
+from .machines import draw_era_machine
 
 CARD_HEIGHT = 132
 CARD_GAP = 10
@@ -31,8 +31,16 @@ def apply_layout(game):
     reset_width = (hero.width - 16) // 3
     for i, button in enumerate((game.collect_shards_button, game.prestige_button, game.rebirth_button)):
         button.rect = pygame.Rect(hero.x + i * (reset_width + 8), hero.bottom + 12, reset_width, 36)
-    game.accumulator_click_rect = pygame.Rect(hero.x + 24, hero.y + 180, hero.width - 48,
-                                              max(30, hero.height - 292))
+    if compact_machine_header(game):
+        game.accumulator_click_rect = pygame.Rect(hero.x + 16, hero.y + 136, hero.width - 32,
+                                                  hero.height - 236)
+    else:
+        game.accumulator_click_rect = pygame.Rect(hero.x + 24, hero.y + 180, hero.width - 48,
+                                                  max(30, hero.height - 292))
+
+
+def compact_machine_header(game):
+    return game.state.current_era in (1, 2) and game.current_height < 720
 
 
 def shop_items(state, upgrades=False):
@@ -136,9 +144,11 @@ def draw_shop(game, upgrades=False):
         pygame.draw.rect(screen, t.MUTED, thumb, border_radius=5)
 
 
-def draw_machine(screen, rect, era, amount):
-    """Small static illustrations; no flashing grids or moving backgrounds."""
-    if era == 0:
+def draw_machine(screen, rect, era, amount, animation=None):
+    """Era-specific illustrations; only the working mechanisms use local motion."""
+    if era in (1, 2):
+        draw_era_machine(screen, rect, era, amount, animation)
+    elif era == 0:
         t.panel(screen, rect, (44, 46, 39))
         inner = rect.inflate(-24, -16)
         active = int(amount) % 40
@@ -150,27 +160,12 @@ def draw_machine(screen, rect, era, amount):
                 x = inner.x + 12 + col * (inner.width - 24) // 9
                 color = t.SAGE if row * 10 + col < active else t.AMBER
                 pygame.draw.ellipse(screen, color, (x - radius, y - radius, radius * 2, radius * 2))
-    elif era == 1:
-        for fraction, radius, teeth in ((.25, .24, 12), (.53, .32, 16), (.79, .19, 10)):
-            cx, cy = rect.x + int(rect.width * fraction), rect.centery
-            r = max(14, int(min(rect.height, rect.width / 2) * radius))
-            points = []
-            for i in range(teeth * 4):
-                angle = i * math.tau / (teeth * 4)
-                distance = r * (1 if i % 4 in (1, 2) else .82)
-                points.append((cx + math.cos(angle) * distance, cy + math.sin(angle) * distance))
-            pygame.draw.polygon(screen, t.AMBER, points)
-            pygame.draw.circle(screen, t.SURFACE, (cx, cy), max(4, r // 3))
-    elif era in (2, 3):
+    elif era == 3:
         for i in range(5):
             x = rect.x + (i + 1) * rect.width // 6
             body = pygame.Rect(x - 16, rect.y + 10, 32, max(30, rect.height - 24))
             t.panel(screen, body, t.CARD)
-            if era == 3:
-                pygame.draw.line(screen, t.AMBER, (x, body.y + 8), (x, body.bottom - 8), 3)
-            else:
-                for j in range(3):
-                    pygame.draw.circle(screen, t.SAGE, (x, body.y + 10 + j * max(6, (body.height - 20) // 3)), 3)
+            pygame.draw.line(screen, t.AMBER, (x, body.y + 8), (x, body.bottom - 8), 3)
     else:
         chip = pygame.Rect(rect.centerx - 45, rect.centery - 30, 90, 60)
         for i in range(5):
@@ -203,13 +198,16 @@ def draw(game):
     era_name = state.get_era_info().get('name', state.get_hardware_generation_info()[0]['name'])
     label = game.small_font.render(era_name.upper(), True, t.SAGE)
     screen.blit(label, label.get_rect(center=(hero.centerx, hero.y + 28)))
-    amount = game.bit_counter_font.render(format_number(state.get_current_currency_value()), True, t.TEXT)
-    screen.blit(amount, amount.get_rect(center=(hero.centerx, hero.y + 90)))
+    compact = compact_machine_header(game)
+    counter_font = game.compact_counter_font if compact else game.bit_counter_font
+    amount = counter_font.render(format_number(state.get_current_currency_value()), True, t.TEXT)
+    screen.blit(amount, amount.get_rect(center=(hero.centerx, hero.y + (68 if compact else 90))))
     label = game.medium_font.render(state.get_current_currency().lower(), True, t.MUTED)
-    screen.blit(label, label.get_rect(center=(hero.centerx, hero.y + 126)))
+    screen.blit(label, label.get_rect(center=(hero.centerx, hero.y + (97 if compact else 126))))
     rate = game.small_font.render(f'+{format_number(state.get_production_rate())} per second', True, t.SAGE)
-    screen.blit(rate, rate.get_rect(center=(hero.centerx, hero.y + 157)))
-    draw_machine(screen, game.accumulator_click_rect, state.current_era, state.get_current_currency_value())
+    screen.blit(rate, rate.get_rect(center=(hero.centerx, hero.y + (119 if compact else 157))))
+    draw_machine(screen, game.accumulator_click_rect, state.current_era, state.get_current_currency_value(),
+                 game.machine_animation)
     t.button(screen, game.click_button.rect, f'Count +{format_number(state.get_click_power())}', game.medium_font, primary=True)
     hint = game.small_font.render('Small steps. Steady progress.', True, t.MUTED)
     screen.blit(hint, hint.get_rect(center=(hero.centerx, hero.bottom - 27)))
